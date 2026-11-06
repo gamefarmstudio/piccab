@@ -135,6 +135,8 @@ create table if not exists public.classes (
   created_at  timestamptz not null default now()
 );
 create index if not exists classes_owner_idx on public.classes (owner);
+-- Class leaderboard (🏆): the teacher turns it on per class; students then see nicknames + scores of their class.
+alter table public.classes add column if not exists leaderboard boolean not null default false;
 
 create table if not exists public.class_members (
   class_id    text not null references public.classes on delete cascade,
