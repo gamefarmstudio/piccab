@@ -632,7 +632,7 @@ async function sharePage(request, env, url) {
 //   POST   /api/classes/join       {code, nickname}
 //   POST   /api/classes/progress   {rows:[{class_id, share_id, total, done, star}]}  (a student's own progress)
 //   GET    /api/classes/<id>                    -> teacher: items + members + everyone's progress; student: items + own progress
-//   PATCH  /api/classes/<id>       {name}       (teacher)
+//   PATCH  /api/classes/<id>       {name?, leaderboard?}  (teacher)
 //   DELETE /api/classes/<id>                    (teacher)
 //   POST   /api/classes/<id>/items {share_id}   (teacher; a share link of theirs)
 //   DELETE /api/classes/<id>/items/<share_id>   (teacher)
@@ -658,6 +658,15 @@ async function classItems(env, cid) {
   const shares = await q(env, `shares?id=${inList(items.map(i => i.share_id))}&select=id,kind,name,data`) || [];
   const by = new Map(shares.map(x => [x.id, x]));
   return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id); return { share_id: i.share_id, kind: sh.kind, name: sh.name, total: shareTotal(sh), added_at: i.added_at }; });
+}
+// Ranks by words passed (then ★), ties share a rank; only nicknames and scores, plus which row is "me".
+export function leaderboard(members, progress, itemIds, me) {
+  const sum = new Map(members.map(m => [m.user_id, { nickname: m.nickname, done: 0, star: 0, me: m.user_id === me }]));
+  for (const p of progress) { const r = sum.get(p.user_id); if (r && itemIds.has(p.share_id)) { r.done += p.done || 0; r.star += p.star || 0; } }
+  const rows = [...sum.values()].sort((a, b) => b.done - a.done || b.star - a.star || a.nickname.localeCompare(b.nickname, 'th'));
+  let rank = 0, prev = null;
+  rows.forEach((r, i) => { const k = r.done + '/' + r.star; if (k !== prev) { rank = i + 1; prev = k; } r.rank = rank; });
+  return rows;
 }
 const cleanNick = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 30);
 async function classes(request, env, url, ctx) {
@@ -719,7 +728,7 @@ async function classes(request, env, url, ctx) {
       return json({ ok: true, saved: ok.length });
     }
     if (!SHARE_ID.test(id)) return error('not_found', 404);
-    const c = (await q(env, `classes?id=eq.${id}&select=id,code,name,owner,created_at`) || [])[0];
+    const c = (await q(env, `classes?id=eq.${id}&select=*`) || [])[0];          // * : works before the leaderboard column exists
     if (!c) return error('not_found', 404);
     const teacher = c.owner === uid;
     const membership = teacher ? null : (await q(env, `class_members?class_id=eq.${id}&user_id=eq.${uid}&select=nickname`) || [])[0];
@@ -730,10 +739,16 @@ async function classes(request, env, url, ctx) {
       if (teacher) {
         const members = await q(env, `class_members?class_id=eq.${id}&select=user_id,nickname,joined_at&order=nickname.asc`) || [];
         const progress = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,total,done,star,updated_at`) || [];
-        return json({ role: 'teacher', id: c.id, code: c.code, name: c.name, items, members, progress });
+        return json({ role: 'teacher', id: c.id, code: c.code, name: c.name, leaderboard: !!c.leaderboard, items, members, progress });
       }
       const progress = await q(env, `class_progress?class_id=eq.${id}&user_id=eq.${uid}&select=share_id,total,done,star,updated_at`) || [];
-      return json({ role: 'student', id: c.id, name: c.name, nickname: membership.nickname, items, progress });
+      let board = null;
+      if (c.leaderboard) {
+        const members = await q(env, `class_members?class_id=eq.${id}&select=user_id,nickname`) || [];
+        const all = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,done,star`) || [];
+        board = leaderboard(members, all, new Set(items.map(i => i.share_id)), uid);
+      }
+      return json({ role: 'student', id: c.id, name: c.name, nickname: membership.nickname, items, progress, leaderboard: board });
     }
     if (sub === 'members' && m === 'DELETE' && parts[4]) {
       const who = parts[4] === 'me' ? uid : parts[4];
@@ -746,10 +761,17 @@ async function classes(request, env, url, ctx) {
     if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
     if (!sub && m === 'PATCH') {
       const body = await request.json().catch(() => ({}));
-      const name = String(body.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
-      if (!name) return error('bad_request', 400);
-      await q(env, `classes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
-      return json({ ok: true, name });
+      const patch = {};
+      if (body.name !== undefined) {
+        const name = String(body.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
+        if (!name) return error('bad_request', 400);
+        patch.name = name;
+      }
+      if (body.leaderboard !== undefined) patch.leaderboard = body.leaderboard === true;
+      if (!Object.keys(patch).length) return error('bad_request', 400);
+      try { await q(env, `classes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); }
+      catch (e) { if ('leaderboard' in patch && e.status === 400) return error('needs_update', 503); throw e; }   // column not added yet
+      return json({ ok: true, ...patch });
     }
     if (sub === 'items' && m === 'POST') {
       const body = await request.json().catch(() => ({}));

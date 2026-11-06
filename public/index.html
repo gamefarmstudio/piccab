@@ -272,6 +272,16 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .settings .legal{flex-basis:100%;font-size:13px;color:var(--muted)}
 .settings .legal a{color:var(--muted)}
 .mbox .consent{font-size:13px}
+.cllb{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 8px}
+.board{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 0 6px}
+.brow{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.brow:last-child{border-bottom:none}
+.brow.top{background:#fffaf0}
+.brow.me{background:#efeaf7;font-weight:700}
+.brank{width:34px;text-align:center;font-size:18px;flex:none;color:var(--muted)}
+.bname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bscore b{color:var(--ok)}
+.bscore small{color:#8a6500}
 #classView .clrow{margin:6px 0 14px}
 .clic{width:44px;height:44px;border-radius:12px;background:#efeaf7;display:grid;place-items:center;font-size:22px;flex:none}
 .clitem{cursor:default}
@@ -2898,6 +2908,24 @@ function renderClassDetail(){
   if(d.error){ v.append(el('p',{class:'libempty',text:d.error})); return; }
   if(d.role==='teacher') renderTeacher(v,d); else renderStudent(v,d);
 }
+// 🏆 leaderboard (rows: {rank, nickname, done, star, me})
+function boardEl(rows){
+  const medal=r=>r===1?'🥇':r===2?'🥈':r===3?'🥉':String(r);
+  const box=el('div',{class:'board'});
+  if(!rows.length) box.append(el('p',{class:'note',text:'ยังไม่มีนักเรียนในห้อง'}));
+  rows.forEach(r=>box.append(el('div',{class:'brow'+(r.me?' me':'')+(r.rank<=3&&r.done?' top':'')},
+    el('span',{class:'brank',text:r.done?medal(r.rank):'·'}),
+    el('span',{class:'bname',text:r.nickname+(r.me?' (ฉัน)':'')}),
+    el('span',{class:'bscore'}, el('b',{text:'✓ '+r.done}), r.star?el('small',{text:' ★'+r.star}):null))));
+  return box;
+}
+function boardRows(members, progress, items, me){
+  const ids=new Set(items.map(i=>i.share_id)), sum=new Map(members.map(m=>[m.user_id,{nickname:m.nickname,done:0,star:0,me:m.user_id===me}]));
+  progress.forEach(p=>{ const r=sum.get(p.user_id); if(r && ids.has(p.share_id)){ r.done+=p.done||0; r.star+=p.star||0; } });
+  const rows=[...sum.values()].sort((a,b)=>b.done-a.done||b.star-a.star||a.nickname.localeCompare(b.nickname,'th'));
+  let rank=0, prev=null; rows.forEach((r,i)=>{ const k=r.done+'/'+r.star; if(k!==prev){ rank=i+1; prev=k; } r.rank=rank; });
+  return rows;
+}
 function renderStudent(v,d){
   v.append(el('div',{class:'ghead'}, el('h2',{text:'🎒 '+d.name}), el('p',{text:'ชื่อในห้อง: '+d.nickname})));
   const srv=new Map(d.progress.map(p=>[p.share_id,p]));
@@ -2917,6 +2945,10 @@ function renderStudent(v,d){
     });
     v.append(box);
     v.append(el('p',{class:'note small',text:'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ'}));
+  }
+  if(Array.isArray(d.leaderboard)){
+    v.append(el('div',{class:'hsec'}, el('h3',{text:'🏆 อันดับในห้อง'}), el('span',{class:'hint',style:'color:var(--muted);font-size:13px',text:'นับคำที่พิมพ์ตอบถูกในงานที่ครูมอบหมาย'})));
+    v.append(boardEl(d.leaderboard));
   }
   v.append(el('div',{class:'clfoot'}, el('button',{class:'linkbtn small danger-link',text:'ออกจากห้องนี้',onclick:async()=>{
     if(!(await ask(`ออกจากห้อง “${d.name}”? ครูจะไม่เห็นความคืบหน้าของคุณอีก (ฉากที่เก็บไว้ยังอยู่)`,'ออกจากห้อง'))) return;
@@ -2946,6 +2978,14 @@ function renderTeacher(v,d){
     el('div',{class:'clinv-r'},
       el('p',{text:'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
       el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,'เข้าห้องเรียน '+d.name)})))));
+  // leaderboard switch + preview
+  const lbBtn=el('button',{class:'toggle'+(d.leaderboard?' on':''),text:d.leaderboard?'🏆 ตารางอันดับ: เปิด':'🏆 ตารางอันดับ: ปิด',onclick:async()=>{
+    lbBtn.disabled=true;
+    const r=await classApi('PATCH','/'+d.id,{ leaderboard:!d.leaderboard }).catch(()=>({ok:false}));
+    if(!r.ok){ lbBtn.disabled=false; toast(r.j && r.j.error==='needs_update' ? 'ต้องรัน SQL 2026-11-leaderboard.sql ใน Supabase ก่อน' : classErr(r), 4500); return; }
+    toast(!d.leaderboard?'เปิดตารางอันดับแล้ว นักเรียนจะเห็นอันดับในห้อง':'ปิดตารางอันดับแล้ว'); CL.detail=null; renderClassDetail(); }});
+  v.append(el('div',{class:'cllb'}, lbBtn, el('span',{class:'note small',text: d.leaderboard ? 'นักเรียนเห็นชื่อเล่นและจำนวนคำของเพื่อนในห้องนี้' : 'เปิดเพื่อให้นักเรียนเห็นอันดับของเพื่อนในห้อง (เฉพาะชื่อเล่นและจำนวนคำ)'})));
+  if(d.leaderboard && d.members.length) v.append(boardEl(boardRows(d.members, d.progress, d.items, null)));
   // assignments
   v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่มอบหมาย'}), el('button',{class:'linkbtn',text:'➕ มอบหมายฉากหรือชุดคำ',onclick:()=>openAssignPicker(d)})));
   if(!d.items.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีงาน — กด “มอบหมายฉากหรือชุดคำ” เลือกจากคลังของคุณ'}));
