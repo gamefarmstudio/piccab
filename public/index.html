@@ -59,10 +59,12 @@ body.editing #scene{touch-action:none;cursor:crosshair}
 .item.good{filter:url(#glowGreen)}
 .item.bad{filter:url(#glowRed)}
 .hs,.hs.hl,.hs.good,.hs.bad{filter:none!important}
-.hs .box{fill:rgba(255,255,255,0);stroke:transparent;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:all}
-.hs.hl .box{fill:rgba(255,201,40,.22);stroke:var(--gold)}
-.hs.good .box{fill:rgba(35,145,90,.2);stroke:var(--ok)}
-.hs.bad .box{fill:rgba(210,67,67,.2);stroke:var(--bad)}
+.hs .box{fill:rgba(255,255,255,0);stroke:transparent;stroke-width:3;vector-effect:non-scaling-stroke;pointer-events:all;transition:fill .15s}
+.hs.hl .box{fill:rgba(255,201,40,.12);stroke:var(--gold)}
+.hs.good .box{fill:rgba(35,145,90,.14);stroke:var(--ok)}
+.hs.bad .box{fill:rgba(210,67,67,.14);stroke:var(--bad)}
+.spot{fill:rgba(20,18,44,.5);opacity:0;transition:opacity .2s;pointer-events:none}
+.spot.on{opacity:1}
 body.editing .hs .box{fill:rgba(45,42,90,.16);stroke:#fff;stroke-dasharray:6 4;cursor:move}
 body.editing .hs.hl .box{fill:rgba(255,201,40,.3);stroke:var(--gold);stroke-dasharray:none}
 .hs .handle{display:none}
@@ -222,8 +224,8 @@ button.ai{background:linear-gradient(135deg,#5b4bd6,#9a63f2);color:#fff;border-c
 .mbox .opt input{display:inline;width:auto;margin:0}
 rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-effect:non-scaling-stroke;stroke-dasharray:6 4;pointer-events:none}
 .overlay{position:absolute;inset:0;pointer-events:none}
-.tag{position:absolute;z-index:6;transform:translate(-50%,-100%);background:#fff;border-radius:12px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid transparent}
-.tag.below{transform:translate(-50%,0)}
+.tag{position:absolute;z-index:6;transform:translateY(-100%);background:#fff;border-radius:12px 12px 12px 3px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid var(--gold)}
+.tag.below{transform:none;border-radius:3px 12px 12px 12px}
 .tag b{display:block;font-family:'Fredoka',sans-serif;font-size:21px;font-weight:600;line-height:1.1}
 .tag small{display:block;font-size:14px;color:var(--muted);line-height:1.25}
 .tag.pinned{pointer-events:auto}
@@ -631,30 +633,30 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 'use strict';
 // ---------- Built-in scene vocabulary ----------
 const TEA_ITEMS = {
-  'cake-stand':        {word:'3-tier cake stand', say:'three-tier cake stand', th:'ชั้นวางขนม 3 ชั้น', alts:['three tier cake stand','cake stand','tiered cake stand','3 tier stand'], at:[430,56]},
-  'macaron':           {word:'macaron', th:'มาการง (ขนมอัลมอนด์ประกบไส้)', at:[350,134]},
-  'sponge-cake':       {word:'sponge cake', th:'เค้กสปันจ์ (เค้กเนื้อนุ่มฟู)', at:[360,238]},
-  'shortbread':        {word:'shortbread', th:'ชอร์ตเบรด (คุกกี้เนยแบบสกอต)', at:[440,200]},
-  'lemon-drizzle-cake':{word:'lemon drizzle cake', th:'เค้กเลมอนราดไอซิ่ง', at:[552,228]},
-  'cocktail-umbrella': {word:'cocktail umbrella', th:'ร่มค็อกเทล (ร่มจิ๋วไว้ตกแต่ง)', alts:['paper umbrella','drink umbrella'], at:[506,88]},
-  'fruit-scone':       {word:'fruit scone', th:'สโคนผลไม้ (ใส่ลูกเกด)', at:[394,326]},
-  'scone':             {word:'scone', th:'สโคน', alts:['plain scone'], at:[318,374]},
-  'jam':               {word:'jam', th:'แยม', alts:['jam jar','strawberry jam'], at:[467,372]},
-  'clotted-cream':     {word:'clotted cream', th:'คล็อตเท็ดครีม (ครีมข้น ทาคู่กับสโคน)', at:[537,309]},
-  'savoury-croissant': {word:'savoury croissant', th:'ครัวซองต์ไส้คาว', alts:['savory croissant','croissant'], at:[316,503]},
-  'wholemeal-roll':    {word:'wholemeal roll', th:'ขนมปังโฮลวีตก้อนกลม', alts:['whole meal roll','wholewheat roll','whole wheat roll','bread roll'], at:[418,466]},
-  'tea-sandwich':      {word:'tea sandwich', th:'แซนด์วิชชิ้นจิ๋วทานคู่ชา', alts:['finger sandwich','sandwich'], at:[540,470]},
-  'teapot':            {word:'teapot', th:'กาน้ำชา', alts:['tea pot'], at:[594,354]},
-  'tea-cosy':          {word:'tea cosy', th:'ผ้าคลุมกาน้ำชา (ช่วยเก็บความร้อน)', alts:['tea cozy'], at:[722,402]},
-  'sugar-bowl':        {word:'sugar bowl', th:'โถน้ำตาล', at:[115,452]},
-  'milk-jug':          {word:'milk jug', th:'เหยือกนม', alts:['creamer','milk pitcher'], at:[216,382]},
-  'teacup':            {word:'teacup', th:'ถ้วยชา', alts:['tea cup','cup'], at:[690,585]},
-  'saucer':            {word:'saucer', th:'จานรองถ้วย', at:[708,660]},
-  'teaspoon':          {word:'teaspoon', th:'ช้อนชา', alts:['tea spoon','spoon'], at:[570,662]},
-  'side-plate':        {word:'side plate', th:'จานเล็ก (จานส่วนตัววางขนม)', alts:['small plate'], at:[150,609]},
-  'napkin':            {word:'napkin', th:'ผ้าเช็ดปาก', alts:['serviette'], at:[948,646]},
-  'table-bell':        {word:'table bell', th:'กระดิ่งตั้งโต๊ะ', alts:['bell','tea bell'], at:[905,584]},
-  'vase':              {word:'vase', th:'แจกัน', alts:['flower vase'], at:[904,410]}
+  'cake-stand':        {word:'3-tier cake stand', say:'three-tier cake stand', th:'ชั้นวางขนม 3 ชั้น', alts:['three tier cake stand','cake stand','tiered cake stand','3 tier stand'], at:[430,56], x:244, y:71, w:372, h:495},
+  'macaron':           {word:'macaron', th:'มาการง (ขนมอัลมอนด์ประกบไส้)', at:[350,134], x:346, y:140, w:50, h:38},
+  'sponge-cake':       {word:'sponge cake', th:'เค้กสปันจ์ (เค้กเนื้อนุ่มฟู)', at:[360,238], x:328, y:176, w:86, h:74},
+  'shortbread':        {word:'shortbread', th:'ชอร์ตเบรด (คุกกี้เนยแบบสกอต)', at:[440,200], x:414, y:194, w:36, h:60},
+  'lemon-drizzle-cake':{word:'lemon drizzle cake', th:'เค้กเลมอนราดไอซิ่ง', at:[552,228], x:445, y:191, w:76, h:59},
+  'cocktail-umbrella': {word:'cocktail umbrella', th:'ร่มค็อกเทล (ร่มจิ๋วไว้ตกแต่ง)', alts:['paper umbrella','drink umbrella'], at:[506,88], x:454, y:106, w:72, h:100},
+  'fruit-scone':       {word:'fruit scone', th:'สโคนผลไม้ (ใส่ลูกเกด)', at:[394,326], x:351, y:336, w:86, h:57},
+  'scone':             {word:'scone', th:'สโคน', alts:['plain scone'], at:[318,374], x:279, y:344, w:87, h:55},
+  'jam':               {word:'jam', th:'แยม', alts:['jam jar','strawberry jam'], at:[467,372], x:443, y:340, w:48, h:52},
+  'clotted-cream':     {word:'clotted cream', th:'คล็อตเท็ดครีม (ครีมข้น ทาคู่กับสโคน)', at:[537,309], x:500, y:320, w:74, h:74},
+  'savoury-croissant': {word:'savoury croissant', th:'ครัวซองต์ไส้คาว', alts:['savory croissant','croissant'], at:[316,503], x:262, y:476, w:112, h:60},
+  'wholemeal-roll':    {word:'wholemeal roll', th:'ขนมปังโฮลวีตก้อนกลม', alts:['whole meal roll','wholewheat roll','whole wheat roll','bread roll'], at:[418,466], x:384, y:482, w:72, h:55},
+  'tea-sandwich':      {word:'tea sandwich', th:'แซนด์วิชชิ้นจิ๋วทานคู่ชา', alts:['finger sandwich','sandwich'], at:[540,470], x:472, y:484, w:114, h:53},
+  'teapot':            {word:'teapot', th:'กาน้ำชา', alts:['tea pot'], at:[594,354], x:598, y:311, w:240, h:181},
+  'tea-cosy':          {word:'tea cosy', th:'ผ้าคลุมกาน้ำชา (ช่วยเก็บความร้อน)', alts:['tea cozy'], at:[722,402], x:643, y:323, w:159, h:150},
+  'sugar-bowl':        {word:'sugar bowl', th:'โถน้ำตาล', at:[115,452], x:65, y:387, w:100, h:102},
+  'milk-jug':          {word:'milk jug', th:'เหยือกนม', alts:['creamer','milk pitcher'], at:[216,382], x:174, y:395, w:89, h:91},
+  'teacup':            {word:'teacup', th:'ถ้วยชา', alts:['tea cup','cup'], at:[690,585], x:622, y:528, w:164, h:84},
+  'saucer':            {word:'saucer', th:'จานรองถ้วย', at:[708,660], x:588, y:594, w:204, h:53},
+  'teaspoon':          {word:'teaspoon', th:'ช้อนชา', alts:['tea spoon','spoon'], at:[570,662], x:548, y:616, w:120, h:28},
+  'side-plate':        {word:'side plate', th:'จานเล็ก (จานส่วนตัววางขนม)', alts:['small plate'], at:[150,609], x:38, y:584, w:224, h:61},
+  'napkin':            {word:'napkin', th:'ผ้าเช็ดปาก', alts:['serviette'], at:[948,646], x:822, y:570, w:172, h:92},
+  'table-bell':        {word:'table bell', th:'กระดิ่งตั้งโต๊ะ', alts:['bell','tea bell'], at:[905,584], x:865, y:498, w:80, h:125},
+  'vase':              {word:'vase', th:'แจกัน', alts:['flower vase'], at:[904,410], x:854, y:269, w:91, h:177}
 };
 const BUILTIN = [{id:'tea', name:'Afternoon tea ☕', builtin:true, w:1000, h:680, items:TEA_ITEMS}];
 
@@ -778,10 +780,9 @@ const sayOf=id=>{ const it=items()[id]; return it?(it.say||it.word):''; };
 
 // ---------- geometry ----------
 function box(id){
-  const els=svg.querySelectorAll('[data-id="'+CSS.escape(id)+'"]'); if(!els.length) return null;
-  const w=wrap.getBoundingClientRect(); let l=1e9,t=1e9,r=-1e9,b=-1e9;
-  els.forEach(e=>{ const q=e.getBoundingClientRect(); l=Math.min(l,q.left); t=Math.min(t,q.top); r=Math.max(r,q.right); b=Math.max(b,q.bottom); });
-  return {l:l-w.left, t:t-w.top, r:r-w.left, b:b-w.top, cx:(l+r)/2-w.left, cy:(t+b)/2-w.top, W:w.width, H:w.height};
+  const e=svg.querySelector('.hs[data-id="'+CSS.escape(id)+'"] .box'); if(!e) return null;
+  const w=wrap.getBoundingClientRect(), q=e.getBoundingClientRect();
+  return {l:q.left-w.left, t:q.top-w.top, r:q.right-w.left, b:q.bottom-w.top, cx:(q.left+q.right)/2-w.left, cy:(q.top+q.bottom)/2-w.top, W:w.width, H:w.height};
 }
 function anchor(id){
   const it=items()[id]; if(!it) return null;
@@ -798,24 +799,51 @@ function renderScene(){
   const sc=scene();
   svg.setAttribute('viewBox', `0 0 ${sc.w} ${sc.h}`);
   wrap.style.maxWidth = `calc(86vh * ${sc.w/sc.h})`;
-  if(sc.builtin){ svg.innerHTML = $('#tea-svg').textContent; }
-  else{
+  if(sc.builtin){
+    // The sample is drawn as vector art, but it behaves exactly like a photo scene:
+    // the art is just the background and every word has an ordinary box.
+    svg.innerHTML = $('#tea-svg').textContent;
+    svg.querySelectorAll('[data-id]').forEach(e=>{ e.dataset.art=e.dataset.id; e.removeAttribute('data-id'); e.classList.remove('item'); });
+  } else {
     svg.innerHTML='';
     const im=document.createElementNS(NS,'image');
     im.setAttribute('href', sc.img); im.setAttribute('width', sc.w); im.setAttribute('height', sc.h); im.setAttribute('preserveAspectRatio','none');
     svg.appendChild(im);
-    for(const id of Object.keys(sc.items)){
-      const g=document.createElementNS(NS,'g'); g.setAttribute('class','item hs'); g.setAttribute('data-id', id);
-      const r=document.createElementNS(NS,'rect'); r.setAttribute('class','box');
-      const h=document.createElementNS(NS,'rect'); h.setAttribute('class','handle');
-      g.append(r,h); svg.appendChild(g); layoutHs(id);
-    }
   }
+  const spot=document.createElementNS(NS,'path'); spot.setAttribute('class','spot'); spot.setAttribute('fill-rule','evenodd');
+  svg.appendChild(spot);
+  for(const id of Object.keys(sc.items)){
+    const g=document.createElementNS(NS,'g'); g.setAttribute('class','item hs'); g.setAttribute('data-id', id);
+    const r=document.createElementNS(NS,'rect'); r.setAttribute('class','box');
+    const h=document.createElementNS(NS,'rect'); h.setAttribute('class','handle');
+    g.append(r,h); svg.appendChild(g); layoutHs(id);
+  }
+  orderHs();
+}
+// Box as drawn: a little breathing room around the object and rounded corners.
+function boxGeom(it){
+  const sc=scene(), m=Math.max(sc.w,sc.h), p=m*0.006;
+  const x=it.x-p, y=it.y-p, w=it.w+2*p, h=it.h+2*p;
+  return {x, y, w, h, r:Math.min(Math.min(w,h)*0.2, m*0.022)};
+}
+function rrPath(g){
+  const {x,y,w,h,r}=g;
+  return `M${x+r} ${y}H${x+w-r}A${r} ${r} 0 0 1 ${x+w} ${y+r}V${y+h-r}A${r} ${r} 0 0 1 ${x+w-r} ${y+h}H${x+r}A${r} ${r} 0 0 1 ${x} ${y+h-r}V${y+r}A${r} ${r} 0 0 1 ${x+r} ${y}Z`;
+}
+// Spotlight: dim everything except the chosen word's box.
+function updateSpot(){
+  const spot=svg.querySelector('.spot'); if(!spot) return;
+  const id = S.editing || (S.mode==='learn' && S.showAll) ? null : (flash ? flash.id : (pinnedId || quizId));
+  const it = id && items()[id];
+  if(!it){ spot.classList.remove('on'); return; }
+  const sc=scene();
+  spot.setAttribute('d', `M0 0H${sc.w}V${sc.h}H0Z`+rrPath(boxGeom(it)));
+  spot.classList.add('on');
 }
 function layoutHs(id){
   const sc=scene(), it=sc.items[id], g=svg.querySelector('.hs[data-id="'+CSS.escape(id)+'"]'); if(!it||!g) return;
-  const r=g.querySelector('.box'), h=g.querySelector('.handle'), s=Math.max(sc.w,sc.h)*0.022;
-  r.setAttribute('x',it.x); r.setAttribute('y',it.y); r.setAttribute('width',it.w); r.setAttribute('height',it.h); r.setAttribute('rx', Math.min(it.w,it.h)*0.08);
+  const r=g.querySelector('.box'), h=g.querySelector('.handle'), s=Math.max(sc.w,sc.h)*0.022, b=boxGeom(it);
+  r.setAttribute('x',b.x); r.setAttribute('y',b.y); r.setAttribute('width',b.w); r.setAttribute('height',b.h); r.setAttribute('rx', b.r);
   h.setAttribute('x',it.x+it.w-s*0.65); h.setAttribute('y',it.y+it.h-s*0.65); h.setAttribute('width',s); h.setAttribute('height',s); h.setAttribute('rx',s*0.25);
 }
 function renderSelect(){
@@ -1081,7 +1109,7 @@ function applySel(){
   document.body.classList.toggle('has-sel', !!selId && !S.allBoxes);
   document.body.classList.toggle('show-boxes', !S.editing && S.mode==='learn' && S.showAll);
   svg.querySelectorAll('.hs').forEach(g=>g.classList.toggle('sel', g.dataset.id===selId));
-  if(!scene().builtin) orderHs();
+  orderHs();
 }
 function selectBox(id){ selId=id; applySel(); setHL(); updateOverlay(); renderChips(); }
 function refresh(){
@@ -1093,7 +1121,7 @@ function refresh(){
   renderSub(); renderChips(); setHL(); updateTag(); updateOverlay();
   if(quizId) positionQ();
 }
-function fullRender(){ closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); renderSelect(); refresh(); }
+function fullRender(){ closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); if(S.mode==='find' && find.target && !items()[find.target]) find={...find,queue:[],target:null,total:0,score:0}; renderSelect(); refresh(); }
 
 function setHL(){
   // Only ONE item is highlighted at a time: the one under the pointer, otherwise the clicked/open one.
@@ -1105,6 +1133,7 @@ function setHL(){
     e.classList.toggle('bad', f==='bad');
     e.classList.toggle('hl', !f && id===active);
   });
+  updateSpot();
 }
 function setHover(id){
   if(id===hoverId) return;
@@ -1131,10 +1160,10 @@ function updateTag(){
   tag.className='tag'+(pinned?' pinned':'')+(kind?' '+kind:'');
   tag.hidden=false;
   const b=box(id); if(!b) return;
-  const above=b.t>70;
+  const above=b.t > tag.offsetHeight+4;
   tag.classList.toggle('below', !above);
-  tag.style.top=(above? b.t-8 : b.b+8)+'px';
-  tag.style.left=clampX(tag, b.cx, b.W)+'px';
+  tag.style.top=(above? b.t+1 : b.b-1)+'px';
+  tag.style.left=Math.max(0, Math.min(b.W-tag.offsetWidth, b.l))+'px';
 }
 function updateOverlay(){
   overlay.innerHTML='';
@@ -1209,7 +1238,7 @@ function renderSub(){
       el('span',{class:'grow'}),
       el('button',{text:'📋 คัดลอกข้อมูลฉาก',onclick:exportScene}),
       el('button',{class:'danger',text:'🗑 ลบฉาก',onclick:deleteScene}),
-      el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; selId=null; saveScenes(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
+      el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; selId=null; saveScenes(); if(S.mode==='find' && ids().length) startFind(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
       el('div',{class:'hint',style:'flex-basis:100%',text:'แตะกรอบเพื่อเลือก แล้วกด ✏️ แก้ไขคำ (หรือแตะซ้ำ) • ลากกรอบเพื่อย้าย • ลาก □ เพื่อปรับขนาด • จุดที่กรอบซ้อนกัน แตะซ้ำเพื่อสลับกรอบ • ลากบนที่ว่างเพื่อเพิ่มกรอบใหม่ • แตะที่ว่างหรือกด Esc เพื่อกลับไปดูทุกกรอบ'})
     );
     return;
@@ -1222,7 +1251,7 @@ function renderSub(){
     const seg=el('div',{class:'seg',role:'group','aria-label':'วิธีเล่น'},
       el('button',{class:AP.on?'':'on',text:'✋ Manual',onclick:()=>{ if(!AP.on) return; AP.on=false; apReset(); renderSub(); }}),
       el('button',{class:AP.on?'on':'',text:'▶ Auto',onclick:()=>{ if(AP.on) return; AP.on=true; AP.queue=[]; AP.idx=0; apPlay(); }}));
-    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':''),text:(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+(scene().builtin?'ป้ายทั้งหมด':'ป้ายและกรอบทั้งหมด'),onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
+    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':''),text:(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+'ป้ายและกรอบทั้งหมด',onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
     if(!AP.on){
       put(seg, el('span',{class:'hint',text:'ชี้เมาส์หรือแตะที่สิ่งของ เพื่อดูคำศัพท์และฟังเสียง'}), el('span',{class:'grow'}), allBtn);
     } else {
@@ -1284,8 +1313,8 @@ function renderChips(){
       if(id===quizId) b.classList.add('on');
     }
     b.addEventListener('click',()=>select(id));
-    b.addEventListener('mouseenter',()=>setHover(id));
-    b.addEventListener('mouseleave',()=>setHover(null));
+    b.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse') setHover(id); });
+    b.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse') setHover(null); });
     chips.append(b);
   });
 }
@@ -1310,9 +1339,20 @@ svg.addEventListener('pointermove', e=>{
   setHover(it?it.dataset.id:null);
 });
 svg.addEventListener('pointerleave', ()=>{ if(hoverId && !drawing && !drag){ hoverId=null; setHL(); updateTag(); } });
+// Where the finger actually touched. Mobile browsers may "snap" a tap's click to a
+// nearby larger box (touch adjustment), so taps are resolved from this point instead.
+let lastDown=null;
+svg.addEventListener('pointerdown', e=>{ lastDown={x:e.clientX, y:e.clientY, t:Date.now(), touch:e.pointerType!=='mouse'}; }, true);
+function itemAtClick(e){
+  if(lastDown && lastDown.touch && Date.now()-lastDown.t<1000){
+    const t=document.elementFromPoint(lastDown.x, lastDown.y);
+    return t && svg.contains(t) ? t.closest('.item') : null;
+  }
+  return e.target.closest('.item');
+}
 svg.addEventListener('click', e=>{
   if(Date.now()-drewAt<400) return;
-  const it=e.target.closest('.item');
+  const it=itemAtClick(e);
   if(it){ select(it.dataset.id); return; }
   if(!S.editing && !AP.playing){ pinnedId=null; closeQuiz(); setHL(); updateTag(); renderChips(); }
 });
