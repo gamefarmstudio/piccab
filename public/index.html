@@ -224,8 +224,8 @@ button.ai{background:linear-gradient(135deg,#5b4bd6,#9a63f2);color:#fff;border-c
 .mbox .opt input{display:inline;width:auto;margin:0}
 rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-effect:non-scaling-stroke;stroke-dasharray:6 4;pointer-events:none}
 .overlay{position:absolute;inset:0;pointer-events:none}
-.tag{position:absolute;z-index:6;transform:translateY(-100%);background:#fff;border-radius:12px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid transparent}
-.tag.below{transform:none}
+.tag{position:absolute;z-index:6;transform:translate(-50%,-100%);background:#fff;border-radius:12px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid transparent}
+.tag.below{transform:translate(-50%,0)}
 .tag b{display:block;font-family:'Fredoka',sans-serif;font-size:21px;font-weight:600;line-height:1.1}
 .tag small{display:block;font-size:14px;color:var(--muted);line-height:1.25}
 .tag.pinned{pointer-events:auto}
@@ -300,14 +300,6 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  .chips::-webkit-scrollbar{display:none}
  .chip{flex:none}
  .chips .chip.all{display:inline-block;background:var(--soft);border-color:#c9bdf0}
- .wrap:has(.tag.wcard:not([hidden])) #scene{border-radius:18px 18px 0 0}
- .tag.wcard{position:static;transform:none;display:flex;align-items:center;gap:6px;border:none;border-top:1px solid var(--line);border-left:5px solid transparent;border-radius:0 0 18px 18px;box-shadow:none;padding:8px 8px 8px 12px;min-height:62px;white-space:normal;pointer-events:auto}
- .tag.wcard.good{border-left-color:var(--ok)}
- .tag.wcard.bad{border-left-color:var(--bad)}
- .tag.wcard .ctext{flex:1;min-width:0}
- .tag.wcard .ph{flex:1;color:var(--muted);font-size:14px}
- .tag.wcard .nav{width:38px;height:38px;padding:0;border-radius:50%;font-size:22px;line-height:1;flex:none}
- .tag.wcard .say{flex:none}
  .modal.sheetmode{align-items:flex-end;padding:0}
  .mbox.sheet{width:100%;border-radius:18px 18px 0 0;max-height:72vh;padding:12px 14px 18px}
 }
@@ -833,7 +825,7 @@ function clampX(elm, x, W){ const half=elm.offsetWidth/2+4; return Math.max(half
 function renderScene(){
   const sc=scene();
   svg.setAttribute('viewBox', `0 0 ${sc.w} ${sc.h}`);
-  wrap.style.maxWidth = `calc(${isMobile()?48:86}vh * ${sc.w/sc.h})`;
+  wrap.style.maxWidth = `calc(${isMobile()?56:86}vh * ${sc.w/sc.h})`;
   if(sc.builtin){
     // The sample is drawn as vector art, but it behaves exactly like a photo scene:
     // the art is just the background and every word has an ordinary box.
@@ -1185,7 +1177,6 @@ function updateTag(){
     else if(S.mode==='learn'){ id=hoverId||pinnedId; pinned=!!pinnedId && id===pinnedId; }
   }
   const it=id && items()[id];
-  if(isMobile()) return mobileCard(id, it, kind);
   if(!it){ tag.hidden=true; return; }
   tag.innerHTML='';
   const txt=el('div');
@@ -1196,31 +1187,10 @@ function updateTag(){
   tag.className='tag'+(pinned?' pinned':'')+(kind?' '+kind:'');
   tag.hidden=false;
   const b=box(id); if(!b) return;
-  const above=b.t > tag.offsetHeight+4;
+  const above=b.t > tag.offsetHeight+10;
   tag.classList.toggle('below', !above);
-  tag.style.top=(above? b.t+1 : b.b-1)+'px';
-  tag.style.left=Math.max(0, Math.min(b.W-tag.offsetWidth, b.l))+'px';
-}
-const CARD_TIP={learn:'แตะของในภาพ เพื่อดูคำศัพท์และฟังเสียง', quiz:'แตะของในภาพ แล้วพิมพ์ว่าคืออะไร', find:'กด 🔊 ฟังคำ แล้วแตะของชิ้นนั้นในภาพ'};
-function mobileCard(id, it, kind){
-  tag.style.top=tag.style.left='';
-  if(S.editing || !ids().length){ tag.hidden=true; return; }
-  tag.innerHTML=''; tag.hidden=false;
-  const learn=S.mode==='learn', L=ids();
-  const go=d=>{ if(AP.on) return apJump(d); const i=L.indexOf(id); select(L[i<0?(d>0?0:L.length-1):(i+d+L.length)%L.length]); };
-  const nav=(d,t,lbl)=>el('button',{class:'nav',text:t,'aria-label':lbl,onclick:e=>{ e.stopPropagation(); go(d); }});
-  if(!it){
-    tag.className='tag wcard empty';
-    tag.append(...[el('span',{class:'ph',text:CARD_TIP[S.mode]||''}), learn?nav(1,'›','เริ่มที่คำแรก'):null].filter(Boolean));
-    return;
-  }
-  const txt=el('div',{class:'ctext'});
-  if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
-  txt.append(el('b',{text:it.word}));
-  if(it.th) txt.append(el('small',{text:it.th}));
-  tag.className='tag wcard active'+(kind?' '+kind:'');
-  tag.append(...[txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
-    learn?nav(-1,'‹','คำก่อนหน้า'):null, learn?nav(1,'›','คำถัดไป'):null].filter(Boolean));
+  tag.style.top=(above? b.t-8 : b.b+8)+'px';
+  tag.style.left=clampX(tag, b.cx, b.W)+'px';
 }
 function updateOverlay(){
   overlay.innerHTML='';
