@@ -71,7 +71,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api/auth-email') return authEmail(request, env);
     if (url.pathname === '/api/health') {
-      return json({ ai: !!pickProvider(env), needCode: !!env.SCAN_CODE, credits: !!env.SUPABASE_SECRET_KEY, monthly: monthlyCredits(env) });
+      return json({ ai: !!pickProvider(env), needCode: !!env.SCAN_CODE, credits: !!env.SUPABASE_SECRET_KEY, monthly: monthlyCredits(env), captcha: String(env.TURNSTILE_SITE_KEY || '').trim() });
     }
     if (url.pathname === '/api/scan') {
       if (request.method !== 'POST') return error('method_not_allowed', 405);

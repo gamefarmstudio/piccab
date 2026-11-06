@@ -266,6 +266,8 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .acct.in{padding:4px 10px 4px 4px}
 .mbox .note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
 .mbox .err{color:var(--bad);font-size:14px;min-height:1.2em;margin:6px 0 0}
+.mbox .tsbox:empty{display:none}
+.mbox .tsbox{margin:10px 0 0;max-width:100%}
 .mbox input.code{font-size:26px;letter-spacing:5px;text-align:center;font-family:'Fredoka',monospace}
 .mbox input.code::placeholder{letter-spacing:0;font-size:17px;font-family:'Sarabun',sans-serif}
 .linkbtn.small{font-size:13.5px;padding:4px 0}
@@ -2327,6 +2329,7 @@ let aiReady=false, aiNeedCode=false, aiCredits=false, aiMonthly=30, aiLeft=null,
 function checkAI(){
   return (location.protocol.startsWith('http') ? fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null))
   .then(h=>{
+    if(capKey===null) capKey=(h && h.captcha) || '';
     if(!h || !h.ai || aiReady || (user && isStudent())) return;
     aiReady=true; aiNeedCode=!!h.needCode; aiCredits=!!h.credits && !!sb; aiMonthly=h.monthly||30;
     if(aiCredits && user) loadCredits();
@@ -2676,6 +2679,7 @@ function renderAcct(){
 }
 function authErr(e){
   const c=(e && (e.code||'')) + ' ' + (e && e.message || '');
+  if(/captcha/i.test(c)) return 'ตรวจสอบว่าไม่ใช่บอตไม่สำเร็จ ลองกดอีกครั้ง';
   if(/rate|too many|security purposes/i.test(c)) return 'ส่งถี่เกินไป รอสักครู่ (ประมาณ 1 นาที) แล้วลองใหม่';
   if(/expired|invalid.*(otp|token)|otp_expired|token has expired/i.test(c)) return 'รหัสไม่ถูกต้องหรือหมดอายุ ลองขอรหัสใหม่';
   if(/email.*invalid|invalid.*email|email_address_invalid/i.test(c)) return 'รูปแบบอีเมลไม่ถูกต้อง';
@@ -2683,18 +2687,74 @@ function authErr(e){
   if(/fetch|network|Failed to/i.test(c)) return 'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง';
   return 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'+(e && e.message ? ` (${e.message})` : '');
 }
+// ---------- "not a robot" check (Cloudflare Turnstile) before Supabase creates or e-mails an account ----------
+// Only when the Worker has TURNSTILE_SITE_KEY. Usually invisible: a box shows only when Cloudflare is unsure.
+// Supabase checks the token itself (Authentication → Attack Protection → CAPTCHA), so bots can't skip it.
+var capKey=null;                         // null = not known yet, '' = switched off
+function captchaKey(){
+  if(capKey!==null || !location.protocol.startsWith('http')) return Promise.resolve(capKey||'');
+  return fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null).then(h=>{ capKey=(h && h.captcha) || ''; return capKey; });
+}
+var tsLoad=null;
+function loadTurnstile(){
+  if(window.turnstile) return Promise.resolve(window.turnstile);
+  if(!tsLoad) tsLoad=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; s.async=true;
+    s.onload=()=> window.turnstile ? res(window.turnstile) : rej(new Error('captcha_load'));
+    s.onerror=()=>{ tsLoad=null; rej(new Error('captcha_load')); };
+    document.head.appendChild(s);
+  });
+  return tsLoad;
+}
+// humanCheck(box) → { token(): a fresh one-use token (undefined when switched off), remove() }
+function humanCheck(box){
+  let id=null, tok=null, failed=false, waiters=[];
+  const ready=captchaKey().then(key=>{
+    if(!key) return null;
+    return loadTurnstile().then(ts=>{
+      if(!box.isConnected) return null;
+      id=ts.render(box,{ sitekey:key, appearance:'interaction-only', language:'auto', size:'flexible', action:'auth',
+        callback:t=>{ tok=t; failed=false; waiters.splice(0).forEach(w=>w.res(t)); },
+        'expired-callback':()=>{ tok=null; },
+        'error-callback':()=>{ failed=true; waiters.splice(0).forEach(w=>w.rej(new Error('captcha_failed'))); } });
+      return ts;
+    });
+  });
+  ready.catch(()=>{});
+  return {
+    async token(){
+      const ts=await ready;
+      if(!ts) return undefined;
+      let t=tok;
+      if(!t && failed){ failed=false; try{ ts.reset(id); }catch(e){} }      // it gave up earlier: try again now
+      if(!t) t=await new Promise((res,rej)=>{ const w={res,rej}; waiters.push(w);
+        setTimeout(()=>{ const i=waiters.indexOf(w); if(i>=0){ waiters.splice(i,1); rej(new Error('captcha_timeout')); } },90000); });
+      tok=null; try{ ts.reset(id); }catch(e){}            // one use only: start on the next one
+      return t;
+    },
+    remove(){ ready.then(ts=>{ if(ts && id!==null) try{ ts.remove(id); }catch(e){} }).catch(()=>{}); },
+  };
+}
+const capErr=e=> /captcha_load/.test(e && e.message||'')
+  ? 'โหลดระบบตรวจสอบความปลอดภัยไม่ได้ ลองรีเฟรชหน้า หรือปิดตัวบล็อกโฆษณาสำหรับเว็บนี้'
+  : 'ตรวจสอบว่าไม่ใช่บอตไม่สำเร็จ ลองกดอีกครั้ง';
 function openLogin(prefill){
   openModal(m=>{
     const inp=el('input',{type:'email',placeholder:'you@example.com',autocomplete:'email',autocapitalize:'none',spellcheck:'false',value:prefill||''});
     const err=el('p',{class:'err'});
     const go=el('button',{class:'primary',text:'ส่งรหัสเข้าอีเมล'});
+    const tsbox=el('div',{class:'tsbox'}); let hc=null;
+    modalClose=()=>{ if(hc) hc.remove(); };
     const send=async()=>{
       const email=inp.value.trim().toLowerCase();
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent='กรุณาใส่อีเมลให้ถูกต้อง'; inp.focus(); return; }
       go.disabled=true; go.textContent='กำลังส่ง…'; err.textContent='';
-      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/' } });
+      let captchaToken;
+      try{ captchaToken=await hc.token(); }catch(e){ go.disabled=false; go.textContent='ส่งรหัสเข้าอีเมล'; err.textContent=capErr(e); return; }
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/', captchaToken } });
       if(error){ go.disabled=false; go.textContent='ส่งรหัสเข้าอีเมล'; err.textContent=authErr(error); return; }
-      openCode(email);
+      hc.remove(); openCode(email);
     };
     go.addEventListener('click',send);
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
@@ -2703,10 +2763,11 @@ function openLogin(prefill){
     else m.append(el('h3',{text:'👤 เข้าสู่ระบบ / สมัครสมาชิก'}));
     m.append(
       el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัสตัวเลขไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
-      inp, err,
+      inp, tsbox, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
       el('p',{class:'note consent'}, 'การเข้าสู่ระบบถือว่าคุณยอมรับ', el('a',{href:'/terms',target:'_blank',text:'ข้อตกลงการใช้งาน'}), 'และ', el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · อายุต่ำกว่า 20 ปีควรขออนุญาตพ่อแม่หรือผู้ปกครองก่อน'),
       el('p',{class:'note',text:'☁️ เมื่อเข้าสู่ระบบ ฉาก รูป และความคืบหน้าจะถูกเก็บในบัญชี ใช้ได้ทุกเครื่องที่เข้าสู่ระบบด้วยอีเมลเดียวกัน'}));
+    hc=humanCheck(tsbox);
   });
 }
 function openCode(email){
@@ -2718,7 +2779,8 @@ function openCode(email){
     const again=el('button',{class:'linkbtn small'});
     const tick=()=>{ again.disabled=wait>0; again.textContent= wait>0 ? `ส่งรหัสใหม่ได้ใน ${wait} วินาที` : 'ส่งรหัสใหม่'; };
     timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000); tick();
-    modalClose=()=>clearInterval(timer);
+    const tsbox=el('div',{class:'tsbox'}); let hc=null;
+    modalClose=()=>{ clearInterval(timer); if(hc) hc.remove(); };
     const verify=async()=>{
       const token=inp.value.replace(/\D/g,'');
       if(token.length<6){ err.textContent='ใส่รหัสจากอีเมลให้ครบทุกหลัก'; inp.focus(); return; }
@@ -2737,14 +2799,17 @@ function openCode(email){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') verify(); });
     again.addEventListener('click',async()=>{
       wait=60; tick(); clearInterval(timer); timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000);
-      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/' } });
+      let captchaToken;
+      try{ captchaToken=await hc.token(); }catch(e){ err.textContent=capErr(e); wait=0; tick(); return; }
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/', captchaToken } });
       err.textContent = error ? authErr(error) : ''; if(!error) toast('ส่งรหัสใหม่แล้ว');
     });
     m.append(el('h3',{text:'📩 ใส่รหัสจากอีเมล'}),
       el('p',{}, 'ส่งรหัสไปที่ ', el('b',{text:email}), ' แล้ว (ถ้าไม่เห็น ลองดูในจดหมายขยะ/Spam) หรือกดลิงก์ในอีเมลก็ได้'),
       inp, err,
-      el('div',{class:'row'}, el('button',{text:'← เปลี่ยนอีเมล',onclick:()=>{ clearInterval(timer); openLogin(email); }}), el('span',{class:'sp'}), ok),
-      again);
+      el('div',{class:'row'}, el('button',{text:'← เปลี่ยนอีเมล',onclick:()=>{ clearInterval(timer); if(hc) hc.remove(); openLogin(email); }}), el('span',{class:'sp'}), ok),
+      again, tsbox);
+    hc=humanCheck(tsbox);
   });
 }
 // Credits left this month (a new month refills to the monthly allowance on the next scan).
@@ -3106,6 +3171,8 @@ function openJoinClass(code){
     const ci=el('input',{class:'code clcodein',maxlength:'7',placeholder:'รหัส 6 ตัว',autocomplete:'off',autocapitalize:'characters',spellcheck:'false',value:code||'','aria-label':'รหัสห้องเรียน'});
     const ni=el('input',{maxlength:'30',placeholder:'ชื่อเล่น เช่น มิ้นท์ ป.4/2',autocomplete:'nickname','aria-label':'ชื่อเล่น',value:isStudent()?studentNick():''});
     const err=el('p',{class:'err'}), go=el('button',{class:'primary',text:'เข้าห้อง'});
+    const tsbox=el('div',{class:'tsbox'}); let hc=null;
+    modalClose=()=>{ if(hc) hc.remove(); };
     ci.addEventListener('input',()=>{ ci.value=ci.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6); });
     const submit=async()=>{
       const c=ci.value.trim(), nick=ni.value.trim();
@@ -3113,7 +3180,9 @@ function openJoinClass(code){
       if(!nick){ err.textContent='ใส่ชื่อเล่นที่ครูจะเห็น'; ni.focus(); return; }
       go.disabled=true; go.textContent='กำลังเข้าห้อง…'; err.textContent='';
       if(!user){
-        const { error } = await sb.auth.signInAnonymously({ options:{ data:{ nickname:nick } } });
+        let captchaToken;
+        try{ captchaToken= hc ? await hc.token() : undefined; }catch(e){ go.disabled=false; go.textContent='เข้าห้อง'; err.textContent=capErr(e); return; }
+        const { error } = await sb.auth.signInAnonymously({ options:{ data:{ nickname:nick }, captchaToken } });
         if(error){ go.disabled=false; go.textContent='เข้าห้อง';
           err.textContent=/anonymous.*(disabled|not enabled)|provider.*disabled/i.test(error.message||'') ? 'ยังเปิดให้นักเรียนเข้าห้องแบบไม่ใช้อีเมลไม่ได้ ลองเข้าสู่ระบบด้วยอีเมลแทน' : authErr(error); return; }
         for(let i=0;i<30 && !user;i++) await new Promise(r=>setTimeout(r,100));
@@ -3126,10 +3195,11 @@ function openJoinClass(code){
     go.addEventListener('click',submit);
     [ci,ni].forEach(x=>x.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); }));
     m.append(el('h3',{text:'🔑 เข้าห้องเรียน'}),
-      el('label',{},'รหัสห้องจากครู', ci), el('label',{},'ชื่อเล่น (ครูจะเห็นชื่อนี้)', ni), err,
+      el('label',{},'รหัสห้องจากครู', ci), el('label',{},'ชื่อเล่น (ครูจะเห็นชื่อนี้)', ni), tsbox, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
       el('p',{class:'note small'}, user ? (isStudent() ? 'เข้าด้วยบัญชีนักเรียนในเครื่องนี้' : 'เข้าด้วยบัญชี '+(user.email||'')) : 'ไม่ต้องมีอีเมล — ระบบจะสร้างบัญชีนักเรียนในเครื่องนี้ให้ · ใช้ชื่อเล่น ไม่ต้องใส่ชื่อจริงหรือนามสกุล',
         ' · ', el('a',{href:'/privacy#class',target:'_blank',text:'ความเป็นส่วนตัว'})));
+    if(!user) hc=humanCheck(tsbox);       // only a new student account needs the check
   });
 }
 function createClassDialog(){
