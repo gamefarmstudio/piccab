@@ -16,7 +16,7 @@
 public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
                      GET  /api/health  → { ai, needCode }
-                     POST /api/scan    → ส่งรูปให้ Claude API แล้วคืนรายการคำศัพท์ + กรอบ
+                     POST /api/scan    → ส่งรูปให้ Gemini หรือ Claude แล้วคืนรายการคำศัพท์ + กรอบ
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
 ```
@@ -40,9 +40,12 @@ npx wrangler dev
 
 | ชื่อ | ชนิด | จำเป็น | ความหมาย |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | Secret | ✅ | คีย์จาก console.anthropic.com (ไม่มี = ซ่อนปุ่ม AI) |
-| `SCAN_CODE` | Secret | แนะนำ | รหัสที่ผู้ใช้ต้องใส่ก่อนใช้ AI (ช่วงทดลอง กันคนนอกใช้เครดิต) |
+| `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com (มีระดับฟรี — Google อาจนำข้อมูลไปพัฒนาโมเดล ใช้ทดสอบ) |
+| `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com (ไม่มีคีย์เลย = ซ่อนปุ่ม AI) |
+| `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
+| `GEMINI_MODEL` | Text | – | ค่าเริ่มต้น `gemini-3.8-flash` |
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-sonnet-5-5` เปลี่ยนเป็น `claude-haiku-5-5` เพื่อประหยัด |
+| `SCAN_CODE` | Secret | แนะนำ | รหัสที่ผู้ใช้ต้องใส่ก่อนใช้ AI (ช่วงทดลอง กันคนนอกใช้เครดิต) |
 
 ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย
 
