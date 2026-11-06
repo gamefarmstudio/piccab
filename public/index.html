@@ -190,6 +190,37 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .wd-go span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
 .wd-go:hover{color:#c2405c}
 .wd-more{display:block;margin:0 auto 24px}
+.wd-decks{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;margin:0 0 6px;scrollbar-width:thin}
+.dchip{flex:none;border-radius:999px;padding:7px 14px;background:#fff;border:1px solid var(--line);font-weight:600;font-size:14.5px;white-space:nowrap}
+.dchip .n{display:inline-block;margin-left:6px;font-size:12px;padding:0 6px;border-radius:999px;background:rgba(0,0,0,.08)}
+.dchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.dchip.on .n{background:rgba(255,255,255,.22)}
+.dchip.new{border-style:dashed;color:#c2405c;background:transparent}
+.wd-dhead{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 10px}
+.wd-dhead:empty{display:none}
+.linkbtn.muted{color:var(--muted)}
+.wd-card{position:relative}
+.wd-add{position:absolute;top:6px;left:6px;z-index:1;width:32px;height:32px;padding:0;border-radius:50%;background:rgba(255,255,255,.94);border:1px solid var(--line);font-size:17px;font-weight:700;display:grid;place-items:center;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.wd-add.on{background:#fff1f3;border-color:#f3b5c3;font-size:15px}
+.mbox.dkbox{width:min(440px,100%)}
+.dk-word{display:flex;gap:10px;align-items:center;margin:2px 0 10px}
+.dk-thumb{width:56px;height:56px;border-radius:10px;background:#eee6dc;flex:none}
+.dk-thumb.sm{width:40px;height:40px;border-radius:8px}
+.dk-word b,.dk-name b{display:block;font-family:'Fredoka','Sarabun',sans-serif;font-size:16px}
+.dk-word small,.dk-name small{display:block;color:var(--muted);font-size:13px}
+.dk-list{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:42vh}
+.dk-list.tall{max-height:52vh;margin-top:8px}
+.mbox .dk-row{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0;border-bottom:1px solid var(--line);cursor:pointer;font-size:15px;color:var(--ink)}
+.mbox .dk-row:last-child{border-bottom:none}
+.dk-row:hover{background:#faf6f1}
+.mbox .dk-row.w{padding:7px 10px}
+.mbox .dk-row input{display:inline-block;width:20px;height:20px;flex:none;accent-color:var(--ink);margin:0;padding:0}
+.dk-name{flex:1;min-width:0;font-weight:600;color:var(--ink)}
+.dk-n{color:var(--muted);font-size:13px;white-space:nowrap}
+.dk-add{display:flex;gap:8px;margin-top:10px}
+.mbox .dk-add input{flex:1;min-width:0;margin:0;padding:9px 12px;font-size:16px}
+.mbox.dkbox input[type=search]{font-size:16px}
+.dkbox .row .note{color:var(--muted);font-size:13.5px;align-self:center}
 .mbox.rvbox{width:min(460px,100%)}
 .rv-top{display:flex;align-items:center;gap:10px}
 .rv-top h3{margin:0;flex:1}
@@ -1274,10 +1305,38 @@ function allWords(){
   });
   return out;
 }
-const WD={q:'',f:'all',sort:'scene',limit:120};
+const WD={q:'',f:'all',sort:'scene',limit:120,deck:String(store.get('pv-wdeck','')||'')};
 const WD_LABELS={all:'ทั้งหมด',todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const WD_ST={todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const sayWord=it=>it.say||it.word;
+// ---------- word decks ("ชุดคำ") ----------
+// A deck is a list of "<scene id>|<item id>" keys. "saved" (🔖 เก็บไว้) always shows; it is stored once used.
+const SAVED_DECK='saved';
+let decks=store.get('pv-decks',[]); if(!Array.isArray(decks)) decks=[];
+decks=decks.filter(d=>d && d.id && Array.isArray(d.words));
+const deckSig=d=>JSON.stringify([d.name,d.words]);
+const dsig=(o,g)=>Object.defineProperty(o,'_sig',{value:g,writable:true,configurable:true,enumerable:false});
+decks.forEach(d=>dsig(d,deckSig(d)));
+const wkey=(scId,id)=>scId+'|'+id;
+const deckName=d=>d.id===SAVED_DECK?'🔖 เก็บไว้':d.name;
+const getDeck=id=>decks.find(d=>d.id===id);
+function deckList(){ const sv=getDeck(SAVED_DECK)||{id:SAVED_DECK,name:'',words:[],virtual:true}; return [sv].concat(decks.filter(d=>d.id!==SAVED_DECK)); }
+function realDeck(d){ if(!d.virtual) return d; let r=getDeck(SAVED_DECK); if(!r){ r={id:SAVED_DECK,name:'',words:[]}; decks.unshift(r); } return r; }
+function saveDecks(){
+  const now=Date.now();
+  decks.forEach(d=>{ const g=deckSig(d); if(d._sig!==g){ if(d._sig!==undefined || !d.updatedAt) d.updatedAt=now; dsig(d,g); } });
+  store.set('pv-decks',decks);
+  if(typeof syncSoon==='function') syncSoon();
+}
+function toggleWord(d,k,on){ d=realDeck(d); const i=d.words.indexOf(k); if(on && i<0) d.words.push(k); if(!on && i>=0) d.words.splice(i,1); saveDecks(); return d; }
+function newDeck(name){ const d={id:'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name:String(name).trim().slice(0,30), words:[]}; decks.push(d); saveDecks(); return d; }
+function deleteDeck(d){
+  const i=decks.indexOf(d); if(i<0) return;
+  decks.splice(i,1); store.set('pv-decks',decks);
+  if(d.owner && user && d.owner===user.id && typeof SYNC!=='undefined'){ SYNC.delDecks.push(d.id); saveSyncMem(); syncSoon(); }
+}
+const liveKeys=all=>new Set((all||allWords()).map(w=>wkey(w.sc.id,w.id)));
+const deckCount=(d,keys)=>d.words.filter(k=>keys.has(k)).length;
 function wordsFiltered(all){
   const q=WD.q.trim().toLowerCase();
   let list=all.filter(w=>WD.f==='all'||w.st===WD.f);
@@ -1299,7 +1358,7 @@ function renderWords(){
         el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()},'🖼️ เลือกรูป')));
     return;
   }
-  v.append(el('div',{id:'wdTile'}));
+  v.append(el('div',{class:'wd-decks',id:'wdDecks',role:'tablist','aria-label':'ชุดคำ'}), el('div',{class:'wd-dhead',id:'wdDeckHead'}), el('div',{id:'wdTile'}));
   const search=el('input',{type:'search',placeholder:'ค้นหาคำ เช่น teapot, กาน้ำชา',value:WD.q,'aria-label':'ค้นหาคำศัพท์'});
   search.addEventListener('input',()=>{ WD.q=search.value; WD.limit=120; updateWords(); });
   const seg=el('div',{class:'seg',id:'wdFilters',role:'group','aria-label':'กรองคำ'});
@@ -1313,9 +1372,27 @@ function renderWords(){
 function updateWords(all){
   if(!$('#wdGrid')) return;
   all=all||allWords();
+  const keys=liveKeys(all);
+  let deck=WD.deck ? deckList().find(d=>d.id===WD.deck) : null;
+  if(WD.deck && !deck){ WD.deck=''; store.set('pv-wdeck',''); }
+  // deck bar
+  const bar=$('#wdDecks'); bar.innerHTML='';
+  const chip=(id,label,n)=>el('button',{class:'dchip'+(WD.deck===id?' on':''),role:'tab','aria-selected':String(WD.deck===id),
+    onclick:()=>{ WD.deck=id; WD.limit=120; store.set('pv-wdeck',id); updateWords(); }}, label, el('span',{class:'n',text:String(n)}));
+  bar.append(chip('','ทุกคำ',all.length));
+  deckList().forEach(d=>bar.append(chip(d.id,deckName(d),deckCount(d,keys))));
+  bar.append(el('button',{class:'dchip new',onclick:createDeckDialog},'＋ สร้างชุด'));
+  const head=$('#wdDeckHead'); head.innerHTML='';
+  if(deck){
+    head.append(el('button',{class:'linkbtn small',onclick:()=>openDeckAdder(deck)},'＋ เพิ่มคำเข้าชุดนี้'));
+    if(deck.id!==SAVED_DECK) head.append(
+      el('button',{class:'linkbtn small muted',onclick:()=>renameDeckDialog(deck)},'✏️ เปลี่ยนชื่อ'),
+      el('button',{class:'linkbtn small muted',onclick:()=>ask(`ลบชุดคำ “${deck.name}”? (คำศัพท์ในฉากยังอยู่เหมือนเดิม)`,'ลบชุดคำ').then(ok=>{ if(ok){ deleteDeck(deck); WD.deck=''; store.set('pv-wdeck',''); updateWords(); toast('ลบชุดคำแล้ว'); } })},'🗑 ลบชุด'));
+  }
+  if(deck){ const ks=new Set(deck.words); all=all.filter(w=>ks.has(wkey(w.sc.id,w.id))); }
   const cnt={all:all.length,todo:0,done:0,star:0}; all.forEach(w=>cnt[w.st]++);
   const nSc=new Set(all.map(w=>w.sc.id)).size;
-  $('#wdCount').textContent=`${all.length} คำ จาก ${nSc} ฉาก · ★ จำได้ ${cnt.star} · ✓ ผ่าน ${cnt.done} · ยังไม่ผ่าน ${cnt.todo}`;
+  $('#wdCount').textContent=(deck?deckName(deck)+' · ':'')+`${all.length} คำ จาก ${nSc} ฉาก · ★ จำได้ ${cnt.star} · ✓ ผ่าน ${cnt.done} · ยังไม่ผ่าน ${cnt.todo}`;
   document.querySelectorAll('#wdFilters button').forEach(b=>{ const f=b.dataset.f; b.textContent=WD_LABELS[f]; b.append(el('span',{class:'n',text:String(cnt[f])})); b.classList.toggle('on',f===WD.f); });
   const list=wordsFiltered(all), narrowed=WD.f!=='all'||!!WD.q.trim();
   const t=$('#wdTile'); t.innerHTML='';
@@ -1324,18 +1401,25 @@ function updateWords(all){
     t.append(el('button',{class:'tile review wd-review',onclick:()=>startReview(list)},
       el('span',{class:'ic',text:'✍️'}),
       el('span',{}, el('b',{text:`ทบทวน ${n} คำ`}),
-        el('small',{text:(narrowed?'จากคำที่กรองไว้ · ':'')+(left?'เริ่มจากคำที่ยังไม่ผ่าน':'สุ่มคำมาทายอีกรอบ')})),
+        el('small',{text:(deck?'จากชุด “'+deckName(deck)+'” · ':'')+(narrowed?'จากคำที่กรองไว้ · ':'')+(left?'เริ่มจากคำที่ยังไม่ผ่าน':'สุ่มคำมาทายอีกรอบ')})),
       el('span',{class:'arrow',text:'→'})));
   }
   const g=$('#wdGrid'); g.innerHTML='';
-  if(!list.length) g.append(el('div',{class:'libempty',text: WD.q.trim()?`ไม่พบคำที่ตรงกับ “${WD.q.trim()}”`:'ยังไม่มีคำในหมวดนี้'}));
-  list.slice(0,WD.limit).forEach(w=>g.append(wordCard(w)));
+  if(!list.length){
+    if(deck && !all.length) g.append(el('div',{class:'libempty'}, 'ยังไม่มีคำในชุดนี้', el('br'),
+      el('button',{class:'primary',style:'margin-top:12px',onclick:()=>openDeckAdder(deck)},'＋ เพิ่มคำเข้าชุดนี้'),
+      el('div',{class:'note',style:'margin-top:8px;font-size:13.5px',text:'หรือกด ＋ บนการ์ดคำในหน้า “ทุกคำ”'})));
+    else g.append(el('div',{class:'libempty',text: WD.q.trim()?`ไม่พบคำที่ตรงกับ “${WD.q.trim()}”`:'ยังไม่มีคำในหมวดนี้'}));
+  }
+  const inAny=new Set(decks.flatMap(d=>d.words));
+  list.slice(0,WD.limit).forEach(w=>g.append(wordCard(w, inAny.has(wkey(w.sc.id,w.id)))));
   const more=$('#wdMore'); more.innerHTML='';
   if(list.length>WD.limit) more.append(el('button',{class:'wd-more',text:`แสดงเพิ่ม (${list.length-WD.limit} คำ)`,onclick:()=>{ WD.limit+=240; updateWords(); }}));
 }
-function wordCard(w){
+function wordCard(w, kept){
   const {sc,id,it,st}=w;
   return el('div',{class:'wd-card st-'+st},
+    el('button',{class:'wd-add'+(kept?' on':''),title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ','aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',onclick:()=>openDeckPicker(w)}, kept?'🔖':'＋'),
     el('button',{class:'wd-main',title:'ฟังเสียง','aria-label':'ฟังเสียง '+it.word,onclick:()=>speak(sayWord(it))},
       el('span',{class:'wd-pic'}, wordThumb(sc,it), el('span',{class:'wd-say',text:'🔊'})),
       el('b',{text:it.word}),
@@ -1343,6 +1427,75 @@ function wordCard(w){
     el('div',{class:'wd-foot'},
       el('span',{class:'wd-st',text:WD_ST[st]}),
       el('button',{class:'wd-go',title:'ดูในฉาก “'+sc.name+'”',onclick:()=>{ openScene(sc.id,'learn'); select(id); }},'📍 ',el('span',{text:sc.name}))));
+}
+function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)); }
+// ＋ on a word card: tick the decks it belongs to, or make a new one.
+function openDeckPicker(w){
+  const k=wkey(w.sc.id,w.id);
+  openModal(m=>{
+    m.classList.add('dkbox');
+    const list=el('div',{class:'dk-list'});
+    const draw=()=>{
+      list.innerHTML=''; const keys=liveKeys();
+      deckList().forEach(d=>{
+        const cb=el('input',{type:'checkbox'}); cb.checked=d.words.includes(k);
+        cb.addEventListener('change',()=>{ toggleWord(d,k,cb.checked); draw(); });
+        list.append(el('label',{class:'dk-row'}, cb, el('span',{class:'dk-name',text:deckName(d)}), el('span',{class:'dk-n',text:deckCount(d,keys)+' คำ'})));
+      });
+    };
+    const name=el('input',{class:'dk-new',maxlength:'30',placeholder:'ชื่อชุดใหม่ เช่น เครื่องครัว','aria-label':'ชื่อชุดคำใหม่'});
+    const add=()=>{ const v=name.value.trim(); if(!v){ name.focus(); return; } toggleWord(newDeck(v),k,true); name.value=''; draw(); toast('สร้างชุด “'+v+'” แล้ว'); };
+    name.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } });
+    m.append(el('h3',{text:'เพิ่มลงชุดคำ'}), deckWordHead(w), list,
+      el('div',{class:'dk-add'}, name, el('button',{type:'button',text:'＋ สร้าง',onclick:add})),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'เสร็จ',onclick:closeModal})));
+    draw();
+  });
+  setTimeout(()=>{ const a=document.activeElement; if(a && a.type==='checkbox') a.blur(); },60);
+  modalClose=()=>{ if(S.view==='words') updateWords(); };
+}
+// "＋ เพิ่มคำเข้าชุดนี้": pick many words at once.
+function openDeckAdder(d){
+  const all=allWords();
+  openModal(m=>{
+    m.classList.add('dkbox');
+    const q=el('input',{type:'search',placeholder:'ค้นหาคำ เช่น cup, ถ้วย','aria-label':'ค้นหาคำ'});
+    const list=el('div',{class:'dk-list tall'}), note=el('span',{class:'note'});
+    const count=()=>{ const ks=liveKeys(all); note.textContent=`ในชุดนี้ ${deckCount(d,ks)} คำ`; };
+    const draw=()=>{
+      list.innerHTML=''; const t=q.value.trim().toLowerCase();
+      const rows=all.filter(w=>!t || [w.it.word,w.it.th||''].concat(w.it.alts||[]).some(x=>String(x).toLowerCase().includes(t)));
+      rows.slice(0,200).forEach(w=>{
+        const k=wkey(w.sc.id,w.id), cb=el('input',{type:'checkbox'}); cb.checked=d.words.includes(k);
+        cb.addEventListener('change',()=>{ d=toggleWord(d,k,cb.checked); count(); });
+        list.append(el('label',{class:'dk-row w'}, cb, wordThumb(w.sc,w.it,'dk-thumb sm'),
+          el('span',{class:'dk-name'}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)));
+      });
+      if(!rows.length) list.append(el('div',{class:'libempty',text:'ไม่พบคำ'}));
+      else if(rows.length>200) list.append(el('div',{class:'note',style:'padding:8px',text:`แสดง 200 จาก ${rows.length} คำ — พิมพ์ค้นหาเพื่อหาคำอื่น`}));
+    };
+    q.addEventListener('input',draw);
+    m.append(el('h3',{text:'เพิ่มคำเข้า “'+deckName(d)+'”'}), q, list,
+      el('div',{class:'row'}, note, el('span',{class:'sp'}), el('button',{class:'primary',text:'เสร็จ',onclick:closeModal})));
+    draw(); count();
+  });
+  if(matchMedia('(pointer:coarse)').matches) setTimeout(()=>{ const a=document.activeElement; if(a && a.type==='search') a.blur(); },60);
+  modalClose=()=>{ if(S.view==='words') updateWords(); };
+}
+function deckNameDialog(title, value, okText, onOk){
+  openModal(m=>{
+    const inp=el('input',{maxlength:'30',value:value||'',placeholder:'เช่น เครื่องครัว, คำยาก, เตรียมสอบ','aria-label':'ชื่อชุดคำ'});
+    const go=()=>{ const v=inp.value.trim(); if(!v){ inp.focus(); return; } closeModal(); onOk(v); };
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } });
+    m.append(el('h3',{text:title}), inp,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), el('button',{class:'primary',text:okText,onclick:go})));
+  });
+}
+function createDeckDialog(){
+  deckNameDialog('สร้างชุดคำใหม่','', 'สร้าง', v=>{ const d=newDeck(v); WD.deck=d.id; store.set('pv-wdeck',d.id); updateWords(); openDeckAdder(d); });
+}
+function renameDeckDialog(d){
+  deckNameDialog('เปลี่ยนชื่อชุดคำ', d.name, 'บันทึก', v=>{ d.name=v.slice(0,30); saveDecks(); updateWords(); });
 }
 // Mixed review: up to 10 words, words not yet passed first. Same rules as the scene quiz:
 // typing it right marks ✓, and ★ if no hint / listen / answer was used.
@@ -2463,9 +2616,13 @@ renderAcct();
 // Each device remembers what it last synced ('pv-sync'), so only changes are sent.
 // Conflicts: the newer edit of a scene (or of a scene's progress) wins.
 const SYNC={ ready:false, busy:false, again:false, timer:null, state:'idle', at:0, lastPull:0,
-  mem: store.get('pv-sync', null) || {}, del: store.get('pv-sync-del', []) || [] };
-const syncMem=uid=>{ if(SYNC.mem.uid!==uid) SYNC.mem={ uid, scenes:{}, img:{}, prog:{} }; return SYNC.mem; };
-const saveSyncMem=()=>{ store.set('pv-sync', SYNC.mem); store.set('pv-sync-del', SYNC.del); };
+  mem: store.get('pv-sync', null) || {}, del: store.get('pv-sync-del', []) || [], delDecks: store.get('pv-sync-del-decks', []) || [], noDecks:false };
+const syncMem=uid=>{ if(SYNC.mem.uid!==uid) SYNC.mem={ uid, scenes:{}, img:{}, prog:{}, decks:{} }; if(!SYNC.mem.decks) SYNC.mem.decks={}; return SYNC.mem; };
+const saveSyncMem=()=>{ store.set('pv-sync', SYNC.mem); store.set('pv-sync-del', SYNC.del); store.set('pv-sync-del-decks', SYNC.delDecks); };
+// The decks table is added by supabase/2026-11-decks.sql — until it exists, decks just stay on this device.
+const missingTable=e=>!!e && (e.status===404 || e.code==='42P01' || e.code==='PGRST205' || /does not exist|schema cache/i.test(e.message||''));
+// Deck sync never blocks scenes/pictures/progress: on failure it just tries again next time.
+function deckSyncFailed(e){ if(missingTable(e)){ SYNC.noDecks=true; console.warn('decks table missing — run supabase/2026-11-decks.sql'); } else console.warn('deck sync failed', e); }
 const progSig=p=>JSON.stringify([p.done||{},p.star||{}]);
 function syncText(){
   const n=customs.filter(sc=>user && sc.owner===user.id).length;
@@ -2501,7 +2658,7 @@ async function syncNow(pull){
 }
 function afterSyncChange(){
   // keep localStorage/IndexedDB in step without re-stamping edit times
-  persistScenesQuiet(); store.set('pv-progress', progress);
+  persistScenesQuiet(); store.set('pv-progress', progress); store.set('pv-decks', decks);
   if(!scenes().some(x=>x.id===S.sceneId)){ S.sceneId='tea'; if(S.view==='play'){ S.view='home'; S.editing=false; } }
   if(S.view==='play'){ if(!S.editing){ renderScene(); refresh(); } } else renderGallery();
 }
@@ -2540,9 +2697,51 @@ async function syncPull(){
     if(!lp || t>(lp.updatedAt||0)){ const np={ done:r.done||{}, star:r.star||{}, updatedAt:t }; setSig(np, progSig(np)); progress[r.scene_id]=np; mem.prog[r.scene_id]=np._sig; changed=true; }
     else if(t===(lp.updatedAt||0)) mem.prog[r.scene_id]=progSig(lp);
   }
+  if(!SYNC.noDecks){ try{ if(await pullDecks(uid, mem)) changed=true; }catch(e){ deckSyncFailed(e); } }
   saveSyncMem(); SYNC.lastPull=Date.now();
   if(changed) afterSyncChange();
   if(need.length) downloadPictures(need);
+}
+async function pullDecks(uid, mem){
+  let changed=false;
+  for(const d of decks.slice()) if(d.owner && d.owner!==uid){ decks.splice(decks.indexOf(d),1); changed=true; }
+  const { data:rows, error, status } = await sb.from('decks').select('id,name,words,deleted,updated_at');
+  if(error){ error.status=status; throw error; }
+  for(const r of rows||[]){
+    const t=Date.parse(r.updated_at)||0, loc=getDeck(r.id), words=Array.isArray(r.words)?r.words.filter(x=>typeof x==='string'):[];
+    if(r.deleted){
+      if(loc && (loc.owner || r.id!==SAVED_DECK) && (loc.updatedAt||0)<=t){ decks.splice(decks.indexOf(loc),1); changed=true; }
+      delete mem.decks[r.id]; continue;
+    }
+    if(!loc){ const d={ id:r.id, name:r.name||'', words, updatedAt:t, owner:uid }; dsig(d, deckSig(d)); decks.push(d); mem.decks[r.id]=d._sig; changed=true; }
+    else if(!loc.owner && r.id===SAVED_DECK){
+      // first sign-in on this device: keep words saved before signing in as well as the account's
+      loc.words=[...new Set(words.concat(loc.words))]; loc.owner=uid; loc.updatedAt=Math.max(t, loc.updatedAt||0)+1; dsig(loc, deckSig(loc)); changed=true;
+    }
+    else if(t>(loc.updatedAt||0)){ Object.assign(loc,{ name:r.name||'', words, updatedAt:t, owner:uid }); dsig(loc, deckSig(loc)); mem.decks[r.id]=loc._sig; changed=true; }
+    else { if(loc.owner!==uid){ loc.owner=uid; changed=true; } if(t===(loc.updatedAt||0)) mem.decks[r.id]=deckSig(loc); }
+  }
+  return changed;
+}
+async function pushDecks(uid, mem){
+  for(const id of SYNC.delDecks.slice()){
+    const { error, status } = await sb.from('decks').upsert({ user_id:uid, id, name:'', words:[], deleted:true, updated_at:new Date().toISOString() }, { onConflict:'user_id,id' });
+    if(error){ error.status=status; throw error; }
+    SYNC.delDecks=SYNC.delDecks.filter(x=>x!==id); delete mem.decks[id]; saveSyncMem();
+  }
+  const rows=[];
+  for(const d of decks){
+    if(d.owner && d.owner!==uid) continue;
+    if(mem.decks[d.id]===deckSig(d) && d.owner===uid) continue;
+    d.owner=uid;
+    rows.push({ user_id:uid, id:d.id, name:String(d.name||'').slice(0,60), words:d.words, deleted:false, updated_at:new Date(d.updatedAt||Date.now()).toISOString() });
+  }
+  if(rows.length){
+    const { error, status } = await sb.from('decks').upsert(rows, { onConflict:'user_id,id' });
+    if(error){ error.status=status; throw error; }
+    rows.forEach(r=>{ const d=getDeck(r.id); if(d) mem.decks[r.id]=deckSig(d); });
+    store.set('pv-decks', decks);
+  }
 }
 async function downloadPictures(list){
   const tok=await accessToken(); if(!tok) return;
@@ -2611,6 +2810,7 @@ async function syncPush(){
     if(error) throw error;
     prows.forEach(r=>{ mem.prog[r.scene_id]=progSig(progress[r.scene_id]); });
   }
+  if(!SYNC.noDecks){ try{ await pushDecks(uid, mem); }catch(e){ deckSyncFailed(e); } }
   saveSyncMem();
 }
 function syncSignedOut(){
@@ -2618,7 +2818,8 @@ function syncSignedOut(){
   const mem=SYNC.mem; let changed=false;
   for(const sc of customs.slice()) if(sc.owner){ customs.splice(customs.indexOf(sc),1); forgetSceneLocal(sc.id); delete progress[sc.id]; changed=true; }
   for(const id of Object.keys(mem.prog||{})) if(progress[id]){ delete progress[id]; changed=true; }
-  SYNC.mem={}; SYNC.del=[]; SYNC.at=0; SYNC.state='idle'; saveSyncMem();
+  if(decks.some(d=>d.owner)){ decks=decks.filter(d=>!d.owner); changed=true; }
+  SYNC.mem={}; SYNC.del=[]; SYNC.delDecks=[]; SYNC.at=0; SYNC.state='idle'; saveSyncMem();
   if(changed) afterSyncChange();
 }
 
