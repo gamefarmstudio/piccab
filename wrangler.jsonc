@@ -16,10 +16,19 @@
     { "name": "SCAN_LIMITER", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } }
   ],
 
+  // Scene pictures of signed-in users (private bucket; served only through /api/img with a valid sign-in).
+  "r2_buckets": [
+    { "binding": "IMAGES", "bucket_name": "piccab-images" }
+  ],
+
   // Preview deployments (pull requests) get their own, separate rate-limit counter.
+  // They use the same picture bucket, like they use the same Supabase project (each user only reaches their own folder).
   "previews": {
     "ratelimits": [
       { "name": "SCAN_LIMITER", "namespace_id": "1002", "simple": { "limit": 6, "period": 60 } }
+    ],
+    "r2_buckets": [
+      { "binding": "IMAGES", "bucket_name": "piccab-images" }
     ]
   },
 

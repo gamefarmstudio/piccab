@@ -741,7 +741,9 @@ function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m
 function matches(v,it){ const n=norm(v); if(!n) return false; return [it.word].concat(it.alts||[]).some(w=>{ const t=norm(w); return n===t||n===t+'s'||n===t+'es'; }); }
 
 // ---------- state ----------
-let customs = store.get('pv-scenes', []); if(!Array.isArray(customs)) customs=[];
+// Scene metadata lives in localStorage ('pv-scenes2'); pictures live in IndexedDB (much more room).
+// Older versions kept pictures inline in 'pv-scenes' — migrated on start (see boot()).
+let customs = store.get('pv-scenes2', null) || store.get('pv-scenes', []); if(!Array.isArray(customs)) customs=[];
 let progress = store.get('pv-progress', {}); if(typeof progress!=='object'||!progress) progress={};
 const S = { view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false) };
 let hoverId=null, pinnedId=null, quizId=null, flash=null, flashT=null;
@@ -753,8 +755,62 @@ const scene=()=>scenes().find(s=>s.id===S.sceneId)||BUILTIN[0];
 const items=()=>scene().items;
 const ids=()=>Object.keys(items());
 function prog(){ const id=scene().id; if(!progress[id]) progress[id]={done:{},star:{}}; return progress[id]; }
-function saveProg(){ store.set('pv-progress', progress); }
-function saveScenes(){ if(!store.set('pv-scenes', customs)) toast('บันทึกฉากในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ) — กด “คัดลอกข้อมูลฉาก” เก็บไว้ก่อนปิดหน้า', 5000); }
+function saveProg(){
+  const now=Date.now();
+  for(const [id,p] of Object.entries(progress)){ if(!p) continue; const g=JSON.stringify([p.done||{},p.star||{}]); if(p._sig!==g){ if(p._sig!==undefined || !p.updatedAt) p.updatedAt=now; Object.defineProperty(p,'_sig',{value:g,writable:true,configurable:true,enumerable:false}); } }
+  store.set('pv-progress', progress);
+  if(typeof syncSoon==='function') syncSoon();
+}
+Object.values(progress).forEach(p=>{ if(p) Object.defineProperty(p,'_sig',{value:JSON.stringify([p.done||{},p.star||{}]),writable:true,configurable:true,enumerable:false}); });
+// ---------- local persistence ----------
+const IDB=(()=>{
+  let dbp=null;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{
+    try{ const r=indexedDB.open('piccab',1); r.onupgradeneeded=()=>r.result.createObjectStore('img'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); }
+  }));
+  const run=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{ const t=db.transaction('img',mode), q=fn(t.objectStore('img')); t.oncomplete=()=>res(q&&q.result); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error); }));
+  return { ok: !!window.indexedDB, get:k=>run('readonly',st=>st.get(k)), set:(k,v)=>run('readwrite',st=>st.put(v,k)), del:k=>run('readwrite',st=>st.delete(k)) };
+})();
+let useIDB=false;                       // decided in boot()
+const imgSaved=new Set();               // scene ids whose current picture is already in IndexedDB
+const SCENE_FIELDS=['id','name','w','h','items','updatedAt','owner'];
+const metaOf=sc=>{ const o={}; SCENE_FIELDS.forEach(k=>{ if(sc[k]!==undefined) o[k]=sc[k]; }); return o; };
+const sigOf=sc=>JSON.stringify([sc.name,sc.w,sc.h,sc.items]);
+function saveScenes(){
+  // Stamp scenes whose content changed, so sync knows what is newer.
+  const now=Date.now();
+  customs.forEach(sc=>{ const g=sigOf(sc); if(sc._sig!==g){ if(sc._sig!==undefined || !sc.updatedAt) sc.updatedAt=now; Object.defineProperty(sc,'_sig',{value:g,writable:true,configurable:true,enumerable:false}); } });
+  let ok;
+  if(useIDB){
+    ok=store.set('pv-scenes2', customs.map(metaOf));
+    customs.forEach(sc=>{ if(sc.img && !imgSaved.has(sc.id)){ imgSaved.add(sc.id); IDB.set(sc.id, sc.img).catch(()=>{ imgSaved.delete(sc.id); toast('บันทึกรูปในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ)', 5000); }); } });
+  } else ok=store.set('pv-scenes', customs);
+  if(!ok) toast('บันทึกฉากในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ) — กด “คัดลอกข้อมูลฉาก” เก็บไว้ก่อนปิดหน้า', 5000);
+  if(typeof syncSoon==='function') syncSoon();
+}
+// Save scenes as they are, without stamping edit times (used by sync).
+function persistScenesQuiet(){
+  if(!useIDB){ store.set('pv-scenes', customs); return; }
+  store.set('pv-scenes2', customs.map(metaOf));
+  customs.forEach(sc=>{ if(sc.img && !imgSaved.has(sc.id)){ imgSaved.add(sc.id); IDB.set(sc.id, sc.img).catch(()=>imgSaved.delete(sc.id)); } });
+}
+function forgetSceneLocal(id){ imgSaved.delete(id); if(useIDB) IDB.del(id).catch(()=>{}); }
+async function boot(){
+  if(!IDB.ok){ useIDB=false; return; }
+  try{
+    const legacy=store.get('pv-scenes', null);
+    if(Array.isArray(legacy) && !store.get('pv-scenes2', null)){
+      // one-time move of inline pictures into IndexedDB
+      for(const sc of legacy){ if(sc && sc.img) await IDB.set(sc.id, sc.img); }
+      store.set('pv-scenes2', legacy.map(metaOf));
+      try{ localStorage.removeItem('pv-scenes'); }catch(e){}
+    }
+    useIDB=true;
+    customs=(store.get('pv-scenes2', [])||[]).filter(sc=>sc && sc.id);
+    await Promise.all(customs.map(async sc=>{ const im=await IDB.get(sc.id).catch(()=>null); if(im){ sc.img=im; imgSaved.add(sc.id); } }));
+  }catch(e){ useIDB=false; customs=store.get('pv-scenes', [])||[]; }
+  customs.forEach(sc=>Object.defineProperty(sc,'_sig',{value:sigOf(sc),writable:true,configurable:true,enumerable:false}));
+}
 
 // ---------- speech ----------
 let voices=[];
@@ -861,7 +917,7 @@ function renderScene(){
   } else {
     svg.innerHTML='';
     const im=document.createElementNS(NS,'image');
-    im.setAttribute('href', sc.img); im.setAttribute('width', sc.w); im.setAttribute('height', sc.h); im.setAttribute('preserveAspectRatio','none');
+    im.setAttribute('href', sceneImg(sc)); im.setAttribute('width', sc.w); im.setAttribute('height', sc.h); im.setAttribute('preserveAspectRatio','none');
     svg.appendChild(im);
   }
   const spot=document.createElementNS(NS,'path'); spot.setAttribute('class','spot'); spot.setAttribute('fill-rule','evenodd');
@@ -907,8 +963,10 @@ function renderSelect(){
 
 // ---------- views: scene gallery ⇄ play ----------
 let TEA_URL='';
+// Shown while a synced scene's picture is still downloading (or couldn't be loaded).
+const IMG_PENDING='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eee6dc"/><text x="200" y="158" font-family="sans-serif" font-size="22" fill="#9a8f80" text-anchor="middle">กำลังโหลดรูป…</text></svg>');
 function sceneImg(sc){
-  if(!sc.builtin) return sc.img;
+  if(!sc.builtin) return sc.img || IMG_PENDING;
   if(!TEA_URL) TEA_URL='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 680">'+$('#tea-svg').textContent+'</svg>');
   return TEA_URL;
 }
@@ -1886,7 +1944,9 @@ function deleteScene(){
   const sc=scene(); if(sc.builtin) return;
   ask(`ลบฉาก “${sc.name}” ใช่ไหม? ลบแล้วกู้คืนไม่ได้`,'ลบฉาก').then(ok=>{
     if(!ok) return;
-    customs=customs.filter(s=>s!==sc); delete progress[sc.id]; saveScenes(); saveProg();
+    customs=customs.filter(s=>s!==sc); delete progress[sc.id]; forgetSceneLocal(sc.id);
+    if(typeof syncDeleted==='function') syncDeleted(sc);
+    saveScenes(); saveProg();
     S.sceneId='tea'; store.set('pv-scene','tea'); S.editing=false; S.view='home'; fullRender(); toast('ลบฉากแล้ว');
   });
 }
@@ -2007,7 +2067,7 @@ function openLogin(prefill){
       el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัส 6 หลักไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
       inp, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
-      el('p',{class:'note',text:'ตอนนี้ฉากยังเก็บอยู่ในเครื่องนี้ — การเก็บฉากในบัญชีและใช้ข้ามเครื่อง (sync) กำลังจะมาเร็วๆ นี้'}));
+      el('p',{class:'note',text:'☁️ เมื่อเข้าสู่ระบบ ฉาก รูป และความคืบหน้าจะถูกเก็บในบัญชี ใช้ได้ทุกเครื่องที่เข้าสู่ระบบด้วยอีเมลเดียวกัน'}));
   });
 }
 function openCode(email){
@@ -2047,21 +2107,191 @@ function openAccount(){
   openModal(m=>{
     m.append(el('h3',{text:'บัญชีของฉัน'}),
       el('p',{}, 'เข้าสู่ระบบด้วย ', el('b',{text:user.email||''})),
-      el('p',{class:'note',text:'การเก็บฉากในบัญชีและใช้ข้ามเครื่อง (sync) กำลังจะมาเร็วๆ นี้ — ตอนนี้ฉากยังเก็บอยู่ในเครื่องนี้'}),
+      el('p',{class:'note',id:'syncNote',text:syncText()}),
       el('div',{class:'row'},
-        el('button',{class:'danger',text:'ออกจากระบบ',onclick:async()=>{ await sb.auth.signOut(); closeModal(); toast('ออกจากระบบแล้ว'); }}),
+        el('button',{text:'🔄 ซิงค์ตอนนี้',onclick:async e=>{ e.target.disabled=true; await syncNow(true); const n=$('#syncNote'); if(n) n.textContent=syncText(); e.target.disabled=false; }}),
+        el('button',{class:'danger',text:'ออกจากระบบ',onclick:async e=>{
+          e.target.disabled=true; e.target.textContent='กำลังบันทึก…';
+          await syncNow(false);
+          if(SYNC.state==='error' && !(await ask('ยังซิงค์ข้อมูลล่าสุดขึ้นบัญชีไม่สำเร็จ ถ้าออกจากระบบตอนนี้ การเปลี่ยนแปลงล่าสุดในเครื่องนี้อาจหาย ออกจากระบบเลยไหม?','ออกจากระบบ'))) return;
+          await sb.auth.signOut(); closeModal(); toast('ออกจากระบบแล้ว'); }}),
         el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})));
   });
 }
 $('#acctBtn').addEventListener('click',()=>{ if(!sb) return; user ? openAccount() : openLogin(); });
 if(sb){
   sb.auth.onAuthStateChange((event, session)=>{
+    const before = user && user.id;
     user = session && session.user || null;
     renderAcct();
+    if(user && user.id!==before) setTimeout(()=>syncNow(true),0);        // signed in (or first load with a session)
+    if(!user && before) setTimeout(()=>syncSignedOut(),0);
     if(event==='SIGNED_IN' && !$('#modal').hidden && $('#mbox .code')){ closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000); }  // signed in via the e-mail link in another tab
   });
 }
 renderAcct();
+
+// ---------- sync: scenes + progress in Supabase, pictures in R2 (via /api/img) ----------
+// Each device remembers what it last synced ('pv-sync'), so only changes are sent.
+// Conflicts: the newer edit of a scene (or of a scene's progress) wins.
+const SYNC={ ready:false, busy:false, again:false, timer:null, state:'idle', at:0, lastPull:0,
+  mem: store.get('pv-sync', null) || {}, del: store.get('pv-sync-del', []) || [] };
+const syncMem=uid=>{ if(SYNC.mem.uid!==uid) SYNC.mem={ uid, scenes:{}, img:{}, prog:{} }; return SYNC.mem; };
+const saveSyncMem=()=>{ store.set('pv-sync', SYNC.mem); store.set('pv-sync-del', SYNC.del); };
+const progSig=p=>JSON.stringify([p.done||{},p.star||{}]);
+function syncText(){
+  const n=customs.filter(sc=>user && sc.owner===user.id).length;
+  if(SYNC.state==='busy') return '☁️ กำลังซิงค์…';
+  if(SYNC.state==='error') return '⚠️ ซิงค์ไม่สำเร็จ (จะลองใหม่อัตโนมัติ) — ข้อมูลยังอยู่ในเครื่องนี้';
+  if(!SYNC.at) return '☁️ ฉาก รูป และความคืบหน้าจะซิงค์กับบัญชีนี้อัตโนมัติ';
+  return `☁️ ซิงค์แล้ว ${n} ฉาก · ล่าสุด ${new Date(SYNC.at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.`;
+}
+async function accessToken(){ const { data } = await sb.auth.getSession(); return data && data.session && data.session.access_token || null; }
+function syncSoon(){ if(!sb || !user || !SYNC.ready) return; clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(false), 1500); }
+function syncDeleted(sc){ if(sc.owner && user && sc.owner===user.id){ SYNC.del.push(sc.id); saveSyncMem(); } }
+function syncStart(){
+  SYNC.ready=true;
+  if(user) syncNow(true);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && user && Date.now()-SYNC.lastPull>30000) syncNow(true); });
+}
+async function syncNow(pull){
+  if(!sb || !user || !SYNC.ready) return;
+  if(SYNC.busy){ SYNC.again=true; return; }
+  SYNC.busy=true; SYNC.state='busy';
+  try{
+    if(pull) await syncPull();
+    await syncPush();
+    SYNC.state='ok'; SYNC.at=Date.now();
+  }catch(e){
+    console.warn('sync failed', e); SYNC.state='error';
+    clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(true), 30000);
+  }finally{
+    SYNC.busy=false;
+    if(SYNC.again){ SYNC.again=false; syncSoon(); }
+  }
+}
+function afterSyncChange(){
+  // keep localStorage/IndexedDB in step without re-stamping edit times
+  persistScenesQuiet(); store.set('pv-progress', progress);
+  if(!scenes().some(x=>x.id===S.sceneId)){ S.sceneId='tea'; if(S.view==='play'){ S.view='home'; S.editing=false; } }
+  if(S.view==='play'){ if(!S.editing){ renderScene(); refresh(); } } else renderGallery();
+}
+const setSig=(o,g)=>Object.defineProperty(o,'_sig',{value:g,writable:true,configurable:true,enumerable:false});
+async function syncPull(){
+  const uid=user.id, mem=syncMem(uid);
+  let changed=false;
+  // scenes that belong to another account leave this device (they are safe in that account)
+  for(const sc of customs.slice()) if(sc.owner && sc.owner!==uid){ customs.splice(customs.indexOf(sc),1); forgetSceneLocal(sc.id); delete progress[sc.id]; changed=true; }
+  const { data:rows, error } = await sb.from('scenes').select('id,name,w,h,items,deleted,updated_at');
+  if(error) throw error;
+  const need=[];
+  for(const r of rows||[]){
+    const t=Date.parse(r.updated_at)||0, loc=customs.find(sc=>sc.id===r.id);
+    if(r.deleted){
+      if(loc && (loc.updatedAt||0)<=t){ customs.splice(customs.indexOf(loc),1); forgetSceneLocal(loc.id); delete progress[loc.id]; changed=true; }
+      delete mem.scenes[r.id]; delete mem.img[r.id]; continue;
+    }
+    mem.img[r.id]=true;                                   // a row exists → its picture was uploaded first
+    if(!loc){
+      const sc={ id:r.id, name:r.name, w:r.w, h:r.h, items:r.items||{}, updatedAt:t, owner:uid, img:null };
+      setSig(sc, sigOf(sc)); customs.push(sc); mem.scenes[r.id]=sc._sig; need.push(sc); changed=true;
+    } else if(t>(loc.updatedAt||0)){
+      Object.assign(loc,{ name:r.name, w:r.w, h:r.h, items:r.items||{}, updatedAt:t, owner:uid }); setSig(loc, sigOf(loc)); mem.scenes[r.id]=loc._sig;
+      if(!loc.img) need.push(loc); changed=true;
+    } else {
+      if(loc.owner!==uid){ loc.owner=uid; changed=true; }
+      if(t===(loc.updatedAt||0)) mem.scenes[r.id]=sigOf(loc);
+      if(!loc.img) need.push(loc);
+    }
+  }
+  const { data:prows, error:e2 } = await sb.from('progress').select('scene_id,done,star,updated_at');
+  if(e2) throw e2;
+  for(const r of prows||[]){
+    const t=Date.parse(r.updated_at)||0, lp=progress[r.scene_id];
+    if(!lp || t>(lp.updatedAt||0)){ const np={ done:r.done||{}, star:r.star||{}, updatedAt:t }; setSig(np, progSig(np)); progress[r.scene_id]=np; mem.prog[r.scene_id]=np._sig; changed=true; }
+    else if(t===(lp.updatedAt||0)) mem.prog[r.scene_id]=progSig(lp);
+  }
+  saveSyncMem(); SYNC.lastPull=Date.now();
+  if(changed) afterSyncChange();
+  if(need.length) downloadPictures(need);
+}
+async function downloadPictures(list){
+  const tok=await accessToken(); if(!tok) return;
+  let got=0;
+  for(const sc of list){
+    try{
+      const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { headers:{ authorization:'Bearer '+tok } });
+      if(!r.ok) continue;
+      const blob=await r.blob();
+      sc.img=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+      got++;
+    }catch(e){}
+  }
+  if(got) afterSyncChange();
+}
+function dataUrlBlob(u){
+  const i=u.indexOf(','), type=(u.slice(5,i).split(';')[0])||'image/jpeg', bin=atob(u.slice(i+1)), a=new Uint8Array(bin.length);
+  for(let k=0;k<bin.length;k++) a[k]=bin.charCodeAt(k);
+  return new Blob([a],{type});
+}
+async function syncPush(){
+  const uid=user.id, mem=syncMem(uid), tok=await accessToken();
+  if(!tok) return;
+  // deletions first
+  for(const id of SYNC.del.slice()){
+    const { error } = await sb.from('scenes').update({ deleted:true, items:{}, updated_at:new Date().toISOString() }).eq('user_id',uid).eq('id',id);
+    if(error) throw error;
+    await sb.from('progress').delete().eq('user_id',uid).eq('scene_id',id);
+    await fetch('/api/img/'+encodeURIComponent(id), { method:'DELETE', headers:{ authorization:'Bearer '+tok } }).catch(()=>{});
+    SYNC.del=SYNC.del.filter(x=>x!==id); delete mem.scenes[id]; delete mem.img[id]; saveSyncMem();
+  }
+  // new or changed scenes (picture first, then the row)
+  const rows=[];
+  for(const sc of customs){
+    if(sc.owner && sc.owner!==uid) continue;
+    const g=sigOf(sc);
+    if(mem.scenes[sc.id]===g && sc.owner===uid) continue;
+    if(!mem.img[sc.id]){
+      if(!sc.img) continue;                                   // picture not on this device (yet)
+      const blob=dataUrlBlob(sc.img);
+      const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { method:'PUT', headers:{ authorization:'Bearer '+tok, 'content-type':blob.type }, body:blob });
+      if(r.status===400 || r.status===413){ console.warn('picture not accepted', sc.id, r.status); continue; }
+      if(!r.ok) throw new Error('upload '+r.status);
+      mem.img[sc.id]=true; saveSyncMem();
+    }
+    sc.owner=uid;
+    rows.push({ user_id:uid, id:sc.id, name:sc.name, w:sc.w, h:sc.h, items:sc.items||{}, image_path:`u/${uid}/${sc.id}`, deleted:false,
+      updated_at:new Date(sc.updatedAt||Date.now()).toISOString() });
+  }
+  if(rows.length){
+    const { error } = await sb.from('scenes').upsert(rows, { onConflict:'user_id,id' });
+    if(error) throw error;
+    rows.forEach(r=>{ const sc=customs.find(x=>x.id===r.id); if(sc) mem.scenes[r.id]=sigOf(sc); });
+    persistScenesQuiet();
+  }
+  // progress (the sample scene "tea" too)
+  const prows=[];
+  for(const [id,p] of Object.entries(progress)){
+    if(!p || (id!=='tea' && !customs.some(sc=>sc.id===id && sc.owner===uid))) continue;
+    const g=progSig(p); if(mem.prog[id]===g) continue;
+    if(!Object.keys(p.done||{}).length && !Object.keys(p.star||{}).length && mem.prog[id]===undefined) continue;
+    prows.push({ user_id:uid, scene_id:id, done:p.done||{}, star:p.star||{}, updated_at:new Date(p.updatedAt||Date.now()).toISOString() });
+  }
+  if(prows.length){
+    const { error } = await sb.from('progress').upsert(prows, { onConflict:'user_id,scene_id' });
+    if(error) throw error;
+    prows.forEach(r=>{ mem.prog[r.scene_id]=progSig(progress[r.scene_id]); });
+  }
+  saveSyncMem();
+}
+function syncSignedOut(){
+  // Signed out: this account's scenes leave this device (they stay in the account); unsynced ones stay.
+  const mem=SYNC.mem; let changed=false;
+  for(const sc of customs.slice()) if(sc.owner){ customs.splice(customs.indexOf(sc),1); forgetSceneLocal(sc.id); delete progress[sc.id]; changed=true; }
+  for(const id of Object.keys(mem.prog||{})) if(progress[id]){ delete progress[id]; changed=true; }
+  SYNC.mem={}; SYNC.del=[]; SYNC.at=0; SYNC.state='idle'; saveSyncMem();
+  if(changed) afterSyncChange();
+}
 
 // ---------- layout updates ----------
 const relayout=()=>{ updateTag(); updateOverlay(); positionQ(); };
@@ -2119,8 +2349,11 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
 
 // ---------- start ----------
 MQ.addEventListener('change',()=>{ if(S.view==='play'){ renderScene(); refresh(); } });
-if(!scenes().some(s=>s.id===S.sceneId)) S.sceneId='tea';
-fullRender();
+boot().finally(()=>{
+  if(!scenes().some(s=>s.id===S.sceneId)) S.sceneId='tea';
+  fullRender();
+  if(typeof syncStart==='function') syncStart();
+});
 })();
 </script>
 </body>
