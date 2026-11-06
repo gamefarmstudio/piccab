@@ -265,6 +265,10 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox input,.mbox textarea{display:block;width:100%;margin-top:4px;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;font-size:17px;color:var(--ink)}
 .mbox input.word{font-family:'Fredoka',sans-serif;font-size:20px}
 .mbox textarea{font-size:12px;height:140px;font-family:ui-monospace,monospace}
+.mbox .createrow{margin:4px 0 6px}
+.mbox .orline{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:16px 0 4px}
+.mbox .orline::before,.mbox .orline::after{content:"";flex:1;height:1px;background:var(--line)}
+.mbox.drop{outline:3px dashed var(--accent,#7c5cff);outline-offset:-8px}
 .mbox .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .mbox .row .sp{flex:1}
 .mbox p{margin:0 0 12px;line-height:1.5}
@@ -307,7 +311,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   <section id="homeView" hidden></section>
 
   <section id="libraryView" hidden>
-    <div class="ghead lh"><div><h2>คลังฉาก</h2><p id="libCount"></p></div><button id="importBtn" class="ghost" title="นำเข้าฉาก">📥 นำเข้า</button></div>
+    <div class="ghead lh"><div><h2>คลังฉาก</h2><p id="libCount"></p></div><button id="importBtn" class="ghost" title="เพิ่มรูปหรือนำเข้าฉาก">📥 นำเข้า</button></div>
     <div class="libbar">
       <input id="libSearch" type="search" placeholder="ค้นหาชื่อฉากหรือคำศัพท์ เช่น teapot, กาน้ำชา" aria-label="ค้นหาฉาก">
       <div class="seg" id="libFilters" role="group" aria-label="กรองฉาก">
@@ -379,7 +383,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 <div class="toast" id="toast" role="status"></div>
 <input type="file" id="fileImg" accept="image/*" hidden>
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
-<input type="file" id="fileJson" accept=".json,.txt,application/json,text/plain" hidden>
+<input type="file" id="fileJson" accept="image/*,.json,.txt,application/json,text/plain" hidden>
 
 <script type="text/template" id="tea-svg">
 <defs>
@@ -1533,40 +1537,50 @@ svg.addEventListener('pointercancel', ()=>{
   if(drag){ const it=scene().items[drag.id]; if(it) Object.assign(it, drag.o); layoutHs(drag.id); drag=null; updateOverlay(); }
 });
 
-// ---------- AI auto-labelling (Claude "sample" capability) ----------
-let aiReady=false, aiCtl=null, aiTimer=null;
-const samplePromise = (window.claude && typeof window.claude.use==='function')
-  ? Promise.resolve().then(()=>window.claude.use('sample')).catch(()=>null)
-  : Promise.resolve(null);
-samplePromise.then(async s=>{
-  if(!s) return;
-  try{ const l=await s.limits(); aiReady=!!(l && l.images); }catch(e){ aiReady=false; }
-  if(aiReady){ refresh(); if(S.view!=='play') renderGallery(); }
-});
+// ---------- AI auto-labelling (server: POST /api/scan → Claude API) ----------
+let aiReady=false, aiNeedCode=false, aiCtl=null, aiTimer=null;
+(location.protocol.startsWith('http') ? fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null))
+  .then(h=>{
+    if(!h || !h.ai) return;
+    aiReady=true; aiNeedCode=!!h.needCode;
+    refresh(); if(S.view!=='play') renderGallery();
+  });
 const LEVELS={
   easy:{th:'ง่าย (คำพื้นฐาน)', en:'beginner (CEFR A1–A2): very common everyday nouns'},
   mid:{th:'ปานกลาง', en:'intermediate (CEFR B1): everyday nouns plus some more specific names'},
   hard:{th:'ยาก (คำเฉพาะเจาะจง)', en:'upper-intermediate (CEFR B2–C1): precise, specific names of objects and their parts'}
 };
-function dataURLtoBlob(u){
-  const i=u.indexOf(','), head=u.slice(0,i), body=u.slice(i+1);
-  const mime=(head.match(/data:([^;,]+)/)||[])[1]||'image/jpeg';
-  const bin=atob(body), a=new Uint8Array(bin.length);
-  for(let k=0;k<bin.length;k++) a[k]=bin.charCodeAt(k);
-  return new Blob([a],{type:mime});
-}
 function aiErr(code){
   return ({
-    not_granted:'ไม่ได้อนุญาตให้ใช้ Claude — ยังวาดกรอบเองได้ตามปกติ',
-    sampling_disabled:'บัญชีนี้ใช้ AI ในหน้านี้ไม่ได้ — วาดกรอบเองได้ตามปกติ',
-    rate_limited:'ใช้ AI ถี่เกินไป หรือถึงขีดจำกัดการใช้งานแล้ว ลองใหม่ภายหลัง',
-    session_expired:'กรุณาเข้าสู่ระบบ Claude ใหม่ แล้วลองอีกครั้ง',
+    bad_code:'รหัสใช้ AI ไม่ถูกต้อง ลองใหม่อีกครั้ง',
+    rate_limited:'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่',
+    busy:'ตอนนี้ AI มีผู้ใช้งานมาก ลองใหม่ในอีกสักครู่',
+    out_of_credit:'เครดิต AI ของระบบหมดชั่วคราว — วาดกรอบเองได้ตามปกติ',
+    not_configured:'ระบบ AI ยังไม่พร้อมใช้งาน — วาดกรอบเองได้ตามปกติ',
+    bad_image:'ไฟล์รูปนี้ส่งให้ AI ไม่ได้ ลองใช้รูปอื่น',
+    image_too_large:'รูปใหญ่เกินไป ลองใช้รูปที่เล็กลง',
     image_rejected:'รูปนี้ส่งให้ AI ไม่ได้ ลองใช้รูปอื่น',
     refused:'AI วิเคราะห์รูปนี้ไม่ได้ ลองใช้รูปอื่น',
     invalid_json:'AI ตอบกลับมาไม่ครบ ลองกด ✨ ใหม่อีกครั้ง',
-    empty_completion:'AI ไม่ได้ตอบอะไรกลับมา ลองกด ✨ ใหม่อีกครั้ง',
-    prompt_too_large:'ข้อมูลใหญ่เกินไป ลองลดจำนวนคำ'
+    offline:'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'
   })[code] || 'เกิดข้อผิดพลาด ลองกด ✨ ใหม่อีกครั้ง';
+}
+// Ask once for the beta access code (stored on this device).
+function askCode(again){
+  return new Promise(res=>{
+    let ans=null;
+    modalClose=()=>res(ans);
+    const inp=el('input',{placeholder:'รหัสใช้ AI',autocapitalize:'none',spellcheck:'false',autocomplete:'off'});
+    const ok=()=>{ const v=inp.value.trim(); if(!v) return inp.focus(); ans=v; closeModal(); };
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') ok(); });
+    openModal(m=>m.append(
+      el('h3',{text:'🔑 รหัสใช้ AI'}),
+      el('p',{text: again ? 'รหัสไม่ถูกต้อง ลองพิมพ์อีกครั้ง' : 'ช่วงทดลอง ระบบ AI เปิดให้เฉพาะผู้ที่มีรหัส ใส่ครั้งเดียว เครื่องนี้จะจำไว้'}),
+      inp,
+      el('div',{class:'row'}, el('span',{class:'sp'}),
+        el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'ตกลง',onclick:ok}))));
+  });
 }
 function openAI(){
   const sc=scene(); if(sc.builtin) return;
@@ -1602,30 +1616,24 @@ function showBusy(on){
 }
 $('#aiStop').addEventListener('click',()=>{ if(aiCtl) aiCtl.abort(); });
 async function runAI({count=20, level='mid', replace=true}={}){
-  const sample=await samplePromise;
   const sc=scene();
-  if(!sample || !aiReady){ toast('ตอนนี้ใช้ AI ไม่ได้ — ลากกรอบบนรูปเพื่อใส่คำศัพท์เองได้'); return; }
+  if(!aiReady){ toast('ตอนนี้ใช้ AI ไม่ได้ — ลากกรอบบนรูปเพื่อใส่คำศัพท์เองได้'); return; }
   if(sc.builtin || aiCtl) return;
+  let code=store.get('pv-ai-code','');
+  if(aiNeedCode && !code){ code=await askCode(false); if(!code) return; store.set('pv-ai-code',code); }
   const existing = replace ? [] : Object.values(sc.items).map(i=>i.word);
-  const prompt =
-`You are building a picture-vocabulary game for Thai learners of English. Look at the attached image.
-
-Find up to ${count} different things that are clearly visible in the image and worth learning, at ${LEVELS[level].en} level. Prefer concrete things a learner can point at: objects, food, furniture, tools, clothing, animals, plants, vehicles, parts of the room or scene. Do not include people's names, brands, logos, or text printed in the image. If the image contains text labels or captions, ignore them: each box must surround the object itself, never a label.${existing.length ? '\nThese words are already in the game, so do not repeat them: '+existing.join(', ')+'.' : ''}
-
-For each thing give:
-- "word": the usual English name a learner's dictionary would use (British spelling, singular, lowercase), 1-4 words
-- "th": a short Thai meaning (a few words)
-- "alts": up to 3 other acceptable English answers (US spelling, close synonyms), or []
-- "box": [x0, y0, x1, y1], a tight bounding box around that thing, in coordinates normalised to 0-1000, where [0,0] is the top-left corner and [1000,1000] is the bottom-right corner of the image
-
-Use each word once. If the same kind of thing appears several times, box the clearest single one. Boxes of different things may overlap.
-
-Reply with only a JSON array, for example:
-[{"word":"teapot","th":"กาน้ำชา","alts":["tea pot"],"box":[512,380,690,560]}]`;
   aiCtl=new AbortController(); showBusy(true);
+  let retryCode=false;
   try{
-    const res=await sample.json(prompt, {images:[dataURLtoBlob(sc.img)], signal:aiCtl.signal});
-    const arr=Array.isArray(res)?res:(res && Array.isArray(res.items)?res.items:[]);
+    let r;
+    try{
+      r=await fetch('/api/scan',{method:'POST', signal:aiCtl.signal,
+        headers:{'content-type':'application/json', ...(code?{'x-piccab-code':code}:{})},
+        body:JSON.stringify({image:sc.img, count, level, existing})});
+    }catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok) throw {code:data.error||'error'};
+    const arr=Array.isArray(data.items)?data.items:[];
     if(replace) sc.items={};
     const seen=new Set(Object.values(sc.items).map(i=>norm(i.word)));
     let added=0;
@@ -1649,10 +1657,15 @@ Reply with only a JSON array, for example:
     if(scene()===sc){ renderScene(); refresh(); }
     toast(added ? `✨ ได้คำศัพท์ ${added} คำ — ตรวจดูกรอบ ลากย้าย/ปรับขนาด หรือแตะเพื่อแก้คำได้ แล้วกด ✓ เสร็จแล้ว` : 'AI ไม่พบสิ่งของใหม่ในรูปนี้', 6000);
   }catch(e){
-    const code=e && e.code;
-    if(code!=='cancelled') toast(aiErr(code), 5000);
-    if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed','images_unavailable'].includes(code)){ aiReady=false; refresh(); }
+    const c=e && e.code;
+    if(c==='bad_code'){ store.set('pv-ai-code',''); aiNeedCode=true; retryCode=true; }
+    else if(c!=='cancelled') toast(aiErr(c), 5000);
+    if(c==='not_configured'){ aiReady=false; refresh(); }
   }finally{ aiCtl=null; showBusy(false); }
+  if(retryCode){
+    const c2=await askCode(true);
+    if(c2){ store.set('pv-ai-code',c2); runAI({count, level, replace}); }
+  }
 }
 
 function openItemForm(id, rect, draftEl){
@@ -1706,6 +1719,9 @@ function loadImageFile(file){
 }
 async function onPickImage(e){
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  createSceneFromFile(f);
+}
+async function createSceneFromFile(f){
   try{
     const im=await loadImageFile(f);
     const nm=f.name.replace(/\.[^.]+$/,''); const sc={id:'s'+Date.now().toString(36), name:(/^(image|img|photo|IMG|DSC|PXL)[-_ ]?\d*/i.test(nm)||!nm ? 'ฉากใหม่ '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : nm).slice(0,40), img:im.src, w:im.w, h:im.h, items:{}};
@@ -1752,21 +1768,48 @@ function importData(text){
   customs.push(sc); saveScenes(); S.sceneId=sc.id; store.set('pv-scene',sc.id); help={}; used={};
   S.view='library'; fullRender(); toast('นำเข้าฉาก “'+sc.name+'” แล้ว ✓'); return true;
 }
+const isImageFile=f=>!!f && (/^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name||''));
+function importFile(f){
+  if(!f) return;
+  if(isImageFile(f)){ closeModal(); createSceneFromFile(f); return; }
+  const fr=new FileReader(); fr.onload=()=>{ if(importData(fr.result)) closeModal(); }; fr.readAsText(f);
+}
 function openImport(){
   openModal(m=>{
-    const ta=el('textarea',{placeholder:'วางข้อมูลฉากที่คัดลอกไว้ที่นี่…'});
-    m.append(el('h3',{text:'นำเข้าฉาก'}),
-      el('p',{text:'วางข้อมูลที่ได้จากปุ่ม “📋 คัดลอกข้อมูลฉาก” หรือเลือกไฟล์ที่บันทึกไว้'}), ta,
+    const ta=el('textarea',{placeholder:'วางข้อมูลฉากที่คัดลอกไว้ หรือวางรูป (Ctrl+V) ที่นี่…'});
+    m.append(el('h3',{text:'เพิ่มฉากใหม่'}),
+      el('p',{text: aiReady ? 'ใส่รูปแล้ว AI จะหาคำศัพท์ให้อัตโนมัติ' : 'ใส่รูปแล้วลากกรอบรอบสิ่งของเพื่อใส่คำศัพท์'}),
+      el('div',{class:'createrow'},
+        el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileCam').click(); }},'📷 ถ่ายรูป'),
+        el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileImg').click(); }},'🖼 เลือกรูป')),
+      el('div',{class:'orline',text:'หรือนำเข้าฉากที่บันทึกไว้'}),
+      el('p',{text:'วางข้อมูลจากปุ่ม “📋 คัดลอกข้อมูลฉาก” หรือเลือกไฟล์ (ลากรูปหรือไฟล์มาวางในกล่องนี้ก็ได้)'}), ta,
       el('div',{class:'row'},
         el('button',{text:'📄 เลือกไฟล์',onclick:()=>$('#fileJson').click()}),
         el('span',{class:'sp'}),
         el('button',{text:'ยกเลิก',onclick:closeModal}),
         el('button',{class:'primary',text:'นำเข้า',onclick:()=>{ if(importData(ta.value)) closeModal(); }})));
+    // paste an image (e.g. a screenshot) straight into the box
+    ta.addEventListener('paste',e=>{
+      const f=[...((e.clipboardData&&e.clipboardData.files)||[])].find(isImageFile);
+      if(f){ e.preventDefault(); importFile(f); }
+    });
   });
+  // on phones, don't pop the keyboard open over the photo buttons
+  if(matchMedia('(pointer:coarse)').matches) setTimeout(()=>{ if(document.activeElement && document.activeElement.tagName==='TEXTAREA') document.activeElement.blur(); },60);
 }
+// drag & drop an image or scene file onto the import box
+const mbox=$('#mbox');
+mbox.addEventListener('dragover',e=>{ if(mbox.querySelector('.orline') && e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ e.preventDefault(); mbox.classList.add('drop'); } });
+mbox.addEventListener('dragleave',e=>{ if(!mbox.contains(e.relatedTarget)) mbox.classList.remove('drop'); });
+mbox.addEventListener('drop',e=>{
+  mbox.classList.remove('drop');
+  if(!mbox.querySelector('.orline')) return;
+  const f=e.dataTransfer && e.dataTransfer.files[0]; if(!f) return;
+  e.preventDefault(); importFile(f);
+});
 $('#fileJson').addEventListener('change', e=>{
-  const f=e.target.files[0]; e.target.value=''; if(!f) return;
-  const fr=new FileReader(); fr.onload=()=>{ if(importData(fr.result)) closeModal(); }; fr.readAsText(f);
+  const f=e.target.files[0]; e.target.value=''; importFile(f);
 });
 
 // ---------- layout updates ----------

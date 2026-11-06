@@ -17,3 +17,7 @@ dist/
 # Supabase local
 supabase/.temp/
 supabase/.branches/
+
+# Cloudflare / wrangler
+.dev.vars
+.wrangler/

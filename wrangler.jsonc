@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "piccab",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+
+  // Static app files (index.html etc.). Requests that don't match a file fall
+  // through to the Worker, which handles /api/*.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // At most 6 AI scans per minute from one IP address.
+  "ratelimits": [
+    { "name": "SCAN_LIMITER", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } }
+  ],
+
+  // Preview deployments (pull requests) get their own, separate rate-limit counter.
+  "previews": {
+    "ratelimits": [
+      { "name": "SCAN_LIMITER", "namespace_id": "1002", "simple": { "limit": 6, "period": 60 } }
+    ]
+  },
+
+  // Keep variables set in the Cloudflare dashboard when deploying.
+  "keep_vars": true,
+
+  "observability": { "enabled": true }
+}
