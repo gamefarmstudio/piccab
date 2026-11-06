@@ -28,6 +28,7 @@ supabase/2026-11-shares.sql เพิ่มตาราง shares (ลิงก�
 supabase/2026-11-classes.sql เพิ่มตารางห้องเรียน (classes, class_members, class_items, class_progress) — ต้องรันหลัง shares; เปิด Anonymous sign-ins ใน Supabase ให้นักเรียนเข้าด้วยรหัส+ชื่อเล่น
 supabase/2026-11-leaderboard.sql เพิ่มสวิตช์ตารางอันดับในห้องเรียน
 supabase/2026-11-friends.sql ระบบเพื่อน (ไม่มีค้นหา/แชต, นักเรียนเป็นเพื่อนได้เฉพาะเพื่อนร่วมห้อง) — รายงานอยู่ในตาราง friend_reports
+supabase/2026-11-admin.sql  คอลัมน์ติดตามรายงาน (share_id, resolved_at, note) สำหรับหน้า 🛡️ ดูแลระบบ (/admin) — ตั้งตัวแปร ADMIN_EMAILS ใน Cloudflare
 public/vendor/qrcode-generator-2.0.4.js  QR (MIT) โหลดเฉพาะตอนเปิดหน้าเพื่อน
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
@@ -62,6 +63,8 @@ npx wrangler dev
 | `SCAN_CODE` | Secret | – | รหัสทดสอบ: ใช้ AI ได้โดยไม่ต้องล็อกอิน (ไม่ใช้เครดิต) — ลบออกเพื่อบังคับให้ล็อกอิน |
 | `SEND_EMAIL_HOOK_SECRET` | Secret | ล็อกอิน | secret ของ Supabase Send Email hook (`v1,whsec_…`) → URL `https://piccab.com/api/auth-email` |
 | `RESEND_API_KEY` | Secret | ล็อกอิน | คีย์ Resend (`re_…`) ส่งอีเมลรหัสเข้าสู่ระบบภาษาไทยจาก `no-reply@piccab.com` |
+| `ADMIN_EMAILS` | Text | – | อีเมลผู้ดูแล (คั่นด้วย ,) ที่เปิดหน้า /admin ได้ |
+| `ADMIN_NOTIFY_EMAIL` | Text | – | อีเมลที่รับแจ้งรายงาน (ค่าเริ่มต้น contact@piccab.com) |
 
 ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย
 

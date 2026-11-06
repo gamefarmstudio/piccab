@@ -81,11 +81,14 @@ export default {
     if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname === '/api/shares') return listShares(request, env);
     if (url.pathname === '/api/classes' || url.pathname.startsWith('/api/classes/')) return classes(request, env, url, ctx);
-    if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url);
+    if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url, ctx);
+    if (url.pathname === '/api/report/share') return reportShare(request, env, ctx);
+    if (url.pathname.startsWith('/api/admin/')) return admin(request, env, url);
     if (url.pathname === '/api/share' || url.pathname.startsWith('/api/share/')) return share(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
     if (/^\/s\/[A-Za-z0-9]{8,16}\/?$/.test(url.pathname)) return sharePage(request, env, url);
     if (/^\/c\/[A-Za-z2-9]{6}\/?$/.test(url.pathname)) return classPage(request, env, url);
+    if (url.pathname === '/admin' || url.pathname === '/admin/') return appPageWith(request, env, url, 'Piccab — ดูแลระบบ', 'Piccab');
     if (/^\/f\/[A-Za-z2-9]{8}\/?$/.test(url.pathname)) return appPageWith(request, env, url, 'เพิ่มเพื่อนบน Piccab', 'มีคนชวนคุณเป็นเพื่อนฝึกคำศัพท์อังกฤษบน Piccab — กดเพื่อเปิดแล้วยืนยัน');
     return env.ASSETS.fetch(request);
   },
@@ -292,7 +295,7 @@ export async function userInfo(request, env) {
   const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') || '');
   if (!m) return null;
   const token = m[1], now = Date.now(), hit = userCache.get(token);
-  if (hit && hit.until > now) return { uid: hit.uid, anon: hit.anon };
+  if (hit && hit.until > now) return { uid: hit.uid, anon: hit.anon, email: hit.email };
   let res;
   try {
     res = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/user`, {
@@ -303,10 +306,10 @@ export async function userInfo(request, env) {
   const u = await res.json().catch(() => null);
   const uid = u && typeof u.id === 'string' && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id : null;
   if (!uid) return null;
-  const anon = u.is_anonymous === true;
+  const anon = u.is_anonymous === true, email = typeof u.email === 'string' ? u.email.toLowerCase() : '';
   if (userCache.size > 500) userCache.clear();
-  userCache.set(token, { uid, anon, until: now + 5 * 60 * 1000 });
-  return { uid, anon };
+  userCache.set(token, { uid, anon, email, until: now + 5 * 60 * 1000 });
+  return { uid, anon, email };
 }
 
 // Delete everything the signed-in user has with us: pictures first, then the account
@@ -795,6 +798,113 @@ async function classes(request, env, url, ctx) {
     return error('db_error', 502);
   }
 }
+// ---------- reports → e-mail, and the admin API ----------
+// E-mail to the people who look after Piccab (ADMIN_NOTIFY_EMAIL, default contact@piccab.com) through Resend.
+export function adminMailHtml(title, rows, link) {
+  const tr = rows.map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#77728c;white-space:nowrap;vertical-align:top">${esc(k)}</td><td style="padding:6px 0">${esc(v)}</td></tr>`).join('');
+  return `<div style="font-family:Sarabun,system-ui,sans-serif;color:#2d2a5a;max-width:560px"><h2 style="margin:0 0 12px">⚠️ ${esc(title)}</h2><table style="border-collapse:collapse;font-size:15px">${tr}</table>`
+    + `<p style="margin:18px 0"><a href="${esc(link)}" style="background:#2d2a5a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">เปิดหน้าดูแลระบบ</a></p>`
+    + `<p style="color:#77728c;font-size:13px">ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้กดรายงาน</p></div>`;
+}
+function notifyAdmin(env, ctx, title, rows, origin) {
+  if (!env.RESEND_API_KEY) return;
+  const to = String(env.ADMIN_NOTIFY_EMAIL || 'contact@piccab.com').split(',').map(x => x.trim()).filter(Boolean);
+  const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${origin}/admin`;
+  const send = fetch('https://api.resend.com/emails', {
+    method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin'), text }),
+  }).then(r => { if (!r.ok) console.log('report mail failed', r.status); }).catch(e => console.log('report mail error', e && e.message));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(send);
+}
+// Anyone who opened a share link can report it (signed in or not); rate-limited per IP.
+async function reportShare(request, env, ctx) {
+  if (request.method !== 'POST') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'report:' + (request.headers.get('cf-connecting-ip') || 'x') }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+  const body = await request.json().catch(() => ({}));
+  const sid = String(body.share_id || ''), reason = String(body.reason || '').slice(0, 300);
+  const sh = SHARE_ID.test(sid) ? await getShare(env, sid).catch(() => null) : null;
+  if (!sh) return error('not_found', 404);
+  const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
+  try {
+    await q(env, 'friend_reports', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ reporter: who ? who.uid : null, reported: sh.owner, share_id: sid, reason }) });
+  } catch (e) { console.log('report share failed', e && e.message); return error('db_error', 502); }
+  const origin = new URL(request.url).origin;
+  notifyAdmin(env, ctx, `รายงานลิงก์แชร์: ${sh.name}`, [['ประเภท', 'รายงานลิงก์แชร์ (' + (sh.kind === 'deck' ? 'ชุดคำ' : 'ฉาก') + ')'], ['ลิงก์', `${origin}/s/${sid}`], ['เหตุผล', reason || '-'],
+    ['ผู้รายงาน', who ? (who.anon ? 'บัญชีนักเรียน' : 'ผู้ใช้ที่เข้าสู่ระบบ') : 'ไม่ได้เข้าสู่ระบบ']], origin);
+  return json({ ok: true });
+}
+// Admins: signed-in accounts whose e-mail is in ADMIN_EMAILS (comma-separated, a Worker variable).
+const isAdmin = (env, who) => !!(who && !who.anon && who.email && String(env.ADMIN_EMAILS || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean).includes(who.email));
+async function authAdmin(env, path, init = {}) {
+  const key = env.SUPABASE_SECRET_KEY;
+  return fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/admin/${path}`, { ...init, headers: { apikey: key, authorization: `Bearer ${key}`, 'content-type': 'application/json', ...(init.headers || {}) } });
+}
+async function banStatus(env, uid) {
+  const r = await authAdmin(env, `users/${uid}`).catch(() => null);
+  if (!r || !r.ok) return { exists: !!(r && r.status !== 404), banned: false };
+  const u = await r.json().catch(() => ({}));
+  return { exists: true, banned: !!(u.banned_until && Date.parse(u.banned_until) > Date.now()), anon: u.is_anonymous === true, email: u.email || '' };
+}
+async function admin(request, env, url) {
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const who = await userInfo(request, env);
+  if (!isAdmin(env, who)) return error('not_found', 404);                       // look like nothing is here
+  const parts = url.pathname.split('/').filter(Boolean);                         // api, admin, …
+  const m = request.method, what = parts[2], id = parts[3], act = parts[4];
+  const body = m === 'POST' ? await request.json().catch(() => ({})) : {};
+  try {
+    if (what === 'me' && m === 'GET') return json({ admin: true });
+    if (what === 'reports' && !id && m === 'GET') {
+      const all = url.searchParams.get('all') === '1';
+      const reps = await q(env, `friend_reports?select=*&order=created_at.desc&limit=200${all ? '' : '&resolved_at=is.null'}`) || [];
+      const ids = [...new Set(reps.flatMap(r => [r.reporter, r.reported]).filter(Boolean))];
+      const profs = ids.length ? await q(env, `friend_profiles?user_id=${inList(ids)}&select=user_id,nickname,code,student`) || [] : [];
+      const P = new Map(profs.map(p => [p.user_id, p]));
+      const counts = {};
+      for (const r of await q(env, 'friend_reports?select=reported') || []) if (r.reported) counts[r.reported] = (counts[r.reported] || 0) + 1;
+      const reported = [...new Set(reps.map(r => r.reported).filter(Boolean))].slice(0, 60);
+      const bans = Object.fromEntries(await Promise.all(reported.map(async u => [u, await banStatus(env, u)])));
+      const card = u => u ? { id: u, nickname: (P.get(u) || {}).nickname || null, code: (P.get(u) || {}).code || null, student: !!(P.get(u) || {}).student } : null;
+      return json({ reports: reps.map(r => ({ id: r.id, created_at: r.created_at, reason: r.reason, share_id: r.share_id || null, resolved_at: r.resolved_at || null, note: r.note || null,
+        reporter: card(r.reporter), reported: r.reported ? { ...card(r.reported), email: (bans[r.reported] && bans[r.reported].email) || null, anon: !!(bans[r.reported] && bans[r.reported].anon), reports: counts[r.reported] || 0, banned: !!(bans[r.reported] && bans[r.reported].banned), gone: !!(bans[r.reported] && !bans[r.reported].exists) } : null })) });
+    }
+    if (what === 'reports' && /^\d+$/.test(id || '') && !act && m === 'GET') {
+      const r = (await q(env, `friend_reports?id=eq.${id}&select=*`) || [])[0];
+      if (!r) return error('not_found', 404);
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const sent = r.reported && r.reporter ? await q(env, `friend_events?from_user=eq.${r.reported}&to_user=eq.${r.reporter}&created_at=gte.${since}&select=kind,data,created_at&order=created_at.desc&limit=50`) || [] : [];
+      const shares = r.reported ? await q(env, `shares?owner=eq.${r.reported}&select=id,kind,name,updated_at&order=updated_at.desc&limit=30`) || [] : [];
+      const classes = r.reported ? await q(env, `class_members?user_id=eq.${r.reported}&select=class_id,nickname`) || [] : [];
+      return json({ sent, shares, classes });
+    }
+    if (what === 'reports' && /^\d+$/.test(id || '') && act === 'resolve' && m === 'POST') {
+      await q(env, `friend_reports?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ resolved_at: body.reopen ? null : new Date().toISOString(), note: String(body.note || '').slice(0, 300) || null }) });
+      return json({ ok: true });
+    }
+    if (what === 'users' && UUID.test(id || '') && act === 'suspend' && m === 'POST') {
+      const on = body.on !== false;
+      const r = await authAdmin(env, `users/${id}`, { method: 'PUT', body: JSON.stringify({ ban_duration: on ? '876000h' : 'none' }) });
+      if (!r.ok) { console.log('ban failed', r.status); return error('ban_failed', 502); }
+      if (on) {                                                                   // out of friends right away
+        await q(env, `friendships?or=(a.eq.${id},b.eq.${id})`, { method: 'DELETE' });
+        await q(env, `friend_events?from_user=eq.${id}`, { method: 'DELETE' });   // (profile kept so reports still show the nickname)
+        for (const [t, v] of userCache) if (v.uid === id) userCache.delete(t);
+      }
+      return json({ ok: true, banned: on });
+    }
+    if (what === 'shares' && SHARE_ID.test(id || '') && m === 'DELETE') {
+      if (env.IMAGES) await deletePrefix(env, `s/${id}/`);
+      await q(env, `shares?id=eq.${id}`, { method: 'DELETE' });
+      return json({ ok: true });
+    }
+    return error('not_found', 404);
+  } catch (e) {
+    console.log('admin error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+
 // The app page with a generic preview (no personal details).
 async function appPageWith(request, env, url, title, desc) {
   const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
@@ -836,7 +946,7 @@ async function classmates(env, x, y) {
 }
 async function friendship(env, x, y) { const [a, b] = pair(x, y); return (await q(env, `friendships?a=eq.${a}&b=eq.${b}&select=*`) || [])[0] || null; }
 const dayStart = () => new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-async function friends(request, env, url) {
+async function friends(request, env, url, ctx) {
   if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
   const who = await userInfo(request, env);
   if (!who) return error('unauthorized', 401);
@@ -944,7 +1054,12 @@ async function friends(request, env, url) {
     }
     if (act === 'block' && m === 'DELETE') { await q(env, `friend_blocks?user_id=eq.${uid}&blocked=eq.${other}`, { method: 'DELETE' }); return json({ ok: true }); }
     if (act === 'report' && m === 'POST') {
-      await q(env, 'friend_reports', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ reporter: uid, reported: other, reason: String(body.reason || '').slice(0, 300) }) });
+      const reason = String(body.reason || '').slice(0, 300);
+      await q(env, 'friend_reports', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ reporter: uid, reported: other, reason }) });
+      const them = await friendProfile(env, other);
+      notifyAdmin(env, ctx, `รายงานผู้ใช้: ${them ? them.nickname : other.slice(0, 8)}`, [
+        ['ประเภท', 'รายงานเพื่อน'], ['ผู้ถูกรายงาน', them ? `${them.nickname} (รหัส ${them.code}${them.student ? ', บัญชีนักเรียน' : ''})` : other],
+        ['ผู้รายงาน', me.nickname + (who.anon ? ' (บัญชีนักเรียน)' : '')], ['เหตุผล', reason || '-']], url.origin);
       return json({ ok: true });
     }
     // cheers and sending need an accepted friendship (and no block)

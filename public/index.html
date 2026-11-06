@@ -272,6 +272,15 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .settings .legal{flex-basis:100%;font-size:13px;color:var(--muted)}
 .settings .legal a{color:var(--muted)}
 .mbox .consent{font-size:13px}
+.admcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:10px 0}
+.admcard.done{opacity:.7}
+.admcard p{margin:4px 0}
+.admtop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.admcard .pill.ok{background:#e3f4ea;color:var(--ok)}
+.admcard .pill.bad{background:#fde4ea;color:#a83250}
+.admev{font-size:14px;margin:6px 0}
+.admev ul{margin:2px 0 8px;padding-left:20px}
+#adminView .seg{margin:0 0 6px}
 .socialtabs{margin:16px 0 0}
 .socialtabs button{padding:8px 16px;position:relative}
 .nbadge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;margin-left:6px;line-height:1}
@@ -571,6 +580,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 
   <section id="wordsView" hidden></section>
   <section id="classView" hidden></section>
+  <section id="adminView" hidden></section>
 
   <div id="playView">
   <nav class="modes" id="modes">
@@ -1170,7 +1180,7 @@ function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}; const k=Object.
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
-  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#playView').hidden=g;
+  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#adminView').hidden=v!=='admin'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
   document.body.classList.toggle('gview', g);
@@ -1184,7 +1194,7 @@ function goHome(view){
   if(aiCtl) aiCtl.abort();
   closeQuiz(true); pinnedId=hoverId=null; flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
-  S.view=(view==='library'||view==='words'||view==='class')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
+  S.view=(view==='library'||view==='words'||view==='class'||view==='admin')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
   apReset();
@@ -1206,7 +1216,7 @@ function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-
 function sceneTime(sc){ return recent[sc.id] || (sc.builtin?0:(parseInt(sc.id.slice(1),36)||0)); }
 function byRecent(a,b){ return sceneTime(b)-sceneTime(a); }
 function greet(){ const h=new Date().getHours(); return h<11?'อรุณสวัสดิ์':h<16?'สวัสดีตอนบ่าย':'สวัสดีตอนเย็น'; }
-function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else if(S.view==='class') renderClass(); else renderHome(); }
+function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else if(S.view==='class') renderClass(); else if(S.view==='admin') renderAdmin(); else renderHome(); }
 
 function ago(ts){
   if(!ts) return 'ยังไม่เคยเปิด';
@@ -1603,7 +1613,7 @@ function openDeckAdder(d){
 function deckNameDialog(title, value, okText, onOk, ph, max){
   openModal(m=>{
     const inp=el('input',{maxlength:String(max||30),value:value||'',placeholder:ph||'เช่น เครื่องครัว, คำยาก, เตรียมสอบ','aria-label':title});
-    const go=()=>{ const v=inp.value.trim(); if(!v){ inp.focus(); return; } closeModal(); onOk(v); };
+    const go=()=>{ const v=inp.value.trim(); if(!v && !String(title).includes('ไม่บังคับ')){ inp.focus(); return; } closeModal(); onOk(v); };
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } });
     m.append(el('h3',{text:title}), inp,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), el('button',{class:'primary',text:okText,onclick:go})));
@@ -2771,6 +2781,7 @@ function openAccount(){
       aiCredits ? el('p',{class:'note',id:'creditNote',text:creditText()}) : null,
       el('div',{class:'row'},
         el('button',{text:'🔗 ลิงก์ที่แชร์',onclick:openMyShares}),
+        ADM.ok ? el('button',{text:'🛡️ ดูแลระบบ',onclick:()=>{ closeModal(); goHome('admin'); }}) : null,
         el('button',{text:'🔄 ซิงค์ตอนนี้',onclick:async e=>{ e.target.disabled=true; await syncNow(true); const n=$('#syncNote'); if(n) n.textContent=syncText(); e.target.disabled=false; }}),
         el('button',{class:'danger',text:'ออกจากระบบ',onclick:async e=>{
           e.target.disabled=true; e.target.textContent='กำลังบันทึก…';
@@ -2835,7 +2846,8 @@ if(sb){
     renderAcct();
     if(location.href.endsWith('#')){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }   // left over from the Google sign-in return
     if(user && user.id!==before){ setTimeout(()=>syncNow(true),0); if(aiCredits && !isStudent()) loadCredits(); setTimeout(reportClassProgress, 4000); if(store.get('pv-friends-on',false)) setTimeout(()=>loadFriends().then(()=>{ if(S.view==='class' && FR.tab==='friends') renderFriends(); }), 2500); }
-    if(!user && before){ FR.data=null; setSocialBadge(0); }   // signed in (or first load with a session)
+    if(!user && before){ FR.data=null; setSocialBadge(0); ADM.ok=false; }
+    if(user && user.id!==before && !isStudent()) checkAdmin();   // signed in (or first load with a session)
     if(!user && before){ aiLeft=null; CL.list=null; setTimeout(()=>syncSignedOut(),0); }
     // student accounts (room code + nickname) don't use AI; switch it back on after they sign out
     if(user && isStudent()){ if(aiReady){ aiReady=false; refresh(); if(S.view!=='play') renderGallery(); } }
@@ -3366,6 +3378,92 @@ async function openFriendLink(code){
   if(await ask('ขอเป็นเพื่อนกับเจ้าของรหัส '+code+'?','ขอเป็นเพื่อน')) requestFriend(code);
   else renderFriends();
 }
+// ---------- reporting a share link + 🛡️ admin (accounts listed in ADMIN_EMAILS on the server) ----------
+function openReportShare(id){
+  openModal(m=>{
+    const reasons=['รูปไม่เหมาะสม','คำศัพท์หรือคำแปลไม่เหมาะสม','มีข้อมูลส่วนตัวของคนอื่น','สแปมหรือโฆษณา','อื่น ๆ'];
+    const sel=el('select',{'aria-label':'เหตุผล'}); reasons.forEach(r=>sel.add(new Option(r,r)));
+    m.append(el('h3',{text:'⚠️ รายงานลิงก์นี้'}), el('label',{},'เหตุผล', sel),
+      el('p',{class:'note small',text:'ทีม Piccab จะตรวจสอบ และลบเนื้อหาที่ไม่เหมาะสม เด็ก ๆ ควรบอกครูหรือผู้ปกครองด้วยนะ'}),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), el('button',{class:'danger',text:'ส่งรายงาน',onclick:async e=>{
+        e.currentTarget.disabled=true;
+        const tok=user?await accessToken():null;
+        const r=await fetch('/api/report/share',{ method:'POST', headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body:JSON.stringify({ share_id:id, reason:sel.value }) }).catch(()=>null);
+        closeModal(); toast(r && r.ok ? 'ส่งรายงานแล้ว ขอบคุณที่ช่วยดูแลความปลอดภัย' : 'ส่งรายงานไม่สำเร็จ ลองใหม่อีกครั้ง', 4000); }})));
+  });
+}
+var ADM={ ok:false, all:false, data:null, open:{} };
+async function adminApi(method, path, body){
+  const tok=await accessToken();
+  const r=await fetch('/api/admin'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined });
+  const j=await r.json().catch(()=>({}));
+  return { ok:r.ok, status:r.status, j };
+}
+async function checkAdmin(){
+  const r=await adminApi('GET','/me').catch(()=>({ok:false}));
+  ADM.ok=!!r.ok;
+  if(ADM.ok && adminLinkWanted){ adminLinkWanted=false; goHome('admin'); }
+}
+async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?all=1':'')).catch(()=>({ok:false})); ADM.data = r.ok ? r.j : { error: r.status===404 ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'โหลดไม่สำเร็จ' }; }
+function renderAdmin(){
+  const v=$('#adminView'); v.innerHTML='';
+  v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🛡️ ดูแลระบบ'}), el('p',{text:'รายงานจากผู้ใช้ · ระงับบัญชี · ลบลิงก์แชร์'})),
+    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=null; renderAdmin(); }})));
+  if(!user || !ADM.ok){ v.append(el('p',{class:'libempty',text: user ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน'})); return; }
+  v.append(el('div',{class:'seg'},
+    el('button',{class:ADM.all?'':'on',text:'ยังไม่จัดการ',onclick:()=>{ ADM.all=false; ADM.data=null; renderAdmin(); }}),
+    el('button',{class:ADM.all?'on':'',text:'ทั้งหมด',onclick:()=>{ ADM.all=true; ADM.data=null; renderAdmin(); }})));
+  if(!ADM.data){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadAdmin().then(()=>{ if(S.view==='admin') renderAdmin(); }); return; }
+  if(ADM.data.error){ v.append(el('p',{class:'err',text:ADM.data.error})); return; }
+  const reps=ADM.data.reports;
+  if(!reps.length){ v.append(el('p',{class:'libempty',text: ADM.all ? 'ยังไม่มีรายงาน' : '🎉 ไม่มีรายงานที่ต้องจัดการ'})); return; }
+  const who=p=>p ? (p.nickname || '(ไม่มีชื่อเล่น)')+(p.code?` · รหัส ${p.code}`:'')+((p.student||p.anon)?' · บัญชีนักเรียน':'')+(p.email?` · ${p.email}`:'')+(p.gone?' · (ลบบัญชีแล้ว)':'')+` · id ${String(p.id).slice(0,8)}` : 'ไม่ได้เข้าสู่ระบบ';
+  reps.forEach(r=>{
+    const rd=r.reported;
+    const card=el('div',{class:'admcard'+(r.resolved_at?' done':'')},
+      el('div',{class:'admtop'}, el('span',{class:'pill',text:r.share_id?'🔗 ลิงก์แชร์':'👫 เพื่อน'}), el('span',{class:'note small',text:ago2(r.created_at)}),
+        r.resolved_at ? el('span',{class:'pill ok',text:'✓ ปิดเรื่องแล้ว'}) : null, rd && rd.banned ? el('span',{class:'pill bad',text:'🚫 ระงับแล้ว'}) : null),
+      el('p',{}, el('b',{text:'ผู้ถูกรายงาน: '}), who(rd), rd ? el('span',{class:'note small',text:` (ถูกรายงานทั้งหมด ${rd.reports} ครั้ง)`}) : null),
+      el('p',{}, el('b',{text:'ผู้รายงาน: '}), who(r.reporter)),
+      el('p',{}, el('b',{text:'เหตุผล: '}), r.reason||'-'),
+      r.note ? el('p',{class:'note small',text:'บันทึก: '+r.note}) : null);
+    if(r.share_id) card.append(el('p',{}, el('a',{href:'/s/'+r.share_id,target:'_blank',rel:'noopener',text:'เปิดลิงก์ที่ถูกรายงาน ↗'}), ' · ',
+      el('button',{class:'linkbtn small danger-link',text:'🗑 ลบลิงก์นี้',onclick:()=>adminDeleteShare(r.share_id)})));
+    const ev=el('div',{class:'admev'});
+    const acts=el('div',{class:'row'},
+      el('button',{text:'🔍 ดูหลักฐาน',onclick:async e=>{ const b=e.currentTarget; b.disabled=true; await adminEvidence(r, ev); b.disabled=false; }}),
+      rd ? el('button',{class:rd.banned?'':'danger',text:rd.banned?'ยกเลิกระงับ':'🚫 ระงับบัญชี',onclick:()=>adminSuspend(rd, !rd.banned)}) : null,
+      el('span',{class:'sp'}),
+      el('button',{class:r.resolved_at?'':'primary',text:r.resolved_at?'เปิดเรื่องใหม่':'✓ ปิดเรื่อง',onclick:()=>adminResolve(r)}));
+    card.append(ev, acts); v.append(card);
+  });
+}
+async function adminEvidence(r, box){
+  box.innerHTML=''; box.append(el('p',{class:'note small',text:'กำลังโหลด…'}));
+  const x=await adminApi('GET','/reports/'+r.id).catch(()=>({ok:false}));
+  box.innerHTML='';
+  if(!x.ok){ box.append(el('p',{class:'err',text:'โหลดหลักฐานไม่สำเร็จ'})); return; }
+  const d=x.j;
+  box.append(el('p',{}, el('b',{text:'สิ่งที่ส่งถึงผู้รายงาน (30 วัน): '}), d.sent.length ? '' : 'ไม่มี'));
+  if(d.sent.length) box.append(el('ul',{}, ...d.sent.map(e=>el('li',{}, e.kind==='cheer' ? (CHEER_TEXT[e.data.cheer]||e.data.cheer) : el('span',{}, `${e.data.kind==='deck'?'ชุดคำ':'ฉาก'} “${e.data.name}” `, el('a',{href:'/s/'+e.data.share_id,target:'_blank',rel:'noopener',text:'เปิด ↗'})), el('span',{class:'note small',text:' · '+ago2(e.created_at)})))));
+  box.append(el('p',{}, el('b',{text:`ลิงก์แชร์ของผู้ใช้นี้ (${d.shares.length}): `}), d.shares.length ? '' : 'ไม่มี'));
+  if(d.shares.length) box.append(el('ul',{}, ...d.shares.map(sh=>el('li',{}, `${sh.kind==='deck'?'📚':'🖼️'} ${sh.name} `, el('a',{href:'/s/'+sh.id,target:'_blank',rel:'noopener',text:'เปิด ↗'}), ' ',
+    el('button',{class:'linkbtn small danger-link',text:'ลบ',onclick:()=>adminDeleteShare(sh.id)})))));
+  box.append(el('p',{class:'note small',text:`อยู่ในห้องเรียน ${d.classes.length} ห้อง`+(d.classes.length?' (ชื่อในห้อง: '+d.classes.map(c=>c.nickname).join(', ')+')':'')}));
+}
+async function adminSuspend(rd, on){
+  if(!(await ask(on ? `ระงับบัญชี “${rd.nickname||rd.id.slice(0,8)}”? จะเข้าสู่ระบบไม่ได้ และถูกนำออกจากเพื่อนทั้งหมด` : `ยกเลิกการระงับบัญชี “${rd.nickname||''}”?`, on?'ระงับบัญชี':'ยกเลิกระงับ'))) return;
+  const r=await adminApi('POST',`/users/${rd.id}/suspend`,{ on }); toast(r.ok ? (on?'ระงับบัญชีแล้ว':'ยกเลิกระงับแล้ว') : 'ทำไม่สำเร็จ ลองใหม่'); ADM.data=null; renderAdmin();
+}
+async function adminDeleteShare(id){
+  if(!(await ask('ลบลิงก์แชร์นี้? คนที่มีลิงก์จะเปิดไม่ได้อีก','ลบลิงก์'))) return;
+  const r=await adminApi('DELETE','/shares/'+id); toast(r.ok?'ลบลิงก์แล้ว':'ลบไม่สำเร็จ'); ADM.data=null; renderAdmin();
+}
+function adminResolve(r){
+  if(r.resolved_at){ adminApi('POST',`/reports/${r.id}/resolve`,{ reopen:true }).then(()=>{ ADM.data=null; renderAdmin(); }); return; }
+  deckNameDialog('ปิดเรื่อง (บันทึกสั้น ๆ ไม่บังคับ)', '', 'ปิดเรื่อง', async note=>{ await adminApi('POST',`/reports/${r.id}/resolve`,{ note }); ADM.data=null; renderAdmin(); }, 'เช่น ระงับบัญชีแล้ว / ไม่พบปัญหา', 300);
+}
+var adminLinkWanted=/^\/admin\/?$/.test(location.pathname);
 // ---------- share links (piccab.com/s/<id>) ----------
 // A link is a snapshot: the server copies the words and pictures when you share (or update) it.
 let myShares=store.get('pv-shares',{}); if(typeof myShares!=='object'||!myShares) myShares={};
@@ -3506,7 +3604,8 @@ async function openSharedLink(id){
         el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('div',{class:'pv-fig sharefig'}, el('img',{alt:'',src: pic ? `/api/share/${id}/img/${pic.id}` : sceneImg(BUILTIN[0])})),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ไว้ทีหลัง',onclick:closeModal}), go),
-      el('p',{class:'note small',text: already ? 'คุณเก็บลิงก์นี้ไว้แล้ว' : 'ฉากจะถูกเก็บในเครื่องนี้ (และในบัญชี ถ้าเข้าสู่ระบบ) ลบได้ทุกเมื่อ'}));
+      el('p',{class:'note small',text: already ? 'คุณเก็บลิงก์นี้ไว้แล้ว' : 'ฉากจะถูกเก็บในเครื่องนี้ (และในบัญชี ถ้าเข้าสู่ระบบ) ลบได้ทุกเมื่อ'}),
+      el('p',{class:'note small'}, el('button',{class:'linkbtn small danger-link',text:'⚠️ รายงานเนื้อหาไม่เหมาะสม',onclick:()=>openReportShare(id)})));
   });
 }
 const blobToDataUrl=b=>new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); });
@@ -3847,6 +3946,7 @@ boot().finally(()=>{
   if(sharedLinkId) setTimeout(()=>openSharedLink(sharedLinkId), 150);
   if(classLinkCode){ try{ history.replaceState(null,'','/'); }catch(e){} setTimeout(()=>{ FR.tab='class'; goHome('class'); openJoinClass(classLinkCode); }, 400); }
   if(friendLinkCode) setTimeout(()=>openFriendLink(friendLinkCode), 1500);
+  if(adminLinkWanted){ try{ history.replaceState(null,'','/'); }catch(e){} setTimeout(()=>{ if(adminLinkWanted && !user){ adminLinkWanted=false; openLogin(); toast('เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน', 4000); } }, 2500); }
 });
 })();
 </script>
