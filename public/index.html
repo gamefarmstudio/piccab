@@ -1744,11 +1744,12 @@ svg.addEventListener('pointercancel', ()=>{
 });
 
 // ---------- AI auto-labelling (server: POST /api/scan → Claude API) ----------
-let aiReady=false, aiNeedCode=false, aiCtl=null, aiTimer=null;
+let aiReady=false, aiNeedCode=false, aiCredits=false, aiMonthly=30, aiLeft=null, aiCtl=null, aiTimer=null;
 (location.protocol.startsWith('http') ? fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null))
   .then(h=>{
     if(!h || !h.ai) return;
-    aiReady=true; aiNeedCode=!!h.needCode;
+    aiReady=true; aiNeedCode=!!h.needCode; aiCredits=!!h.credits && !!sb; aiMonthly=h.monthly||30;
+    if(aiCredits && user) loadCredits();
     refresh(); if(S.view!=='play') renderGallery();
   });
 const LEVELS={
@@ -1759,6 +1760,8 @@ const LEVELS={
 function aiErr(code){
   return ({
     bad_code:'รหัสใช้ AI ไม่ถูกต้อง ลองใหม่อีกครั้ง',
+    login_required:'เข้าสู่ระบบเพื่อใช้ AI',
+    no_credits:'เครดิต AI เดือนนี้หมดแล้ว',
     rate_limited:'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่',
     busy:'ตอนนี้ AI มีผู้ใช้งานมาก ลองใหม่ในอีกสักครู่',
     out_of_credit:'เครดิต AI ของระบบหมดชั่วคราว — วาดกรอบเองได้ตามปกติ',
@@ -1800,6 +1803,7 @@ function openAI(){
     m.append(
       el('h3',{text:'✨ ให้ AI หาคำศัพท์ในรูป'}),
       el('p',{text:'AI จะดูรูป ตีกรอบรอบสิ่งของ และใส่คำศัพท์พร้อมคำแปลให้ จากนั้นคุณแก้ไขหรือย้ายกรอบได้'}),
+      (aiCredits && user && typeof aiLeft==='number') ? el('p',{class:'note',text:`✨ เครดิต AI เดือนนี้เหลือ ${aiLeft} / ${aiMonthly} ครั้ง (ใช้ 1 ครั้งต่อรูป)`}) : null,
       el('label',{},'จำนวนคำสูงสุด', cnt),
       el('label',{},'ระดับคำศัพท์', lv),
       has ? el('div',{}, el('label',{class:'opt'}, add, 'เพิ่มต่อจากคำที่มีอยู่ ('+has+' คำ)'), el('label',{class:'opt'}, rep, 'ลบคำเดิมทั้งหมดแล้วสร้างใหม่')) : null,
@@ -1825,8 +1829,18 @@ async function runAI({count=20, level='mid', replace=true}={}){
   const sc=scene();
   if(!aiReady){ toast('ตอนนี้ใช้ AI ไม่ได้ — ลากกรอบบนรูปเพื่อใส่คำศัพท์เองได้'); return; }
   if(sc.builtin || aiCtl) return;
-  let code=store.get('pv-ai-code','');
-  if(aiNeedCode && !code){ code=await askCode(false); if(!code) return; store.set('pv-ai-code',code); }
+  // Signed-in users use their monthly credits; otherwise sign in (or a tester's access code).
+  const tok = (aiCredits && user) ? await accessToken() : null;
+  let code = tok ? '' : store.get('pv-ai-code','');
+  if(!tok){
+    if(aiCredits && !(aiNeedCode && code)){
+      const how = await askLoginForAI(); if(!how) return;
+      if(how==='login'){ openLogin(); return; }
+      code = how;
+    } else if(aiNeedCode && !code){ code=await askCode(false); if(!code) return; }
+    if(code) store.set('pv-ai-code',code);
+  }
+  if(tok && aiLeft===0){ toast(`เครดิต AI เดือนนี้หมดแล้ว (${aiMonthly} ครั้ง/เดือน) — เริ่มใหม่วันที่ 1 ของเดือนหน้า ระหว่างนี้ลากกรอบใส่คำเองได้`, 6000); return; }
   const existing = replace ? [] : Object.values(sc.items).map(i=>i.word);
   aiCtl=new AbortController(); showBusy(true);
   let retryCode=false;
@@ -1834,10 +1848,11 @@ async function runAI({count=20, level='mid', replace=true}={}){
     let r;
     try{
       r=await fetch('/api/scan',{method:'POST', signal:aiCtl.signal,
-        headers:{'content-type':'application/json', ...(code?{'x-piccab-code':code}:{})},
+        headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})},
         body:JSON.stringify({image:sc.img, count, level, existing})});
     }catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
     const data=await r.json().catch(()=>({}));
+    if(typeof data.credits_left==='number') aiLeft=data.credits_left;
     if(!r.ok) throw {code:data.error||'error'};
     const arr=Array.isArray(data.items)?data.items:[];
     if(replace) sc.items={};
@@ -1861,10 +1876,12 @@ async function runAI({count=20, level='mid', replace=true}={}){
     }
     saveScenes(); help={}; used={}; if(replace){ progress[sc.id]={done:{},star:{}}; saveProg(); }
     if(scene()===sc){ renderScene(); refresh(); }
-    toast((added ? `✨ ได้คำศัพท์ ${added} คำ — ตรวจดูกรอบ ลากย้าย/ปรับขนาด หรือแตะเพื่อแก้คำได้ แล้วกด ✓ เสร็จแล้ว` : 'AI ไม่พบสิ่งของใหม่ในรูปนี้')+(data.model?` · AI: ${data.model}`:''), 6000);
+    toast((added ? `✨ ได้คำศัพท์ ${added} คำ — ตรวจดูกรอบ ลากย้าย/ปรับขนาด หรือแตะเพื่อแก้คำได้ แล้วกด ✓ เสร็จแล้ว` : 'AI ไม่พบสิ่งของใหม่ในรูปนี้')+(data.model?` · AI: ${data.model}`:'')+(typeof data.credits_left==='number'?` · เครดิต AI เหลือ ${data.credits_left}`:''), 6000);
   }catch(e){
     const c=e && e.code;
     if(c==='bad_code'){ store.set('pv-ai-code',''); aiNeedCode=true; retryCode=true; }
+    else if(c==='login_required'){ store.set('pv-ai-code',''); openLogin(); toast('เข้าสู่ระบบเพื่อใช้ AI', 4000); }
+    else if(c==='no_credits'){ aiLeft=0; toast(`เครดิต AI เดือนนี้หมดแล้ว (${aiMonthly} ครั้ง/เดือน) — เริ่มใหม่วันที่ 1 ของเดือนหน้า ระหว่างนี้ลากกรอบใส่คำเองได้`, 6000); }
     else if(c!=='cancelled') toast(aiErr(c), 5000);
     if(c==='not_configured'){ aiReady=false; refresh(); }
   }finally{ aiCtl=null; showBusy(false); }
@@ -2103,11 +2120,36 @@ function openCode(email){
       again);
   });
 }
+// Credits left this month (a new month refills to the monthly allowance on the next scan).
+async function loadCredits(){
+  if(!sb || !user) return;
+  const { data, error } = await sb.from('profiles').select('ai_credits,ai_credits_month').maybeSingle();
+  if(error || !data) return;
+  const m=new Date(), thisMonth=`${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-01`;
+  aiLeft = (String(data.ai_credits_month) < thisMonth) ? Math.max(data.ai_credits, aiMonthly) : data.ai_credits;
+  const n=$('#creditNote'); if(n) n.textContent=creditText();
+}
+const creditText=()=> typeof aiLeft==='number' ? `✨ เครดิต AI เดือนนี้: เหลือ ${aiLeft} / ${aiMonthly} ครั้ง` : '✨ เครดิต AI: กำลังโหลด…';
+function askLoginForAI(){
+  return new Promise(res=>{
+    let ans=null; modalClose=()=>res(ans);
+    const codeIn=el('input',{placeholder:'รหัสทดสอบ (ถ้ามี)',autocapitalize:'none',spellcheck:'false',autocomplete:'off'});
+    openModal(m=>m.append(
+      el('h3',{text:'✨ เข้าสู่ระบบเพื่อใช้ AI'}),
+      el('p',{text:`สมาชิกใช้ AI หาคำศัพท์ได้ฟรี ${aiMonthly} รูปต่อเดือน และฉากจะเก็บในบัญชี ใช้ได้ทุกเครื่อง`}),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'👤 เข้าสู่ระบบ / สมัคร',onclick:()=>{ ans='login'; closeModal(); }})),
+      aiNeedCode ? el('div',{class:'orline',text:'หรือใช้รหัสทดสอบ'}) : null,
+      aiNeedCode ? el('div',{class:'row'}, codeIn, el('button',{text:'ใช้รหัส',onclick:()=>{ const v=codeIn.value.trim(); if(!v) return codeIn.focus(); ans=v; closeModal(); }})) : null));
+  });
+}
 function openAccount(){
+  if(aiCredits) loadCredits();
   openModal(m=>{
     m.append(el('h3',{text:'บัญชีของฉัน'}),
       el('p',{}, 'เข้าสู่ระบบด้วย ', el('b',{text:user.email||''})),
       el('p',{class:'note',id:'syncNote',text:syncText()}),
+      aiCredits ? el('p',{class:'note',id:'creditNote',text:creditText()}) : null,
       el('div',{class:'row'},
         el('button',{text:'🔄 ซิงค์ตอนนี้',onclick:async e=>{ e.target.disabled=true; await syncNow(true); const n=$('#syncNote'); if(n) n.textContent=syncText(); e.target.disabled=false; }}),
         el('button',{class:'danger',text:'ออกจากระบบ',onclick:async e=>{
@@ -2124,8 +2166,8 @@ if(sb){
     const before = user && user.id;
     user = session && session.user || null;
     renderAcct();
-    if(user && user.id!==before) setTimeout(()=>syncNow(true),0);        // signed in (or first load with a session)
-    if(!user && before) setTimeout(()=>syncSignedOut(),0);
+    if(user && user.id!==before){ setTimeout(()=>syncNow(true),0); if(aiCredits) loadCredits(); }   // signed in (or first load with a session)
+    if(!user && before){ aiLeft=null; setTimeout(()=>syncSignedOut(),0); }
     if(event==='SIGNED_IN' && !$('#modal').hidden && $('#mbox .code')){ closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000); }  // signed in via the e-mail link in another tab
   });
 }
@@ -2157,7 +2199,7 @@ function syncStart(){
 async function syncNow(pull){
   if(!sb || !user || !SYNC.ready) return;
   if(SYNC.busy){ SYNC.again=true; return; }
-  SYNC.busy=true; SYNC.state='busy';
+  SYNC.busy=true; SYNC.state='busy'; { const n=$('#syncNote'); if(n) n.textContent=syncText(); }
   try{
     if(pull) await syncPull();
     await syncPush();
@@ -2167,6 +2209,7 @@ async function syncNow(pull){
     clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(true), 30000);
   }finally{
     SYNC.busy=false;
+    const n=$('#syncNote'); if(n) n.textContent=syncText();
     if(SYNC.again){ SYNC.again=false; syncSoon(); }
   }
 }
