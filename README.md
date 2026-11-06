@@ -15,6 +15,7 @@
 ```
 public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้ในเว็บเอง
 public/fonts/      ฟอนต์ Sarabun + Fredoka (OFL) เก็บในเว็บเอง ไม่โหลดจาก Google Fonts
+public/sw.js       service worker: เปิดแอปได้แม้ออฟไลน์ (หน้าเว็บ network-first, ไฟล์ static จาก cache, ไม่ cache /api/*) — แก้รายการไฟล์แล้วเปลี่ยน VERSION
 public/privacy.html, public/terms.html, public/legal.css  นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน (/privacy, /terms)
 public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
