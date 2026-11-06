@@ -1359,7 +1359,12 @@ function renderChips(){
     chips.append(el('button',{class:'chip all',text:`📋 ทั้งหมด (${ids().length})`,onclick:openWordSheet}));
     chips.scrollLeft=keepScroll;
     const on=chips.querySelector('.chip.on');
-    if(on) requestAnimationFrame(()=>chips.scrollTo({left:on.offsetLeft-(chips.clientWidth-on.offsetWidth)/2, behavior:'smooth'}));
+    // Keep the strip still: only scroll when the chosen word is out of view, and only as far as needed.
+    if(on){
+      const pad=24, l=on.offsetLeft, r=l+on.offsetWidth, vl=chips.scrollLeft, vr=vl+chips.clientWidth;
+      const to = l<vl+pad ? l-pad : r>vr-pad ? r-chips.clientWidth+pad : null;
+      if(to!=null) chips.scrollTo({left:to, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+    }
   }
 }
 // Phones: the full word list (with Thai meanings in learn mode) in a sheet from the bottom.
