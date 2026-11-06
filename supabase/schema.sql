@@ -223,6 +223,11 @@ create table if not exists public.friend_reports (
   reason      text not null default '' check (char_length(reason) <= 300),
   created_at  timestamptz not null default now()
 );
+-- Reports: which share link (if any), and the admin's follow-up.
+alter table public.friend_reports add column if not exists share_id    text;
+alter table public.friend_reports add column if not exists resolved_at timestamptz;
+alter table public.friend_reports add column if not exists note        text check (char_length(note) <= 300);
+create index if not exists friend_reports_open_idx on public.friend_reports (created_at desc) where resolved_at is null;
 alter table public.friend_profiles enable row level security;
 alter table public.friendships     enable row level security;
 alter table public.friend_blocks   enable row level security;
