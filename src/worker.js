@@ -81,10 +81,12 @@ export default {
     if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname === '/api/shares') return listShares(request, env);
     if (url.pathname === '/api/classes' || url.pathname.startsWith('/api/classes/')) return classes(request, env, url, ctx);
+    if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url);
     if (url.pathname === '/api/share' || url.pathname.startsWith('/api/share/')) return share(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
     if (/^\/s\/[A-Za-z0-9]{8,16}\/?$/.test(url.pathname)) return sharePage(request, env, url);
     if (/^\/c\/[A-Za-z2-9]{6}\/?$/.test(url.pathname)) return classPage(request, env, url);
+    if (/^\/f\/[A-Za-z2-9]{8}\/?$/.test(url.pathname)) return appPageWith(request, env, url, 'เพิ่มเพื่อนบน Piccab', 'มีคนชวนคุณเป็นเพื่อนฝึกคำศัพท์อังกฤษบน Piccab — กดเพื่อเปิดแล้วยืนยัน');
     return env.ASSETS.fetch(request);
   },
 };
@@ -793,6 +795,184 @@ async function classes(request, env, url, ctx) {
     return error('db_error', 502);
   }
 }
+// The app page with a generic preview (no personal details).
+async function appPageWith(request, env, url, title, desc) {
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  let html = await page.text();
+  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>
+<meta property="og:type" content="website"><meta property="og:site_name" content="Piccab"><meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(url.origin + '/icon-512.png')}">`);
+  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
+}
+
+// ---------- friends (👫) ----------
+// No search and no chat: friends are added with a code (in person / QR) and must accept; messages are
+// a fixed set of cheers; a scene sent by a friend is only opened if the receiver accepts it.
+// Student accounts (no e-mail) can only be friends with classmates.
+//   GET    /api/friends                     -> { me, friends, incoming, outgoing, blocked, events }
+//   POST   /api/friends/me      {nickname?, stats?, regenerate?}   (joining = making a profile)
+//   DELETE /api/friends/me                  (leave friends: profile, friendships, events)
+//   POST   /api/friends/request {code}
+//   POST   /api/friends/<id>/accept   DELETE /api/friends/<id>   (accept / decline / cancel / remove)
+//   POST   /api/friends/<id>/block    DELETE /api/friends/<id>/block
+//   POST   /api/friends/<id>/report {reason}
+//   POST   /api/friends/<id>/cheer  {kind}       POST /api/friends/<id>/send {share_id}
+//   POST   /api/friends/events/seen {ids}   POST /api/friends/events/<id>/decline
+const CHEERS = { clap: '👏 เก่งมาก!', fire: '🔥 มาทบทวนกันเถอะ', strong: '💪 สู้ๆ นะ', star: '⭐ ได้ดาวเยอะเลย' };
+const FRIEND_CODE = /^[A-Z2-9]{8}$/, UUID = /^[0-9a-f-]{36}$/i;
+const MAX_FRIENDS = 200, MAX_OUTGOING = 50, CHEERS_PER_DAY = 5, SENDS_PER_DAY = 20;
+const newFriendCode = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), x => CODE_ABC[x % 32]).join('');
+const pair = (x, y) => (x < y ? [x, y] : [y, x]);
+async function friendProfile(env, uid) { return (await q(env, `friend_profiles?user_id=eq.${uid}&select=*`) || [])[0] || null; }
+async function blockedEither(env, x, y) {
+  const r = await q(env, `friend_blocks?or=(and(user_id.eq.${x},blocked.eq.${y}),and(user_id.eq.${y},blocked.eq.${x}))&select=user_id`) || [];
+  return r.length > 0;
+}
+async function classmates(env, x, y) {
+  const mx = (await q(env, `class_members?user_id=eq.${x}&select=class_id`) || []).map(r => r.class_id);
+  if (!mx.length) return false;
+  const my = await q(env, `class_members?user_id=eq.${y}&class_id=${inList(mx)}&select=class_id`) || [];
+  return my.length > 0;
+}
+async function friendship(env, x, y) { const [a, b] = pair(x, y); return (await q(env, `friendships?a=eq.${a}&b=eq.${b}&select=*`) || [])[0] || null; }
+const dayStart = () => new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+async function friends(request, env, url) {
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const who = await userInfo(request, env);
+  if (!who) return error('unauthorized', 401);
+  const uid = who.uid, parts = url.pathname.split('/').filter(Boolean);   // api, friends, <x>, <action>
+  const m = request.method, x = parts[2], act = parts[3];
+  const body = (m === 'POST' || m === 'PATCH') ? await request.json().catch(() => ({})) : {};
+  try {
+    if (!x && m === 'GET') {
+      const me = await friendProfile(env, uid);
+      if (!me) return json({ me: null });
+      const rows = await q(env, `friendships?or=(a.eq.${uid},b.eq.${uid})&select=*`) || [];
+      const blocks = await q(env, `friend_blocks?user_id=eq.${uid}&select=blocked`) || [];
+      const ids = [...new Set(rows.map(r => (r.a === uid ? r.b : r.a)).concat(blocks.map(b => b.blocked)))];
+      const evs = await q(env, `friend_events?to_user=eq.${uid}&created_at=gte.${new Date(Date.now() - 30 * 86400000).toISOString()}&select=id,from_user,kind,data,seen,created_at&order=created_at.desc&limit=60`) || [];
+      const evIds = [...new Set(evs.map(e => e.from_user))];
+      const all = [...new Set(ids.concat(evIds))];
+      const profs = all.length ? await q(env, `friend_profiles?user_id=${inList(all)}&select=user_id,nickname,streak,week_words,total_words,updated_at`) || [] : [];
+      const P = new Map(profs.map(p => [p.user_id, p]));
+      const card = id => { const p = P.get(id) || {}; return { id, nickname: p.nickname || '(ไม่มีชื่อ)' }; };
+      const stats = id => { const p = P.get(id) || {}; return { ...card(id), streak: p.streak || 0, week_words: p.week_words || 0, total_words: p.total_words || 0, updated_at: p.updated_at || null }; };
+      const blockedSet = new Set(blocks.map(b => b.blocked));
+      const friendSet = new Set(rows.filter(r => r.status === 'accepted').map(r => (r.a === uid ? r.b : r.a)));
+      return json({
+        me: { code: me.code, nickname: me.nickname, student: !!me.student },
+        friends: rows.filter(r => r.status === 'accepted').map(r => stats(r.a === uid ? r.b : r.a)).sort((p, q2) => q2.week_words - p.week_words),
+        incoming: rows.filter(r => r.status === 'pending' && r.requested_by !== uid).map(r => card(r.a === uid ? r.b : r.a)),
+        outgoing: rows.filter(r => r.status === 'pending' && r.requested_by === uid).map(r => card(r.a === uid ? r.b : r.a)),
+        blocked: blocks.map(b => card(b.blocked)),
+        events: evs.filter(e => !blockedSet.has(e.from_user) && friendSet.has(e.from_user)).map(e => ({ id: e.id, from: card(e.from_user), kind: e.kind, data: e.data, seen: e.seen, created_at: e.created_at })),
+      });
+    }
+    if (x === 'me' && m === 'POST') {
+      const cur = await friendProfile(env, uid);
+      const nickname = body.nickname !== undefined ? cleanNick(body.nickname) : (cur && cur.nickname);
+      if (!nickname) return error('bad_nickname', 400);
+      const n = (v, hi) => Math.max(0, Math.min(hi, Math.round(+v || 0)));
+      const st = body.stats || {};
+      const row = { user_id: uid, nickname, student: !!who.anon, updated_at: new Date().toISOString(),
+        ...(body.stats ? { streak: n(st.streak, 100000), week_words: n(st.week_words, 1000000), total_words: n(st.total_words, 1000000) } : {}) };
+      for (let tries = 0; tries < 6; tries++) {
+        const code = (!cur || body.regenerate === true) ? newFriendCode() : cur.code;
+        try {
+          await q(env, 'friend_profiles?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ ...row, code }) });
+          return json({ ok: true, code, nickname });
+        } catch (e) { if (e.status !== 409 || (cur && body.regenerate !== true)) throw e; }
+      }
+      return error('db_error', 502);
+    }
+    if (x === 'me' && m === 'DELETE') {
+      await q(env, `friendships?or=(a.eq.${uid},b.eq.${uid})`, { method: 'DELETE' });
+      await q(env, `friend_events?or=(to_user.eq.${uid},from_user.eq.${uid})`, { method: 'DELETE' });
+      await q(env, `friend_profiles?user_id=eq.${uid}`, { method: 'DELETE' });
+      return json({ ok: true });
+    }
+    const me = await friendProfile(env, uid);
+    if (!me) return error('no_profile', 400);
+    if (x === 'request' && m === 'POST') {
+      if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'friend:' + uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+      const code = String(body.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!FRIEND_CODE.test(code)) return error('bad_code', 400);
+      const them = (await q(env, `friend_profiles?code=eq.${code}&select=user_id,nickname,student`) || [])[0];
+      if (!them || them.user_id === uid) return error(them ? 'self' : 'bad_code', them ? 400 : 404);
+      if (await blockedEither(env, uid, them.user_id)) return error('bad_code', 404);   // don't reveal blocks
+      if ((who.anon || them.student) && !(await classmates(env, uid, them.user_id))) return error('classmates_only', 403);
+      const fr = await friendship(env, uid, them.user_id);
+      if (fr && fr.status === 'accepted') return json({ ok: true, status: 'friends', nickname: them.nickname });
+      if (fr && fr.requested_by === uid) return json({ ok: true, status: 'requested', nickname: them.nickname });
+      const [a, b] = pair(uid, them.user_id);
+      if (fr) {                                                                   // they already asked me → friends
+        await q(env, `friendships?a=eq.${a}&b=eq.${b}`, { method: 'PATCH', body: JSON.stringify({ status: 'accepted' }) });
+        return json({ ok: true, status: 'friends', nickname: them.nickname });
+      }
+      const mine = await q(env, `friendships?or=(a.eq.${uid},b.eq.${uid})&select=status,requested_by`) || [];
+      if (mine.length >= MAX_FRIENDS) return error('too_many_friends', 429);
+      if (mine.filter(r => r.status === 'pending' && r.requested_by === uid).length >= MAX_OUTGOING) return error('too_many_requests', 429);
+      await q(env, 'friendships', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ a, b, status: 'pending', requested_by: uid }) });
+      return json({ ok: true, status: 'requested', nickname: them.nickname });
+    }
+    if (x === 'events') {
+      if (act === 'seen' && m === 'POST') {
+        const ids = (Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger).slice(0, 100);
+        if (ids.length) await q(env, `friend_events?to_user=eq.${uid}&id=in.(${ids.join(',')})`, { method: 'PATCH', body: JSON.stringify({ seen: true }) });
+        return json({ ok: true });
+      }
+      if (/^\d+$/.test(act || '') && parts[4] === 'decline' && m === 'POST') {
+        await q(env, `friend_events?to_user=eq.${uid}&id=eq.${act}`, { method: 'DELETE' });
+        return json({ ok: true });
+      }
+      return error('not_found', 404);
+    }
+    if (!UUID.test(x || '') || x === uid) return error('not_found', 404);
+    const other = x, [a, b] = pair(uid, other);
+    if (!act && m === 'DELETE') { await q(env, `friendships?a=eq.${a}&b=eq.${b}`, { method: 'DELETE' }); return json({ ok: true }); }
+    if (act === 'accept' && m === 'POST') {
+      const fr = await friendship(env, uid, other);
+      if (!fr || fr.status !== 'pending' || fr.requested_by === uid) return error('not_found', 404);
+      await q(env, `friendships?a=eq.${a}&b=eq.${b}`, { method: 'PATCH', body: JSON.stringify({ status: 'accepted' }) });
+      return json({ ok: true });
+    }
+    if (act === 'block' && m === 'POST') {
+      await q(env, `friendships?a=eq.${a}&b=eq.${b}`, { method: 'DELETE' });
+      await q(env, `friend_events?to_user=eq.${uid}&from_user=eq.${other}`, { method: 'DELETE' });
+      await q(env, 'friend_blocks?on_conflict=user_id,blocked', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ user_id: uid, blocked: other }) });
+      return json({ ok: true });
+    }
+    if (act === 'block' && m === 'DELETE') { await q(env, `friend_blocks?user_id=eq.${uid}&blocked=eq.${other}`, { method: 'DELETE' }); return json({ ok: true }); }
+    if (act === 'report' && m === 'POST') {
+      await q(env, 'friend_reports', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ reporter: uid, reported: other, reason: String(body.reason || '').slice(0, 300) }) });
+      return json({ ok: true });
+    }
+    // cheers and sending need an accepted friendship (and no block)
+    const fr = await friendship(env, uid, other);
+    if (!fr || fr.status !== 'accepted' || await blockedEither(env, uid, other)) return error('not_friends', 403);
+    if (act === 'cheer' && m === 'POST') {
+      if (!CHEERS[body.kind]) return error('bad_request', 400);
+      const today = await q(env, `friend_events?from_user=eq.${uid}&to_user=eq.${other}&kind=eq.cheer&created_at=gte.${dayStart()}&select=id`) || [];
+      if (today.length >= CHEERS_PER_DAY) return error('too_many_cheers', 429);
+      await q(env, 'friend_events', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ to_user: other, from_user: uid, kind: 'cheer', data: { cheer: body.kind } }) });
+      return json({ ok: true });
+    }
+    if (act === 'send' && m === 'POST') {
+      const sid = String(body.share_id || '');
+      const sh = SHARE_ID.test(sid) ? await getShare(env, sid) : null;
+      if (!sh || sh.owner !== uid) return error('bad_share', 400);
+      const today = await q(env, `friend_events?from_user=eq.${uid}&kind=eq.share&created_at=gte.${dayStart()}&select=id`) || [];
+      if (today.length >= SENDS_PER_DAY) return error('too_many_sends', 429);
+      await q(env, 'friend_events', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ to_user: other, from_user: uid, kind: 'share', data: { share_id: sid, name: sh.name, kind: sh.kind, total: shareTotal(sh) } }) });
+      return json({ ok: true });
+    }
+    return error('method_not_allowed', 405);
+  } catch (e) {
+    console.log('friends error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+
 // /c/<code>: the app page, with a preview that names the class (a join link)
 async function classPage(request, env, url) {
   const code = url.pathname.split('/')[2].toUpperCase();

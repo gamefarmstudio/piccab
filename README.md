@@ -26,6 +26,9 @@ supabase/schema.sql  ตารางฐานข้อมูล + สิทธ�
 supabase/2026-11-decks.sql  เพิ่มตาราง decks (ชุดคำ) สำหรับโปรเจกต์ที่รัน schema.sql ไปก่อนหน้านี้แล้ว
 supabase/2026-11-shares.sql เพิ่มตาราง shares (ลิงก์แชร์ /s/<id>) — ไม่มีสิทธิ์อ่านจากเบราว์เซอร์ อ่านผ่าน Worker เท่านั้น
 supabase/2026-11-classes.sql เพิ่มตารางห้องเรียน (classes, class_members, class_items, class_progress) — ต้องรันหลัง shares; เปิด Anonymous sign-ins ใน Supabase ให้นักเรียนเข้าด้วยรหัส+ชื่อเล่น
+supabase/2026-11-leaderboard.sql เพิ่มสวิตช์ตารางอันดับในห้องเรียน
+supabase/2026-11-friends.sql ระบบเพื่อน (ไม่มีค้นหา/แชต, นักเรียนเป็นเพื่อนได้เฉพาะเพื่อนร่วมห้อง) — รายงานอยู่ในตาราง friend_reports
+public/vendor/qrcode-generator-2.0.4.js  QR (MIT) โหลดเฉพาะตอนเปิดหน้าเพื่อน
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
 ```
