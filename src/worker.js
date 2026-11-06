@@ -13,7 +13,12 @@
 //   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
 //                      out of quota / busy; default gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite
 //   CLAUDE_MODEL       (text, optional)  defaults to claude-sonnet-5-5
-//   SCAN_CODE          (secret, optional) access code users must enter before using AI
+//   SCAN_CODE          (secret, optional) access code for using AI without signing in (testers)
+//   SUPABASE_SECRET_KEY (secret, optional) Supabase secret key → signed-in users get monthly AI credits
+//   AI_MONTHLY_CREDITS (text, optional)  credits per user per month (default 30)
+//
+// Who may scan:  signed in + SUPABASE_SECRET_KEY set → uses 1 credit (refunded if the scan fails);
+//                otherwise SCAN_CODE (if set) is required; with neither set, AI is open to everyone.
 //
 // The prompt is built here on the server from a few validated options, so this
 // endpoint cannot be used as a general-purpose proxy to an AI API.
@@ -24,6 +29,8 @@ const DEFAULT_MODEL = 'claude-sonnet-5-5';
 export const SUPABASE_URL = 'https://oftzpfyydnmahkntucnj.supabase.co';
 export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_R8bX28KY2kU5997XFqHelw_fqUvywBh';
 const MAX_UPLOAD = 3 * 1024 * 1024;
+const DEFAULT_MONTHLY_CREDITS = 30;
+const monthlyCredits = env => clampInt(env.AI_MONTHLY_CREDITS, 0, 1000000, DEFAULT_MONTHLY_CREDITS);
 const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Tried in order: the most accurate first; each model has its own free daily quota (20, 20 and 500).
 const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite';
@@ -52,7 +59,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/api/health') {
-      return json({ ai: !!pickProvider(env), needCode: !!env.SCAN_CODE });
+      return json({ ai: !!pickProvider(env), needCode: !!env.SCAN_CODE, credits: !!env.SUPABASE_SECRET_KEY, monthly: monthlyCredits(env) });
     }
     if (url.pathname === '/api/scan') {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
@@ -68,9 +75,15 @@ async function scan(request, env) {
   const provider = pickProvider(env);
   if (!provider) return error('not_configured', 503);
 
-  if (env.SCAN_CODE) {
+  // Who is asking: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
+  const useCredits = !!env.SUPABASE_SECRET_KEY;
+  const uid = request.headers.get('authorization') ? await userFromRequest(request, env) : null;
+  if (!(uid && useCredits)) {
     const code = (request.headers.get('x-piccab-code') || '').trim();
-    if (!safeEqual(code, String(env.SCAN_CODE).trim())) return error('bad_code', 401);
+    if (env.SCAN_CODE) {
+      if (!code && useCredits) return error('login_required', 401);
+      if (!safeEqual(code, String(env.SCAN_CODE).trim())) return error('bad_code', 401);
+    } else if (useCredits) return error('login_required', 401);
   }
 
   if (env.SCAN_LIMITER) {
@@ -96,9 +109,41 @@ async function scan(request, env) {
     .filter(Boolean)
     .slice(0, 80);
 
-  return provider === 'gemini'
-    ? scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini'))
-    : scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude'));
+  // Take one credit now; give it back if the scan doesn't produce a result.
+  let left = null;
+  if (uid && useCredits) {
+    try { left = await creditRpc(env, 'use_ai_credit', { p_user: uid, p_monthly: monthlyCredits(env) }); }
+    catch (e) { console.log('credit check failed', String(e)); return error('busy', 503); }
+    if (typeof left !== 'number' || left < 0) return error('no_credits', 402);
+  }
+  const res = provider === 'gemini'
+    ? await scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini'))
+    : await scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude'));
+  if (left === null) return res;
+  if (res.status !== 200) {
+    try { left = await creditRpc(env, 'refund_ai_credit', { p_user: uid }); } catch (e) { console.log('refund failed', String(e)); }
+    return withField(res, 'credits_left', typeof left === 'number' ? left : undefined);
+  }
+  return withField(res, 'credits_left', left);
+}
+
+// Calls a server-only database function (use/refund AI credit) with the Supabase secret key.
+async function creditRpc(env, fn, args) {
+  const key = String(env.SUPABASE_SECRET_KEY);
+  const headers = { apikey: key, 'content-type': 'application/json' };
+  if (!key.startsWith('sb_secret_')) headers.authorization = `Bearer ${key}`;   // legacy service_role JWT
+  const r = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
+  if (!r.ok) throw new Error(`${fn} ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`);
+  const v = await r.json();
+  return typeof v === 'number' ? v : (v == null ? -1 : Number(v));
+}
+
+async function withField(res, k, v) {
+  if (v === undefined) return res;
+  const body = await res.clone().json().catch(() => null);
+  if (!body || typeof body !== 'object') return res;
+  body[k] = v;
+  return json(body, res.status);
 }
 
 async function scanClaude(env, mime, data64, prompt) {
