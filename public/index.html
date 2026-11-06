@@ -52,6 +52,22 @@ h1{font-family:'Fredoka',sans-serif;font-weight:600;font-size:22px;margin:0;line
 .sub input.name{padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:160px}
 main{margin-top:10px}
 .wrap{position:relative;margin:0 auto;width:100%;border-radius:18px;box-shadow:0 8px 28px rgba(45,42,90,.14);background:#fff}
+.fsbtn{position:absolute;top:10px;right:10px;z-index:7;width:38px;height:38px;padding:0;border-radius:11px;border:none;background:rgba(45,42,90,.62);color:#fff;display:grid;place-items:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.fsbtn:hover{background:rgba(45,42,90,.82);border:none}
+.fsbtn svg{width:20px;height:20px}
+body.editing .fsbtn{top:auto;bottom:10px}
+body.fs{overflow:hidden}
+body.fs #playView{position:fixed;inset:0;z-index:12;background:var(--bg);overflow:auto;padding:max(8px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+body.fs #playView>main{margin-top:8px}
+body.fs .modes{max-width:900px;margin:0 auto}
+body.fsside #playView{display:grid;grid-template-columns:minmax(0,1fr) 210px;grid-template-rows:auto 1fr;grid-template-areas:"main modes" "main sub";column-gap:12px;align-items:start}
+body.fsside #playView>main{grid-area:main;margin:0;align-self:center}
+body.fsside #modes{grid-area:modes;flex-direction:column;margin:0}
+body.fsside #modes button{padding:8px 6px;font-size:14px}
+body.fsside #sub{grid-area:sub;margin:8px 0 0;flex-direction:column;align-items:stretch}
+body.fsside #sub .grow{display:none}
+body.fsside #sub>*{max-width:100%}
+body.fsside .chips{display:none}
 #scene{display:block;width:100%;height:auto;border-radius:18px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 body.editing #scene{touch-action:none;cursor:crosshair}
 .item{cursor:pointer}
@@ -370,6 +386,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
       <svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 680" role="img" aria-label="ภาพฉากสำหรับฝึกคำศัพท์"></svg>
       <div class="overlay" id="overlay"></div>
       <div class="tag" id="tag" hidden></div>
+      <button class="fsbtn" id="fsBtn" type="button" aria-label="เต็มจอ" title="เต็มจอ"></button>
       <div class="qcard" id="qcard" hidden>
         <div class="qtop"><div><b>นี่คืออะไร?</b> <span class="en">What is this?</span></div><button class="x" id="qclose" aria-label="ปิด">✕</button></div>
         <div class="clue" id="qclue"></div>
@@ -825,7 +842,7 @@ function clampX(elm, x, W){ const half=elm.offsetWidth/2+4; return Math.max(half
 function renderScene(){
   const sc=scene();
   svg.setAttribute('viewBox', `0 0 ${sc.w} ${sc.h}`);
-  wrap.style.maxWidth = `calc(${isMobile()?56:86}vh * ${sc.w/sc.h})`;
+  fitWrap();
   if(sc.builtin){
     // The sample is drawn as vector art, but it behaves exactly like a photo scene:
     // the art is just the background and every word has an ordinary box.
@@ -888,6 +905,7 @@ function sceneImg(sc){
 function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}; const k=Object.keys(sc.items); return {n:k.length, d:k.filter(i=>p.done&&p.done[i]).length}; }
 function renderView(){
   const v=S.view, g=v!=='play';
+  if(g && isFs()) exitFs();
   $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
@@ -1145,7 +1163,7 @@ function refresh(){
   document.querySelectorAll('#modes button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
   $('#editBtn').hidden = $('#renameBtn').hidden = scene().builtin || S.editing;
   renderView();
-  renderSub(); renderChips(); setHL(); updateTag(); updateOverlay();
+  renderSub(); renderChips(); if(isFs()) fitWrap(); setHL(); updateTag(); updateOverlay();
   if(quizId) positionQ();
 }
 function fullRender(){ closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); if(S.mode==='find' && find.target && !items()[find.target]) find={...find,queue:[],target:null,total:0,score:0}; renderSelect(); refresh(); }
@@ -1357,7 +1375,7 @@ function renderChips(){
     chips.append(b);
   });
 }
-const listBtn=()=>isMobile() && ids().length ? el('button',{class:'listbtn',text:`📖 คำ (${ids().length})`,'aria-label':'รายการคำศัพท์ทั้งหมด',onclick:openWordSheet}) : null;
+const listBtn=()=>(isMobile()||document.body.classList.contains('fsside')) && ids().length ? el('button',{class:'listbtn',text:`📖 คำ (${ids().length})`,'aria-label':'รายการคำศัพท์ทั้งหมด',onclick:openWordSheet}) : null;
 // Phones: the full word list (with Thai meanings in learn mode) in a sheet from the bottom.
 function openWordSheet(){
   openModal(m=>{
@@ -1551,7 +1569,7 @@ $('#accent').value=store.get('pv-accent','en-GB');
 $('#slow').checked=!!store.get('pv-slow',false);
 $('#accent').addEventListener('change',e=>{ store.set('pv-accent',e.target.value); speak('Hello! Shall we have some tea?'); });
 $('#slow').addEventListener('change',e=>store.set('pv-slow',e.target.checked));
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) apPause(); else if(!$('#modal').hidden) closeModal(); else if(S.editing && selId) selectBox(null); else if(quizId) closeQuiz(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) apPause(); else if(!$('#modal').hidden) closeModal(); else if(S.editing && selId) selectBox(null); else if(quizId) closeQuiz(); else if(isFs()) exitFs(); } });
 
 // ---------- modal ----------
 let modalClose=null;
@@ -1934,6 +1952,55 @@ $('#fileJson').addEventListener('change', e=>{
 
 // ---------- layout updates ----------
 const relayout=()=>{ updateTag(); updateOverlay(); positionQ(); };
+// ---------- full screen (the scene fills the screen; tabs and controls stay) ----------
+const FS_IN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>', FS_OUT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
+const isFs=()=>document.body.classList.contains('fs');
+function fitWrap(){
+  const sc=scene(), r=sc.w/sc.h;
+  if(!isFs()){ wrap.style.maxWidth=`calc(${isMobile()?56:86}vh * ${r})`; return; }
+  const pv=$('#playView'), short=window.innerHeight<560 && window.innerWidth>window.innerHeight;
+  if(document.body.classList.contains('fsside')!==short){ document.body.classList.toggle('fsside', short); renderSub(); renderChips(); }
+  let availH, availW;
+  if(short){                                                   // landscape phone: picture left, controls in a side column
+    const cs=getComputedStyle(pv);
+    availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-2;
+    availW=pv.querySelector('main').clientWidth;
+  } else {
+    availH=window.innerHeight-(pv.scrollHeight-wrap.offsetHeight)-6;   // minus tabs, controls, word chips, padding
+    availW=pv.clientWidth;
+  }
+  wrap.style.maxWidth=Math.max(200, Math.min(availW, Math.max(160,availH)*r))+'px';
+}
+function setFsUi(on){
+  document.body.classList.toggle('fs', on); if(!on) document.body.classList.remove('fsside');
+  const b=$('#fsBtn'); b.innerHTML=on?FS_OUT:FS_IN; b.setAttribute('aria-label', on?'ออกจากเต็มจอ':'เต็มจอ'); b.title=b.getAttribute('aria-label');
+  fitWrap(); requestAnimationFrame(()=>{ fitWrap(); relayout(); });
+}
+async function enterFs(){
+  setFsUi(true);
+  // Real full screen where the browser allows it (hides the address bar); otherwise the page-level layout above still applies (e.g. iPhone).
+  const de=document.documentElement, req=de.requestFullscreen||de.webkitRequestFullscreen;
+  if(req && !(document.fullscreenElement||document.webkitFullscreenElement)){
+    try{ await req.call(de,{navigationUI:'hide'}); }catch(e){}
+    // Landscape scenes on phones: turn to landscape when the browser supports it.
+    const sc=scene();
+    if(isMobile() && sc.w>sc.h && screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); }
+  }
+}
+function exitFs(){
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    try{ (document.exitFullscreen||document.webkitExitFullscreen).call(document); }catch(e){}
+  }
+  try{ screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); }catch(e){}
+  setFsUi(false);
+}
+$('#fsBtn').addEventListener('click', e=>{ e.stopPropagation(); isFs()?exitFs():enterFs(); });
+['fullscreenchange','webkitfullscreenchange'].forEach(t=>document.addEventListener(t,()=>{
+  // Leaving the browser's full screen (Esc, back gesture) also leaves our layout.
+  if(!(document.fullscreenElement||document.webkitFullscreenElement) && isFs()) setFsUi(false);
+}));
+window.addEventListener('resize',()=>{ if(isFs()) fitWrap(); });
+$('#fsBtn').innerHTML=FS_IN;
 if(window.ResizeObserver) new ResizeObserver(relayout).observe(wrap); else window.addEventListener('resize',relayout);
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
 
