@@ -180,6 +180,14 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
  .mainnav button{padding:7px 10px;font-size:14px}
 }
 .streakpill{font-weight:600;white-space:nowrap}
+.acct{border-radius:999px;padding:6px 12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.acct .av{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:inline-grid;place-items:center;font-size:13px;font-weight:700;text-transform:uppercase}
+.acct.in{padding:4px 10px 4px 4px}
+.mbox .note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.mbox .err{color:var(--bad);font-size:14px;min-height:1.2em;margin:6px 0 0}
+.mbox input.code{font-size:26px;letter-spacing:6px;text-align:center;font-family:'Fredoka',monospace}
+.linkbtn.small{font-size:13.5px;padding:4px 0}
+@media (max-width:640px){ .acct .lbl{display:none} .acct{padding:6px 10px} }
 .ghead.lh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
 .cont{display:block}
 .cont .cimg{aspect-ratio:16/10;max-height:none;width:100%;position:relative;overflow:hidden;background:#eee6dc;cursor:pointer}
@@ -353,6 +361,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
         <button data-view="library">📚 คลังฉาก</button>
       </div>
       <span class="stat streakpill" id="streakPill" title="วันที่ฝึกติดกัน">🔥 0</span>
+      <button class="acct" id="acctBtn" type="button" hidden>👤 เข้าสู่ระบบ</button>
     </div>
   </header>
 
@@ -670,6 +679,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 </g>
 </script>
 
+<script src="/vendor/supabase-2.119.0.js"></script>
 <script>
 (function(){
 'use strict';
@@ -1949,6 +1959,109 @@ mbox.addEventListener('drop',e=>{
 $('#fileJson').addEventListener('change', e=>{
   const f=e.target.files[0]; e.target.value=''; importFile(f);
 });
+
+// ---------- account (Supabase Auth: email one-time code) ----------
+const SB_URL='https://oftzpfyydnmahkntucnj.supabase.co';
+const SB_KEY='sb_publishable_R8bX28KY2kU5997XFqHelw_fqUvywBh';   // publishable key: safe in the browser (data is protected by row-level security)
+const sb = (window.supabase && location.protocol.startsWith('http'))
+  ? window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'implicit' } })
+  : null;
+let user=null;
+function renderAcct(){
+  const b=$('#acctBtn'); if(!b) return;
+  b.hidden=!sb; b.innerHTML='';
+  if(user){
+    const em=user.email||'';
+    b.classList.add('in'); b.title=em;
+    b.append(el('span',{class:'av',text:(em[0]||'?')}), el('span',{class:'lbl',text:'บัญชีของฉัน'}));
+  } else {
+    b.classList.remove('in'); b.title='เข้าสู่ระบบ';
+    b.append(el('span',{text:'👤'}), el('span',{class:'lbl',text:'เข้าสู่ระบบ'}));
+  }
+}
+function authErr(e){
+  const c=(e && (e.code||'')) + ' ' + (e && e.message || '');
+  if(/rate|too many|security purposes/i.test(c)) return 'ส่งถี่เกินไป รอสักครู่ (ประมาณ 1 นาที) แล้วลองใหม่';
+  if(/expired|invalid.*(otp|token)|otp_expired|token has expired/i.test(c)) return 'รหัสไม่ถูกต้องหรือหมดอายุ ลองขอรหัสใหม่';
+  if(/email.*invalid|invalid.*email|email_address_invalid/i.test(c)) return 'รูปแบบอีเมลไม่ถูกต้อง';
+  if(/signups? not allowed|signup_disabled/i.test(c)) return 'ยังไม่เปิดรับสมัครสมาชิกใหม่';
+  if(/fetch|network|Failed to/i.test(c)) return 'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง';
+  return 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'+(e && e.message ? ` (${e.message})` : '');
+}
+function openLogin(prefill){
+  openModal(m=>{
+    const inp=el('input',{type:'email',placeholder:'you@example.com',autocomplete:'email',autocapitalize:'none',spellcheck:'false',value:prefill||''});
+    const err=el('p',{class:'err'});
+    const go=el('button',{class:'primary',text:'ส่งรหัสเข้าอีเมล'});
+    const send=async()=>{
+      const email=inp.value.trim().toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent='กรุณาใส่อีเมลให้ถูกต้อง'; inp.focus(); return; }
+      go.disabled=true; go.textContent='กำลังส่ง…'; err.textContent='';
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/' } });
+      if(error){ go.disabled=false; go.textContent='ส่งรหัสเข้าอีเมล'; err.textContent=authErr(error); return; }
+      openCode(email);
+    };
+    go.addEventListener('click',send);
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
+    m.append(el('h3',{text:'👤 เข้าสู่ระบบ / สมัครสมาชิก'}),
+      el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัส 6 หลักไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
+      inp, err,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
+      el('p',{class:'note',text:'ตอนนี้ฉากยังเก็บอยู่ในเครื่องนี้ — การเก็บฉากในบัญชีและใช้ข้ามเครื่อง (sync) กำลังจะมาเร็วๆ นี้'}));
+  });
+}
+function openCode(email){
+  let wait=60, timer=null;
+  openModal(m=>{
+    const inp=el('input',{class:'code',inputmode:'numeric',autocomplete:'one-time-code',maxlength:'10',placeholder:'••••••'});
+    const err=el('p',{class:'err'});
+    const ok=el('button',{class:'primary',text:'ยืนยัน'});
+    const again=el('button',{class:'linkbtn small'});
+    const tick=()=>{ again.disabled=wait>0; again.textContent= wait>0 ? `ส่งรหัสใหม่ได้ใน ${wait} วินาที` : 'ส่งรหัสใหม่'; };
+    timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000); tick();
+    modalClose=()=>clearInterval(timer);
+    const verify=async()=>{
+      const token=inp.value.replace(/\D/g,'');
+      if(token.length<6){ err.textContent='ใส่รหัสให้ครบ 6 หลัก'; inp.focus(); return; }
+      ok.disabled=true; ok.textContent='กำลังตรวจ…'; err.textContent='';
+      const { error } = await sb.auth.verifyOtp({ email, token, type:'email' });
+      if(error){ ok.disabled=false; ok.textContent='ยืนยัน'; err.textContent=authErr(error); inp.select(); return; }
+      closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000);
+    };
+    ok.addEventListener('click',verify);
+    inp.addEventListener('input',()=>{ const d=inp.value.replace(/\D/g,''); if(d!==inp.value) inp.value=d; if(d.length===6) verify(); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') verify(); });
+    again.addEventListener('click',async()=>{
+      wait=60; tick(); clearInterval(timer); timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000);
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/' } });
+      err.textContent = error ? authErr(error) : ''; if(!error) toast('ส่งรหัสใหม่แล้ว');
+    });
+    m.append(el('h3',{text:'📩 ใส่รหัสจากอีเมล'}),
+      el('p',{}, 'ส่งรหัสไปที่ ', el('b',{text:email}), ' แล้ว (ถ้าไม่เห็น ลองดูในจดหมายขยะ/Spam) หรือกดลิงก์ในอีเมลก็ได้'),
+      inp, err,
+      el('div',{class:'row'}, el('button',{text:'← เปลี่ยนอีเมล',onclick:()=>{ clearInterval(timer); openLogin(email); }}), el('span',{class:'sp'}), ok),
+      again);
+  });
+}
+function openAccount(){
+  openModal(m=>{
+    m.append(el('h3',{text:'บัญชีของฉัน'}),
+      el('p',{}, 'เข้าสู่ระบบด้วย ', el('b',{text:user.email||''})),
+      el('p',{class:'note',text:'การเก็บฉากในบัญชีและใช้ข้ามเครื่อง (sync) กำลังจะมาเร็วๆ นี้ — ตอนนี้ฉากยังเก็บอยู่ในเครื่องนี้'}),
+      el('div',{class:'row'},
+        el('button',{class:'danger',text:'ออกจากระบบ',onclick:async()=>{ await sb.auth.signOut(); closeModal(); toast('ออกจากระบบแล้ว'); }}),
+        el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})));
+  });
+}
+$('#acctBtn').addEventListener('click',()=>{ if(!sb) return; user ? openAccount() : openLogin(); });
+if(sb){
+  sb.auth.onAuthStateChange((event, session)=>{
+    user = session && session.user || null;
+    renderAcct();
+    if(event==='SIGNED_IN' && !$('#modal').hidden && $('#mbox .code')){ closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000); }  // signed in via the e-mail link in another tab
+  });
+}
+renderAcct();
 
 // ---------- layout updates ----------
 const relayout=()=>{ updateTag(); updateOverlay(); positionQ(); };
