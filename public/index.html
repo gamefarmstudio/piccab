@@ -339,6 +339,13 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .tag.bad{border-color:var(--bad)}
 .tag.bad small.why{color:var(--bad);font-weight:600}
 .say{border:none;background:var(--soft);border-radius:50%;width:36px;height:36px;padding:0;font-size:17px;flex:none}
+.tag .say.keep{margin-left:-4px;filter:grayscale(1);opacity:.75}
+.tag .say.keep.on{filter:none;opacity:1;background:#fff1f3}
+#qkeep.on{background:#fff1f3;border-color:#f3b5c3}
+.keepbtn{display:inline-flex;align-items:center;gap:2px;max-width:180px}
+.keepbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.keepbtn.on{background:#fff1f3;border-color:#f3b5c3}
+@media (max-width:640px){ .keepbtn{max-width:150px;padding-left:9px;padding-right:9px} #sub .keepbtn{order:10} }
 .mini{position:absolute;transform:translate(-50%,-50%);background:rgba(255,255,255,.94);color:var(--ink);font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;padding:2px 8px;border-radius:7px;pointer-events:auto;cursor:pointer;white-space:nowrap;box-shadow:0 1px 5px rgba(30,25,60,.22)}
 .badge{position:absolute;width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700;transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(0,0,0,.25);border:2px solid #fff}
 .badge.star{background:#f2a900}
@@ -496,6 +503,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
           <button type="button" id="qhint">💡 คำใบ้</button>
           <button type="button" id="qsay">🔊 ฟัง</button>
           <button type="button" id="qshow">ดูเฉลย</button>
+          <button type="button" id="qkeep" title="เก็บคำนี้ไว้ใน 🔖 เก็บไว้ (ไม่เปิดเฉลย)">🔖 เก็บ</button>
         </div>
         <div class="msg" id="qmsg"></div>
       </div>
@@ -1335,6 +1343,9 @@ function deleteDeck(d){
   decks.splice(i,1); store.set('pv-decks',decks);
   if(d.owner && user && d.owner===user.id && typeof SYNC!=='undefined'){ SYNC.delDecks.push(d.id); saveSyncMem(); syncSoon(); }
 }
+const sceneWord=id=>({sc:scene(), id, it:items()[id]});
+const isKept=(scId,id)=>{ const k=wkey(scId,id); return decks.some(d=>d.words.includes(k)); };
+const savedHas=(scId,id)=>{ const d=getDeck(SAVED_DECK); return !!d && d.words.includes(wkey(scId,id)); };
 const liveKeys=all=>new Set((all||allWords()).map(w=>wkey(w.sc.id,w.id)));
 const deckCount=(d,keys)=>d.words.filter(k=>keys.has(k)).length;
 function wordsFiltered(all){
@@ -1430,7 +1441,7 @@ function wordCard(w, kept){
 }
 function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)); }
 // ＋ on a word card: tick the decks it belongs to, or make a new one.
-function openDeckPicker(w){
+function openDeckPicker(w, after){
   const k=wkey(w.sc.id,w.id);
   openModal(m=>{
     m.classList.add('dkbox');
@@ -1452,7 +1463,7 @@ function openDeckPicker(w){
     draw();
   });
   setTimeout(()=>{ const a=document.activeElement; if(a && a.type==='checkbox') a.blur(); },60);
-  modalClose=()=>{ if(S.view==='words') updateWords(); };
+  modalClose=()=>{ if(after) after(); else if(S.view==='words') updateWords(); };
 }
 // "＋ เพิ่มคำเข้าชุดนี้": pick many words at once.
 function openDeckAdder(d){
@@ -1697,7 +1708,10 @@ function updateTag(){
   if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
   txt.append(el('b',{text:it.word}));
   if(it.th) txt.append(el('small',{text:it.th}));
-  tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}));
+  const kept=isKept(scene().id,id);
+  tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
+    el('button',{class:'say keep'+(kept?' on':''),'aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ',text:'🔖',
+      onclick:e=>{ e.stopPropagation(); openDeckPicker(sceneWord(id), ()=>{ updateTag(); renderChips(); }); }}));
   tag.className='tag'+(pinned?' pinned':'')+(kind?' '+kind:'');
   tag.hidden=false;
   const b=box(id); if(!b) return;
@@ -1838,6 +1852,7 @@ function renderSub(){
         word,
         el('span',{class:'hint tip',text:'แล้วแตะของชิ้นนั้นในภาพ'}),
         el('span',{class:'grow'}),
+        findKeepBtn(),
         el('button',{class:'toggle'+(find.showWord?' on':''),text:find.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ find.showWord=!find.showWord; renderSub(); }}),
         el('button',{text:'ข้าม ⏭',onclick:()=>{ find.missed=true; doFlash(find.target,'good',1300); speak(sayOf(find.target)); lockNext(1300); }}),
         el('span',{class:'pill',text:`ถูก ${find.score} • เหลือ ${find.queue.length+1}/${find.total}`})
@@ -1846,10 +1861,18 @@ function renderSub(){
       put(
         el('span',{class:'hint',text:`🎉 จบรอบแล้ว! หาถูกตั้งแต่ครั้งแรก ${find.score}/${find.total} คำ`}),
         el('span',{class:'grow'}),
+        findKeepBtn(),
         el('button',{class:'primary',text:'เล่นอีกรอบ',onclick:startFind})
       );
     }
   }
+}
+// find mode: keep the word just played (the current one is still a secret)
+function findKeepBtn(){
+  const id=find.last, it=id && items()[id]; if(!it) return null;
+  const kept=isKept(scene().id,id);
+  return el('button',{class:'keepbtn'+(kept?' on':''),title:'เพิ่มคำที่แล้ว “'+it.word+'” ลงชุดคำ','aria-label':'เพิ่มคำที่แล้ว '+it.word+' ลงชุดคำ',
+    onclick:()=>openDeckPicker(sceneWord(id), ()=>renderSub())}, '🔖 ', el('span',{text:it.word}));
 }
 function renderChips(){
   chips.innerHTML='';
@@ -1949,7 +1972,7 @@ svg.addEventListener('click', e=>{
 // ---------- quiz ----------
 function openQuiz(id){
   quizId=id; pinnedId=null; qcard.hidden=false;
-  $('#qin').value=''; setMsg('',''); renderClue();
+  $('#qin').value=''; setMsg('',''); renderClue(); qKeepBtn();
   setHL(); renderChips(); positionQ();
   setTimeout(()=>{ try{ $('#qin').focus({preventScroll:true}); }catch(e){ $('#qin').focus(); } }, 30);
 }
@@ -2008,6 +2031,15 @@ $('#qshow').addEventListener('click',()=>{
   setMsg('info','เฉลย: '+items()[quizId].word+' — ลองพิมพ์ตามเพื่อจำนะ'); speak(sayOf(quizId)); $('#qin').value=''; $('#qin').focus();
 });
 $('#qclose').addEventListener('click',()=>closeQuiz());
+// 🔖 in the quiz card: keep the word in "🔖 เก็บไว้" without showing the answer
+function qKeepBtn(){ const b=$('#qkeep'); if(!b || !quizId) return; const on=savedHas(scene().id,quizId); b.classList.toggle('on',on); b.textContent=on?'🔖 เก็บแล้ว':'🔖 เก็บ'; }
+$('#qkeep').addEventListener('click',()=>{
+  if(!quizId) return;
+  const k=wkey(scene().id,quizId), on=!savedHas(scene().id,quizId);
+  toggleWord(deckList()[0],k,on); qKeepBtn();
+  toast(on?'เก็บคำนี้ไว้ใน 🔖 เก็บไว้ แล้ว — ดูได้ที่หน้าคำของฉัน':'เอาคำนี้ออกจาก 🔖 เก็บไว้ แล้ว');
+  $('#qin').focus();
+});
 function resetQuiz(){
   ask('เริ่มทบทวนฉากนี้ใหม่ทั้งหมด? (ล้างเครื่องหมาย ✓ และ ★)','เริ่มใหม่').then(ok=>{
     if(!ok) return; progress[scene().id]={done:{},star:{}}; help={}; used={}; saveProg(); closeQuiz(); refresh();
@@ -2020,6 +2052,7 @@ function startFind(){
   nextFind();
 }
 function nextFind(){
+  if(find.target) find.last=find.target;
   find.target=find.queue.shift()||null; find.missed=false; find.lock=false;
   renderSub();
   if(find.target) setTimeout(()=>speak(sayOf(find.target)), 250);
