@@ -43,7 +43,7 @@ npx wrangler dev
 | `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com (มีระดับฟรี — Google อาจนำข้อมูลไปพัฒนาโมเดล ใช้ทดสอบ) |
 | `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com (ไม่มีคีย์เลย = ซ่อนปุ่ม AI) |
 | `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
-| `GEMINI_MODEL` | Text | – | ค่าเริ่มต้น `gemini-3.8-flash` |
+| `GEMINI_MODEL` | Text | – | รุ่นเดียว หรือหลายรุ่นคั่นด้วย , (ลองตามลำดับเมื่อโควตาหมด) ค่าเริ่มต้น `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite` |
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-sonnet-5-5` เปลี่ยนเป็น `claude-haiku-5-5` เพื่อประหยัด |
 | `SCAN_CODE` | Secret | แนะนำ | รหัสที่ผู้ใช้ต้องใส่ก่อนใช้ AI (ช่วงทดลอง กันคนนอกใช้เครดิต) |
 
