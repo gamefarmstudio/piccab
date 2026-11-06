@@ -272,6 +272,35 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .settings .legal{flex-basis:100%;font-size:13px;color:var(--muted)}
 .settings .legal a{color:var(--muted)}
 .mbox .consent{font-size:13px}
+#classView .clrow{margin:6px 0 14px}
+.clic{width:44px;height:44px;border-radius:12px;background:#efeaf7;display:grid;place-items:center;font-size:22px;flex:none}
+.clitem{cursor:default}
+.clitem:hover{background:#fff}
+.clitem .lbar{display:block;width:100%;height:5px;margin-top:6px}
+.clitem button{flex:none}
+.clback{margin:14px 0 0}
+.clfoot{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 28px}
+.clinvite{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;margin:0 0 6px}
+.clinvite small{color:var(--muted)}
+.clcode{font-family:'Fredoka',ui-monospace,monospace;font-size:34px;letter-spacing:6px;font-weight:600;line-height:1.1}
+.clinv-r{flex:1;min-width:220px}
+.clinv-r p{margin:0 0 8px;color:var(--muted);font-size:14px}
+.cltablewrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+.cltable{border-collapse:collapse;width:100%;font-size:14.5px}
+.cltable th,.cltable td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:center;white-space:nowrap}
+.cltable th{background:#faf6f1;font-weight:600;vertical-align:top}
+.cltable th span{display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.cltable th small{display:block;color:var(--muted);font-weight:400}
+.cltable th:first-child,.cltable td.nick{text-align:left;position:sticky;left:0;background:inherit}
+.cltable td.nick{background:#fff;font-weight:600}
+.cltable td.muted{color:var(--muted)}
+.cltable td.cell.half{background:#fff8dc}
+.cltable td.cell.full{background:#e3f4ea;color:var(--ok)}
+.cltable td small{color:#8a6500}
+.cltable .x{border:none;background:none;color:var(--muted);padding:2px 6px;font-size:13px}
+.mbox input.clcodein{text-transform:uppercase;letter-spacing:6px}
+.mbox .asrow{width:100%;text-align:left;background:#fff;border:none;border-bottom:1px solid var(--line);border-radius:0}
+.mbox .asrow:hover{background:#faf6f1}
 .mbox input.sharelink{font-family:ui-monospace,monospace;font-size:15px;margin:6px 0 8px;background:#faf6f1}
 .mbox .note.small{font-size:12.5px}
 .mbox .note.warn{color:#8a6500}
@@ -483,6 +512,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
         <button data-view="home">🏠 หน้าแรก</button>
         <button data-view="library">📚 คลังฉาก</button>
         <button data-view="words">🔖 คำของฉัน</button>
+        <button data-view="class">🎓 ห้องเรียน</button>
       </div>
       <span class="stat streakpill" id="streakPill" title="วันที่ฝึกติดกัน">🔥 0</span>
       <button class="acct" id="acctBtn" type="button" hidden>👤 เข้าสู่ระบบ</button>
@@ -506,6 +536,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   </section>
 
   <section id="wordsView" hidden></section>
+  <section id="classView" hidden></section>
 
   <div id="playView">
   <nav class="modes" id="modes">
@@ -563,7 +594,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   <button data-view="library"><span class="bi">📚</span>คลังฉาก</button>
   <button class="fab" id="fabCam" aria-label="สร้างฉากจากรูป"><span class="bi">📷</span>สร้างฉาก</button>
   <button data-view="words"><span class="bi">🔖</span>คำของฉัน</button>
-  <button data-soon="ห้องเรียน"><span class="bi">🎓</span>ห้องเรียน</button>
+  <button data-view="class"><span class="bi">🎓</span>ห้องเรียน</button>
 </nav>
 <div class="modal" id="modal" hidden><div class="mbox" id="mbox" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status"></div>
@@ -889,6 +920,7 @@ function saveProg(){
   for(const [id,p] of Object.entries(progress)){ if(!p) continue; const g=JSON.stringify([p.done||{},p.star||{}]); if(p._sig!==g){ if(p._sig!==undefined || !p.updatedAt) p.updatedAt=now; Object.defineProperty(p,'_sig',{value:g,writable:true,configurable:true,enumerable:false}); } }
   store.set('pv-progress', progress);
   if(typeof syncSoon==='function') syncSoon();
+  if(typeof reportClassProgressSoon==='function') reportClassProgressSoon();
 }
 Object.values(progress).forEach(p=>{ if(p) Object.defineProperty(p,'_sig',{value:JSON.stringify([p.done||{},p.star||{}]),writable:true,configurable:true,enumerable:false}); });
 // ---------- local persistence ----------
@@ -1103,7 +1135,7 @@ function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}; const k=Object.
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
-  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#playView').hidden=g;
+  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
   document.body.classList.toggle('gview', g);
@@ -1117,7 +1149,7 @@ function goHome(view){
   if(aiCtl) aiCtl.abort();
   closeQuiz(true); pinnedId=hoverId=null; flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
-  S.view=(view==='library'||view==='words')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
+  S.view=(view==='library'||view==='words'||view==='class')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
   apReset();
@@ -1139,7 +1171,7 @@ function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-
 function sceneTime(sc){ return recent[sc.id] || (sc.builtin?0:(parseInt(sc.id.slice(1),36)||0)); }
 function byRecent(a,b){ return sceneTime(b)-sceneTime(a); }
 function greet(){ const h=new Date().getHours(); return h<11?'อรุณสวัสดิ์':h<16?'สวัสดีตอนบ่าย':'สวัสดีตอนเย็น'; }
-function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else renderHome(); }
+function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else if(S.view==='class') renderClass(); else renderHome(); }
 
 function ago(ts){
   if(!ts) return 'ยังไม่เคยเปิด';
@@ -1533,9 +1565,9 @@ function openDeckAdder(d){
   if(matchMedia('(pointer:coarse)').matches) setTimeout(()=>{ const a=document.activeElement; if(a && a.type==='search') a.blur(); },60);
   modalClose=()=>{ if(S.view==='words') updateWords(); };
 }
-function deckNameDialog(title, value, okText, onOk){
+function deckNameDialog(title, value, okText, onOk, ph, max){
   openModal(m=>{
-    const inp=el('input',{maxlength:'30',value:value||'',placeholder:'เช่น เครื่องครัว, คำยาก, เตรียมสอบ','aria-label':'ชื่อชุดคำ'});
+    const inp=el('input',{maxlength:String(max||30),value:value||'',placeholder:ph||'เช่น เครื่องครัว, คำยาก, เตรียมสอบ','aria-label':title});
     const go=()=>{ const v=inp.value.trim(); if(!v){ inp.focus(); return; } closeModal(); onOk(v); };
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } });
     m.append(el('h3',{text:title}), inp,
@@ -2250,7 +2282,7 @@ let aiReady=false, aiNeedCode=false, aiCredits=false, aiMonthly=30, aiLeft=null,
 function checkAI(){
   return (location.protocol.startsWith('http') ? fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null))
   .then(h=>{
-    if(!h || !h.ai || aiReady) return;
+    if(!h || !h.ai || aiReady || (user && isStudent())) return;
     aiReady=true; aiNeedCode=!!h.needCode; aiCredits=!!h.credits && !!sb; aiMonthly=h.monthly||30;
     if(aiCredits && user) loadCredits();
     refresh(); if(S.view!=='play') renderGallery();
@@ -2266,6 +2298,7 @@ function aiErr(code){
   return ({
     bad_code:'รหัสใช้ AI ไม่ถูกต้อง ลองใหม่อีกครั้ง',
     login_required:'เข้าสู่ระบบเพื่อใช้ AI',
+    student_account:'บัญชีนักเรียนใช้ AI ไม่ได้ — ลากกรอบใส่คำเองได้ หรือให้ครู/ผู้ปกครองสร้างฉากด้วย AI แล้วแชร์ให้',
     no_credits:'เครดิต AI เดือนนี้หมดแล้ว',
     rate_limited:'ใช้ AI ถี่เกินไป รอสักครู่แล้วลองใหม่',
     busy:'ตอนนี้ AI มีผู้ใช้งานมาก ลองใหม่ในอีกสักครู่',
@@ -2583,7 +2616,11 @@ async function signInGoogle(btn){
 function renderAcct(){
   const b=$('#acctBtn'); if(!b) return;
   b.hidden=!sb; b.innerHTML='';
-  if(user){
+  if(user && isStudent()){
+    const nick=studentNick();
+    b.classList.add('in'); b.title='บัญชีนักเรียน: '+nick;
+    b.append(el('span',{class:'av',text:'🎓'}), el('span',{class:'lbl',text:nick}));
+  } else if(user){
     const em=user.email||'';
     b.classList.add('in'); b.title=em;
     b.append(el('span',{class:'av',text:(em[0]||'?')}), el('span',{class:'lbl',text:'บัญชีของฉัน'}));
@@ -2689,6 +2726,7 @@ function askLoginForAI(){
   });
 }
 function openAccount(){
+  if(isStudent()){ openStudentAccount(); return; }
   if(aiCredits) loadCredits();
   openModal(m0=>{
     const m={append:(...k)=>m0.append(...k.filter(x=>x!=null))};
@@ -2761,19 +2799,284 @@ if(sb){
     user = session && session.user || null;
     renderAcct();
     if(location.href.endsWith('#')){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }   // left over from the Google sign-in return
-    if(user && user.id!==before){ setTimeout(()=>syncNow(true),0); if(aiCredits) loadCredits(); }   // signed in (or first load with a session)
-    if(!user && before){ aiLeft=null; setTimeout(()=>syncSignedOut(),0); }
+    if(user && user.id!==before){ setTimeout(()=>syncNow(true),0); if(aiCredits && !isStudent()) loadCredits(); setTimeout(reportClassProgress, 4000); }   // signed in (or first load with a session)
+    if(!user && before){ aiLeft=null; CL.list=null; setTimeout(()=>syncSignedOut(),0); }
+    // student accounts (room code + nickname) don't use AI; switch it back on after they sign out
+    if(user && isStudent()){ if(aiReady){ aiReady=false; refresh(); if(S.view!=='play') renderGallery(); } }
+    else if(!aiReady && typeof checkAI==='function') checkAI();
+    if(S.view==='class') renderClass();
     if(event==='SIGNED_IN' && !$('#modal').hidden && $('#mbox .code')){ closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000); }  // signed in via the e-mail link in another tab
   });
 }
 renderAcct();
+// ---------- 🎓 classrooms ----------
+// Teachers (accounts with an e-mail) make a class and assign scenes / word decks (share links).
+// Students join with the room code + a nickname: if not signed in they get an anonymous "student account".
+// Each student's device works out their progress on the assignments and reports it to the class.
+// (function / var: the account code above may ask before this part of the script has run)
+function isStudent(){ return !!(user && user.is_anonymous); }
+function studentNick(){ return String((user && user.user_metadata && user.user_metadata.nickname) || 'นักเรียน').slice(0,30); }
+var CL={ list:null, openId:null, detail:null, busy:false };
+const classItemsMap=()=>store.get('pv-class-items',{})||{};       // { classId: [shareId…] } for progress reports
+async function classApi(method, path, body){
+  const tok=await accessToken();
+  const r=await fetch('/api/classes'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined });
+  const j=await r.json().catch(()=>({}));
+  return { ok:r.ok, status:r.status, j };
+}
+const classErr=(r)=>({ bad_code:'ไม่พบห้องเรียนนี้ ตรวจรหัส 6 ตัวอีกครั้ง', bad_nickname:'ใส่ชื่อเล่นก่อนนะ', own_class:'นี่คือห้องที่คุณสอนอยู่แล้ว',
+  class_full:'ห้องนี้เต็มแล้ว (200 คน)', rate_limited:'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', student_account:'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ — ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google',
+  too_many_classes:'สร้างห้องเรียนครบ 50 ห้องแล้ว', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
+  || (r.status===401 ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง'));
+async function loadClasses(){
+  if(!user){ CL.list={teaching:[],learning:[]}; return; }
+  const r=await classApi('GET','').catch(()=>({ok:false}));
+  CL.list = r.ok ? r.j : (CL.list||null);
+  if(!r.ok) CL.err=classErr(r); else CL.err=null;
+}
+function renderClass(){
+  const v=$('#classView'); if(!v) return;
+  if(CL.openId){ renderClassDetail(); return; }
+  v.innerHTML='';
+  v.append(el('div',{class:'ghead'}, el('h2',{text:'ห้องเรียน'}), el('p',{text:'เข้าห้องด้วยรหัสจากครู หรือสร้างห้องเรียนเพื่อมอบหมายฉากและชุดคำให้นักเรียน'})));
+  v.append(el('div',{class:'createrow clrow'},
+    el('button',{class:'cbtn',onclick:()=>openJoinClass()},'🔑 เข้าห้องด้วยรหัส'),
+    el('button',{class:'cbtn',onclick:createClassDialog},'➕ สร้างห้องเรียน (ครู)')));
+  if(!user){ v.append(el('p',{class:'libempty',text:'นักเรียน: กด “เข้าห้องด้วยรหัส” ใส่รหัส 6 ตัวจากครูและชื่อเล่น ไม่ต้องมีอีเมล'})); return; }
+  if(!CL.list){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClasses().then(()=>{ if(S.view==='class' && !CL.openId) renderClass(); }); return; }
+  if(CL.err) v.append(el('p',{class:'err',text:CL.err}));
+  const sec=(title, arr, mk)=>{ v.append(el('div',{class:'hsec'}, el('h3',{text:title}))); const box=el('div',{class:'liblist'}); arr.forEach(c=>box.append(mk(c))); v.append(box); };
+  if(CL.list.learning.length) sec('ห้องที่ฉันเรียน', CL.list.learning, c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
+    el('span',{class:'clic',text:'🎒'}), el('span',{class:'lb'}, el('b',{text:c.name}), el('span',{class:'lm',text:'ชื่อในห้อง: '+(c.nickname||'')})), el('span',{class:'chev',text:'›'})));
+  if(CL.list.teaching.length) sec('ห้องที่ฉันสอน', CL.list.teaching, c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
+    el('span',{class:'clic',text:'🧑‍🏫'}), el('span',{class:'lb'}, el('b',{text:c.name}), el('span',{class:'lm',text:`รหัส ${c.code} · นักเรียน ${c.members} คน`})), el('span',{class:'chev',text:'›'})));
+  if(!CL.list.learning.length && !CL.list.teaching.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีห้องเรียน'}));
+}
+function openClass(id){ CL.openId=id; CL.detail=null; renderClass(); window.scrollTo(0,0); }
+function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; renderClass(); }
+async function loadClassDetail(){
+  const id=CL.openId, r=await classApi('GET','/'+id).catch(()=>({ok:false}));
+  if(CL.openId!==id) return;
+  if(!r.ok){ CL.detail={ error: r.status===404 ? 'ไม่พบห้องนี้ (อาจถูกลบหรือคุณออกจากห้องแล้ว)' : classErr(r) }; }
+  else {
+    CL.detail=r.j;
+    if(r.j.role==='student'){ const mp=classItemsMap(); mp[id]=r.j.items.map(i=>i.share_id); store.set('pv-class-items',mp); }
+  }
+  if(S.view==='class') renderClassDetail();
+}
+// progress of an assignment on this device (null if not started here)
+function localAssignmentProgress(shareId){
+  const rec=(store.get('pv-imported',{})||{})[shareId]; if(!rec) return null;
+  let keys=[];
+  if(rec.kind==='deck' || rec.deck){ const d=getDeck(rec.deck); if(!d) return null; keys=d.words; }
+  else { const sc=scenes().find(x=>x.id===(rec.scenes||[])[0]); if(!sc) return null; keys=Object.keys(sc.items).map(k=>wkey(sc.id,k)); }
+  let done=0, star=0;
+  for(const k of keys){ const j=k.indexOf('|'), p=progress[k.slice(0,j)], id=k.slice(j+1); if(p && p.done && p.done[id]){ done++; if(p.star && p.star[id]) star++; } }
+  return { total:keys.length, done, star };
+}
+let classReportT=null;
+function reportClassProgressSoon(){ clearTimeout(classReportT); classReportT=setTimeout(reportClassProgress, 4000); }
+async function reportClassProgress(){
+  if(!user || navigator.onLine===false) return;
+  const mp=classItemsMap(), sent=store.get('pv-class-sent',{})||{}, rows=[];
+  for(const [cid, shares] of Object.entries(mp)) for(const sid of shares||[]){
+    const pr=localAssignmentProgress(sid); if(!pr) continue;
+    const key=cid+'/'+sid, sig=[pr.total,pr.done,pr.star].join(',');
+    if(sent[key]===sig) continue;
+    rows.push({ class_id:cid, share_id:sid, ...pr, _k:key, _s:sig });
+  }
+  if(!rows.length) return;
+  const r=await classApi('POST','/progress',{ rows:rows.map(({_k,_s,...x})=>x) }).catch(()=>({ok:false}));
+  if(r.ok){ rows.forEach(x=>sent[x._k]=x._s); store.set('pv-class-sent',sent); }
+}
+function pctBar(done,total){ const b=el('span',{class:'bar'+(total&&done===total?' full':'')},el('i')); b.firstChild.style.width=(total?done/total*100:0)+'%'; return b; }
+function renderClassDetail(){
+  const v=$('#classView'); v.innerHTML='';
+  const d=CL.detail;
+  v.append(el('div',{class:'clback'}, el('button',{class:'linkbtn',text:'← ห้องเรียนทั้งหมด',onclick:backToClasses})));
+  if(!d){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClassDetail(); return; }
+  if(d.error){ v.append(el('p',{class:'libempty',text:d.error})); return; }
+  if(d.role==='teacher') renderTeacher(v,d); else renderStudent(v,d);
+}
+function renderStudent(v,d){
+  v.append(el('div',{class:'ghead'}, el('h2',{text:'🎒 '+d.name}), el('p',{text:'ชื่อในห้อง: '+d.nickname})));
+  const srv=new Map(d.progress.map(p=>[p.share_id,p]));
+  if(!d.items.length){ v.append(el('p',{class:'libempty',text:'ครูยังไม่ได้มอบหมายงาน'})); }
+  else {
+    v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่ได้รับมอบหมาย'})));
+    const box=el('div',{class:'liblist'});
+    d.items.forEach(it=>{
+      const pr=localAssignmentProgress(it.share_id) || srv.get(it.share_id) || { total:it.total, done:0, star:0 };
+      const started=!!(store.get('pv-imported',{})||{})[it.share_id];
+      box.append(el('div',{class:'lrow clitem'},
+        el('span',{class:'clic',text:it.kind==='deck'?'📚':'🖼️'}),
+        el('span',{class:'lb'}, el('b',{text:it.name}),
+          el('span',{class:'lm'+(pr.total&&pr.done===pr.total?' okc':'')}, `${it.kind==='deck'?'ชุดคำ':'ฉาก'} · ทบทวนแล้ว ${pr.done}/${pr.total||it.total} คำ`+(pr.star?` · ★ ${pr.star}`:'')),
+          pctBar(pr.done, pr.total||it.total)),
+        el('button',{class:started?'':'primary',text:started?'▶ ทำต่อ':'▶ เริ่ม',onclick:e=>startAssignment(it, e.currentTarget)})));
+    });
+    v.append(box);
+    v.append(el('p',{class:'note small',text:'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ'}));
+  }
+  v.append(el('div',{class:'clfoot'}, el('button',{class:'linkbtn small danger-link',text:'ออกจากห้องนี้',onclick:async()=>{
+    if(!(await ask(`ออกจากห้อง “${d.name}”? ครูจะไม่เห็นความคืบหน้าของคุณอีก (ฉากที่เก็บไว้ยังอยู่)`,'ออกจากห้อง'))) return;
+    const r=await classApi('DELETE',`/${d.id}/members/me`).catch(()=>({ok:false}));
+    if(!r.ok){ toast(classErr(r)); return; }
+    const mp=classItemsMap(); delete mp[d.id]; store.set('pv-class-items',mp); toast('ออกจากห้องแล้ว'); backToClasses();
+  }})));
+  reportClassProgress();
+}
+async function startAssignment(it, btn){
+  const done=(store.get('pv-imported',{})||{})[it.share_id];
+  if(done && (done.scenes||[]).every(id=>scenes().some(x=>x.id===id)) && (!done.deck || getDeck(done.deck))){ openImported(done); return; }
+  if(btn){ btn.disabled=true; btn.textContent='กำลังโหลด…'; }
+  try{
+    const r=await fetch('/api/share/'+it.share_id,{cache:'no-store'}).then(x=>x.ok?x.json():null);
+    if(!r) throw new Error('share');
+    const rec=await importShare(it.share_id, r, (i,k)=>{ if(btn) btn.textContent=`กำลังโหลด ${i}/${k}`; });
+    reportClassProgressSoon(); openImported(rec);
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='▶ ลองอีกครั้ง'; } toast('โหลดงานไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่'); }
+}
+function renderTeacher(v,d){
+  const link=location.origin+'/c/'+d.code;
+  v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🧑‍🏫 '+d.name}), el('p',{text:`นักเรียน ${d.members.length} คน · งาน ${d.items.length} รายการ`})),
+    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ CL.detail=null; renderClassDetail(); }})));
+  v.append(el('div',{class:'clinvite'},
+    el('div',{}, el('small',{text:'รหัสห้อง'}), el('div',{class:'clcode',text:d.code})),
+    el('div',{class:'clinv-r'},
+      el('p',{text:'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
+      el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,'เข้าห้องเรียน '+d.name)})))));
+  // assignments
+  v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่มอบหมาย'}), el('button',{class:'linkbtn',text:'➕ มอบหมายฉากหรือชุดคำ',onclick:()=>openAssignPicker(d)})));
+  if(!d.items.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีงาน — กด “มอบหมายฉากหรือชุดคำ” เลือกจากคลังของคุณ'}));
+  // progress table
+  if(d.items.length){
+    const wrap=el('div',{class:'cltablewrap'}), tb=el('table',{class:'cltable'});
+    const head=el('tr',{}, el('th',{text:'นักเรียน'}));
+    d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:it.total+' คำ'}),
+      el('button',{class:'x',title:'เลิกมอบหมายงานนี้','aria-label':'เลิกมอบหมาย '+it.name,text:'✕',onclick:async()=>{
+        if(!(await ask(`เลิกมอบหมาย “${it.name}”? ความคืบหน้าของงานนี้จะถูกลบ`,'เลิกมอบหมาย'))) return;
+        const r=await classApi('DELETE',`/${d.id}/items/${it.share_id}`); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }}))));
+    head.append(el('th',{}));
+    tb.append(head);
+    const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
+    if(!d.members.length) tb.append(el('tr',{}, el('td',{colspan:String(d.items.length+2),class:'muted',text:'ยังไม่มีนักเรียนเข้าห้อง — ส่งรหัสหรือลิงก์เชิญให้นักเรียน'})));
+    d.members.forEach(mb=>{
+      const tr=el('tr',{}, el('td',{class:'nick',text:mb.nickname}));
+      d.items.forEach(it=>{
+        const p=pr.get(mb.user_id+'/'+it.share_id);
+        if(!p){ tr.append(el('td',{class:'muted',text:'—'})); return; }
+        const pct=p.total?Math.round(p.done/p.total*100):0;
+        tr.append(el('td',{class:'cell'+(pct===100?' full':pct>=50?' half':''),title:'อัปเดต '+new Date(p.updated_at).toLocaleString('th-TH')},
+          el('b',{text:`${p.done}/${p.total}`}), p.star?el('small',{text:` ★${p.star}`}):null));
+      });
+      tr.append(el('td',{}, el('button',{class:'x',title:'นำออกจากห้อง','aria-label':'นำ '+mb.nickname+' ออกจากห้อง',text:'✕',onclick:async()=>{
+        if(!(await ask(`นำ “${mb.nickname}” ออกจากห้อง?`,'นำออก'))) return;
+        const r=await classApi('DELETE',`/${d.id}/members/${mb.user_id}`); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }})));
+      tb.append(tr);
+    });
+    wrap.append(tb); v.append(wrap);
+    v.append(el('p',{class:'note small',text:'ตัวเลข = คำที่นักเรียนพิมพ์ตอบถูกแล้ว / คำทั้งหมด · ★ = ตอบถูกเองโดยไม่ใช้ตัวช่วย · อัปเดตเมื่อนักเรียนเปิดแอปและออนไลน์'}));
+  } else if(d.members.length){
+    v.append(el('p',{class:'note',text:'นักเรียนในห้อง: '+d.members.map(m=>m.nickname).join(', ')}));
+  }
+  v.append(el('div',{class:'clfoot'},
+    el('button',{class:'linkbtn small',text:'✏️ เปลี่ยนชื่อห้อง',onclick:()=>deckNameDialog('เปลี่ยนชื่อห้องเรียน', d.name, 'บันทึก', async nm=>{ const r=await classApi('PATCH','/'+d.id,{name:nm}); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }, 'ชื่อห้องเรียน', 60)}),
+    el('button',{class:'linkbtn small danger-link',text:'🗑 ลบห้องเรียน',onclick:async()=>{
+      if(!(await ask(`ลบห้อง “${d.name}”? นักเรียนจะออกจากห้องทั้งหมด และความคืบหน้าในห้องนี้จะถูกลบ`,'ลบห้องเรียน'))) return;
+      const r=await classApi('DELETE','/'+d.id); if(!r.ok){ toast(classErr(r)); return; } toast('ลบห้องเรียนแล้ว'); backToClasses(); }})));
+}
+// teacher: choose a scene or deck → (make / refresh its share link) → assign
+function openAssignPicker(d){
+  const mine=customs.filter(sc=>Object.keys(sc.items).length);
+  const live=liveKeys(), dks=deckList().filter(x=>!x.virtual && deckCount(x,live));
+  openModal(m=>{
+    m.classList.add('dkbox');
+    m.append(el('h3',{text:'มอบหมายงานให้ห้อง “'+d.name+'”'}), el('p',{class:'note',text:'เลือกฉากหรือชุดคำ ระบบจะสร้างลิงก์ (สำเนา ณ ตอนนี้) ให้นักเรียน'}));
+    const list=el('div',{class:'dk-list tall'});
+    const row=(icon,name,meta,t)=>el('button',{class:'dk-row asrow',onclick:e=>assign(t,e.currentTarget)}, el('span',{class:'dk-name'}, el('b',{text:icon+' '+name}), el('small',{text:meta})), el('span',{class:'dk-n',text:'มอบหมาย ›'}));
+    const tea=BUILTIN[0];
+    list.append(row('🖼️',tea.name,'ฉากตัวอย่าง · '+Object.keys(tea.items).length+' คำ',{kind:'scene',sc:tea}));
+    mine.forEach(sc=>list.append(row('🖼️',sc.name,'ฉาก · '+Object.keys(sc.items).length+' คำ',{kind:'scene',sc})));
+    dks.forEach(dk=>list.append(row('📚',deckName(dk),'ชุดคำ · '+deckCount(dk,live)+' คำ',{kind:'deck',deck:dk})));
+    const err=el('p',{class:'err'});
+    m.append(list, err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
+    const assign=async(t,btn)=>{
+      list.querySelectorAll('button').forEach(b=>b.disabled=true); btn.querySelector('.dk-n').textContent='กำลังสร้าง…'; err.textContent='';
+      const fail=msg=>{ err.textContent=msg; list.querySelectorAll('button').forEach(b=>b.disabled=false); btn.querySelector('.dk-n').textContent='มอบหมาย ›'; };
+      const key=shareKey(t), body=sharePayload(t), cur=myShares[key]; if(cur) body.id=cur.id;
+      if(!(await picturesUploaded(body))) return fail(shareErr(0,{error:'picture_missing'}));
+      const r=await shareApi('POST','/api/share',body).catch(()=>({ok:false,status:0,j:{}}));
+      if(!r.ok) return fail(shareErr(r.status,r.j));
+      myShares[key]={ id:r.j.id, at:Date.now() }; store.set('pv-shares',myShares);
+      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id });
+      if(!a.ok) return fail(classErr(a));
+      closeModal(); toast('มอบหมายงานแล้ว ✓'); CL.detail=null; renderClassDetail();
+    };
+  });
+}
+function openJoinClass(code){
+  openModal(m=>{
+    const ci=el('input',{class:'code clcodein',maxlength:'7',placeholder:'รหัส 6 ตัว',autocomplete:'off',autocapitalize:'characters',spellcheck:'false',value:code||'','aria-label':'รหัสห้องเรียน'});
+    const ni=el('input',{maxlength:'30',placeholder:'ชื่อเล่น เช่น มิ้นท์ ป.4/2',autocomplete:'nickname','aria-label':'ชื่อเล่น',value:isStudent()?studentNick():''});
+    const err=el('p',{class:'err'}), go=el('button',{class:'primary',text:'เข้าห้อง'});
+    ci.addEventListener('input',()=>{ ci.value=ci.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6); });
+    const submit=async()=>{
+      const c=ci.value.trim(), nick=ni.value.trim();
+      if(c.length!==6){ err.textContent='ใส่รหัสห้อง 6 ตัวจากครู'; ci.focus(); return; }
+      if(!nick){ err.textContent='ใส่ชื่อเล่นที่ครูจะเห็น'; ni.focus(); return; }
+      go.disabled=true; go.textContent='กำลังเข้าห้อง…'; err.textContent='';
+      if(!user){
+        const { error } = await sb.auth.signInAnonymously({ options:{ data:{ nickname:nick } } });
+        if(error){ go.disabled=false; go.textContent='เข้าห้อง';
+          err.textContent=/anonymous.*(disabled|not enabled)|provider.*disabled/i.test(error.message||'') ? 'ยังเปิดให้นักเรียนเข้าห้องแบบไม่ใช้อีเมลไม่ได้ ลองเข้าสู่ระบบด้วยอีเมลแทน' : authErr(error); return; }
+        for(let i=0;i<30 && !user;i++) await new Promise(r=>setTimeout(r,100));
+      }
+      const r=await classApi('POST','/join',{ code:c, nickname:nick }).catch(()=>({ok:false}));
+      if(!r.ok){ go.disabled=false; go.textContent='เข้าห้อง'; err.textContent=classErr(r); return; }
+      closeModal(); toast('เข้าห้อง “'+r.j.name+'” แล้ว 🎉', 3500);
+      CL.list=null; if(S.view!=='class') goHome('class'); openClass(r.j.id);
+    };
+    go.addEventListener('click',submit);
+    [ci,ni].forEach(x=>x.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); }));
+    m.append(el('h3',{text:'🔑 เข้าห้องเรียน'}),
+      el('label',{},'รหัสห้องจากครู', ci), el('label',{},'ชื่อเล่น (ครูจะเห็นชื่อนี้)', ni), err,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
+      el('p',{class:'note small'}, user ? (isStudent() ? 'เข้าด้วยบัญชีนักเรียนในเครื่องนี้' : 'เข้าด้วยบัญชี '+(user.email||'')) : 'ไม่ต้องมีอีเมล — ระบบจะสร้างบัญชีนักเรียนในเครื่องนี้ให้ · ใช้ชื่อเล่น ไม่ต้องใส่ชื่อจริงหรือนามสกุล',
+        ' · ', el('a',{href:'/privacy#class',target:'_blank',text:'ความเป็นส่วนตัว'})));
+  });
+}
+function createClassDialog(){
+  if(!user || isStudent()){ openModal(m=>m.append(el('h3',{text:'➕ สร้างห้องเรียน'}),
+    el('p',{text: isStudent() ? 'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ในเครื่องของครู' : 'ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ก่อน เพื่อเก็บห้องเรียนไว้ในบัญชี'}),
+    el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal}), isStudent()?null:el('button',{class:'primary',text:'👤 เข้าสู่ระบบ',onclick:()=>openLogin()})))); return; }
+  deckNameDialog('สร้างห้องเรียน', '', 'สร้าง', async name=>{
+    const r=await classApi('POST','',{ name }).catch(()=>({ok:false}));
+    if(!r.ok){ toast(classErr(r), 4000); return; }
+    toast('สร้างห้อง “'+name+'” แล้ว — รหัส '+r.j.code, 4000); CL.list=null; openClass(r.j.id);
+  }, 'เช่น ป.4/2 ภาษาอังกฤษ', 60);
+}
+function openStudentAccount(){
+  openModal(m=>m.append(el('h3',{text:'🎓 บัญชีนักเรียน'}),
+    el('p',{}, 'ชื่อเล่น: ', el('b',{text:studentNick()})),
+    el('p',{class:'note warn',text:'บัญชีนี้ไม่มีอีเมล ข้อมูลอยู่ในเบราว์เซอร์นี้เท่านั้น ถ้าออกจากระบบ ล้างข้อมูลเบราว์เซอร์ หรือเปลี่ยนเครื่อง จะกลับมาใช้บัญชีนี้ไม่ได้'}),
+    el('p',{class:'note',id:'syncNote',text:syncText()}),
+    el('div',{class:'row'}, el('button',{text:'🎓 ห้องเรียนของฉัน',onclick:()=>{ closeModal(); goHome('class'); }}), el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})),
+    el('div',{class:'acctlinks'},
+      el('button',{class:'linkbtn small',text:'ออกจากระบบ',onclick:async()=>{
+        if(!(await ask('ออกจากบัญชีนักเรียน? จะกลับมาใช้บัญชีนี้ไม่ได้อีก ความคืบหน้าในห้องเรียนจะหายจากเครื่องนี้','ออกจากระบบ'))) return;
+        await sb.auth.signOut(); toast('ออกจากระบบแล้ว'); }}), ' · ',
+      el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · ',
+      el('button',{class:'linkbtn small danger-link',text:'ลบบัญชีและข้อมูล',onclick:openDeleteAccount}))));
+}
+const classLinkCode=((/^\/c\/([A-Za-z2-9]{6})\/?$/.exec(location.pathname)||[])[1]||'').toUpperCase()||null;
 // ---------- share links (piccab.com/s/<id>) ----------
 // A link is a snapshot: the server copies the words and pictures when you share (or update) it.
 let myShares=store.get('pv-shares',{}); if(typeof myShares!=='object'||!myShares) myShares={};
 const shareKey=t=>t.kind+':'+(t.kind==='scene'?t.sc.id:t.deck.id);
 const shareUrl=id=>location.origin+'/s/'+id;
 function sceneForShare(sc){
-  if(sc.builtin) return { id:sc.id, builtin:true };
+  if(sc.builtin) return { id:sc.id, builtin:true, n:Object.keys(sc.items).length };
   return { id:sc.id, name:sc.name, w:sc.w, h:sc.h, items:sc.items };
 }
 function sharePayload(t){
@@ -2931,7 +3234,7 @@ async function importShare(id, r, progress){
     d.words=r.words.map(w=>{ const j=w.indexOf('|'); const sid=map[w.slice(0,j)]; return sid ? sid+w.slice(j) : null; }).filter(Boolean);
     saveDecks(); deckId=d.id;
   }
-  const rec={ scenes:made.map(x=>x.id), deck:deckId, at:Date.now() };
+  const rec={ kind:r.kind, scenes:r.scenes.map(x=>map[x.id]).filter(Boolean), deck:deckId, at:Date.now() };
   const all=store.get('pv-imported',{})||{}; all[id]=rec; store.set('pv-imported',all);
   return rec;
 }
@@ -3246,6 +3549,7 @@ boot().finally(()=>{
   fullRender();
   if(typeof syncStart==='function') syncStart();
   if(sharedLinkId) setTimeout(()=>openSharedLink(sharedLinkId), 150);
+  if(classLinkCode){ try{ history.replaceState(null,'','/'); }catch(e){} setTimeout(()=>{ goHome('class'); openJoinClass(classLinkCode); }, 400); }
 });
 })();
 </script>

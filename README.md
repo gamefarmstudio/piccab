@@ -25,6 +25,7 @@ src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน publi
 supabase/schema.sql  ตารางฐานข้อมูล + สิทธิ์ (RLS) + เครดิต AI — รันใน Supabase SQL Editor
 supabase/2026-11-decks.sql  เพิ่มตาราง decks (ชุดคำ) สำหรับโปรเจกต์ที่รัน schema.sql ไปก่อนหน้านี้แล้ว
 supabase/2026-11-shares.sql เพิ่มตาราง shares (ลิงก์แชร์ /s/<id>) — ไม่มีสิทธิ์อ่านจากเบราว์เซอร์ อ่านผ่าน Worker เท่านั้น
+supabase/2026-11-classes.sql เพิ่มตารางห้องเรียน (classes, class_members, class_items, class_progress) — ต้องรันหลัง shares; เปิด Anonymous sign-ins ใน Supabase ให้นักเรียนเข้าด้วยรหัส+ชื่อเล่น
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
 ```
