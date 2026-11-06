@@ -3,35 +3,48 @@
 ฝึกคำศัพท์ภาษาอังกฤษจากภาพ: แตะของในภาพเพื่อดูคำและฟังเสียง ทบทวนด้วยการพิมพ์ หรือฟังแล้วหา
 ครูและผู้เรียนสร้างฉากเองจากรูปถ่ายได้ โดยมี AI ช่วยตีกรอบและใส่คำศัพท์
 
-เว็บไซต์: https://piccab.com (ยังไม่เปิดใช้งาน)
+เว็บไซต์: https://piccab.com
 
 ## สถานะ
 
-ต้นแบบที่ใช้งานได้ (prototype) — โค้ดทั้งหมดอยู่ในไฟล์ `index.html` ไฟล์เดียว ไม่ต้อง build
+ต้นแบบที่ใช้งานได้ (prototype) — หน้าแอปอยู่ใน `public/index.html` ไฟล์เดียว ไม่ต้อง build
+มี Cloudflare Worker เล็กๆ (`src/worker.js`) เป็นหลังบ้านสำหรับ AI หาคำศัพท์
 
 ## โครงสร้าง
 
 ```
-index.html   แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
-README.md    ไฟล์นี้
+public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
+src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
+                     GET  /api/health  → { ai, needCode }
+                     POST /api/scan    → ส่งรูปให้ Claude API แล้วคืนรายการคำศัพท์ + กรอบ
+wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
+README.md          ไฟล์นี้
 ```
 
 ## วิธีเปิดดูบนเครื่อง
 
-เปิด `index.html` ในเบราว์เซอร์ได้เลย หรือรันเซิร์ฟเวอร์เล็กๆ:
-
 ```bash
-npx serve .
-# แล้วเปิด http://localhost:3000
+npx wrangler dev
+# แล้วเปิด http://localhost:8787
 ```
 
-## การนำขึ้นเว็บ (Cloudflare Pages)
+ถ้าจะทดสอบ AI บนเครื่อง ให้สร้างไฟล์ `.dev.vars` (อยู่ใน .gitignore แล้ว) ใส่ `ANTHROPIC_API_KEY=...`
+หรือเปิด `public/index.html` ตรงๆ ในเบราว์เซอร์ก็ได้ (ปุ่ม AI จะซ่อน)
 
-- Framework preset: **None**
-- Build command: (เว้นว่าง)
-- Build output directory: `/`
+## การนำขึ้นเว็บ (Cloudflare Workers)
 
-ทุกครั้งที่ push ขึ้น `main` เว็บจะอัปเดตอัตโนมัติ ส่วน branch อื่นจะได้ลิงก์ตัวอย่าง (preview) แยก
+- Deploy command: `npx wrangler deploy` (อ่านค่าจาก `wrangler.jsonc`)
+- ทุกครั้งที่ merge เข้า `main` เว็บจะอัปเดตอัตโนมัติ
+
+ตั้งค่าใน Cloudflare → Workers & Pages → piccab → Settings → Variables and Secrets:
+
+| ชื่อ | ชนิด | จำเป็น | ความหมาย |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | Secret | ✅ | คีย์จาก console.anthropic.com (ไม่มี = ซ่อนปุ่ม AI) |
+| `SCAN_CODE` | Secret | แนะนำ | รหัสที่ผู้ใช้ต้องใส่ก่อนใช้ AI (ช่วงทดลอง กันคนนอกใช้เครดิต) |
+| `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-sonnet-5-5` เปลี่ยนเป็น `claude-haiku-5-5` เพื่อประหยัด |
+
+ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย
 
 ## ฟีเจอร์ในต้นแบบ
 
@@ -44,14 +57,13 @@ npx serve .
 ## ข้อจำกัดที่ควรรู้
 
 - **ข้อมูลเก็บใน localStorage ของเบราว์เซอร์** — ยังไม่มีบัญชีผู้ใช้หรือเซิร์ฟเวอร์ (แผนถัดไป: Supabase)
-- **AI หาคำศัพท์** ใช้ความสามารถ `sample` ของ Claude artifact จึงทำงานเฉพาะตอนเปิดใน Claude
-  เมื่อเปิดจาก piccab.com ปุ่ม AI จะซ่อนอัตโนมัติ และยังตีกรอบใส่คำเองได้ตามปกติ
-  (แผนถัดไป: Supabase Edge Function เรียก Claude API พร้อมระบบเครดิต)
+- **AI หาคำศัพท์** เรียก Claude API ผ่าน Worker ใช้เครดิตของเจ้าของเว็บ ป้องกันด้วยรหัส `SCAN_CODE`
+  และจำกัดความถี่ต่อ IP เท่านั้น ยังไม่มีเครดิตรายผู้ใช้ (แผนถัดไป: ผูกกับบัญชีผู้ใช้ + ระบบเครดิต)
 - เมนู "คำของฉัน" และ "ห้องเรียน" ยังเป็นปุ่มตัวอย่าง (เร็วๆ นี้)
 
 ## แผนพัฒนา
 
-1. นำขึ้น piccab.com ด้วย Cloudflare Pages
+1. ~~นำขึ้น piccab.com ด้วย Cloudflare Workers~~ ✅ และ AI ผ่าน Worker ✅
 2. ต่อ Supabase: ล็อกอิน (Google / อีเมล), เก็บฉากและความคืบหน้า, เก็บรูปใน Storage, ลิงก์แชร์ให้นักเรียน
-3. AI ผ่าน Edge Function + Claude API + ระบบเครดิต
+3. ระบบเครดิต AI รายผู้ใช้ (นับใน Supabase ตรวจใน Worker)
 4. ย้ายไป Vite + React + TypeScript เมื่อเริ่มทำหน้าครูและระบบชำระเงิน
