@@ -2213,7 +2213,7 @@ svg.addEventListener('pointercancel', ()=>{
   if(drag){ const it=scene().items[drag.id]; if(it) Object.assign(it, drag.o); layoutHs(drag.id); drag=null; updateOverlay(); }
 });
 
-// ---------- AI auto-labelling (server: POST /api/scan → Claude API) ----------
+// ---------- AI auto-labelling (server: POST /api/scan → Gemini or Claude) ----------
 let aiReady=false, aiNeedCode=false, aiCredits=false, aiMonthly=30, aiLeft=null, aiCtl=null, aiTimer=null;
 (location.protocol.startsWith('http') ? fetch('/api/health',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null))
   .then(h=>{
@@ -2261,9 +2261,9 @@ function askCode(again){
         el('button',{class:'primary',text:'ตกลง',onclick:ok}))));
   });
 }
-// Shown wherever a picture may go to the AI (Anthropic's guidelines for products used by minors: say it is AI).
+// Shown wherever a picture may go to the AI: say it is AI, and keep people / personal info out of the pictures.
 function aiNotice(){
-  return el('p',{class:'note ainote'}, '🤖 คำศัพท์สร้างโดย AI (Claude) อาจผิดได้ ตรวจก่อนเรียนนะ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ', el('a',{href:'/privacy#ai',target:'_blank',text:'อ่านเพิ่ม'}));
+  return el('p',{class:'note ainote'}, '🤖 รูปจะถูกส่งให้ AI (Google Gemini) และคำศัพท์สร้างโดย AI อาจผิดได้ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ', el('a',{href:'/privacy#ai',target:'_blank',text:'อ่านเพิ่ม'}));
 }
 function openAI(){
   const sc=scene(); if(sc.builtin) return;

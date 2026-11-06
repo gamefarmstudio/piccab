@@ -46,8 +46,8 @@ npx wrangler dev
 
 | ชื่อ | ชนิด | จำเป็น | ความหมาย |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com — **ใช้ทดสอบเท่านั้น**: เงื่อนไข Gemini API ห้ามใช้ในแอปที่ผู้ใช้อายุต่ำกว่า 18 ปี และระดับฟรี Google นำข้อมูลไปพัฒนาโมเดล |
-| `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com — ใช้กับเว็บจริง (ผู้ใช้ทุกวัย; ไม่นำข้อมูล API ไปฝึกโมเดล) ไม่มีคีย์เลย = ซ่อนปุ่ม AI |
+| `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com (ที่ใช้อยู่ตอนนี้) — หมายเหตุ: เงื่อนไข Gemini API กำหนดผู้ใช้อายุ 18+ และระดับฟรี Google อาจนำข้อมูลไปพัฒนาผลิตภัณฑ์ (ระบุไว้ใน /privacy แล้ว) |
+| `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com — ทางเลือก (ถ้ามีคีย์นี้ จะใช้ Claude แทน Gemini เว้นแต่ตั้ง `AI_PROVIDER=gemini`) ไม่มีคีย์เลย = ซ่อนปุ่ม AI |
 | `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
 | `GEMINI_MODEL` | Text | – | รุ่นเดียว หรือหลายรุ่นคั่นด้วย , (ลองตามลำดับเมื่อโควตาหมด) ค่าเริ่มต้น `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite` |
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-haiku-5-5` (ถูกที่สุด) ถ้ากรอบไม่แม่นเปลี่ยนเป็น `claude-sonnet-5-5` |
