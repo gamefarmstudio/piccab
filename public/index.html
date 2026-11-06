@@ -185,7 +185,8 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .acct.in{padding:4px 10px 4px 4px}
 .mbox .note{font-size:13.5px;color:var(--muted);margin:10px 0 0}
 .mbox .err{color:var(--bad);font-size:14px;min-height:1.2em;margin:6px 0 0}
-.mbox input.code{font-size:26px;letter-spacing:6px;text-align:center;font-family:'Fredoka',monospace}
+.mbox input.code{font-size:26px;letter-spacing:5px;text-align:center;font-family:'Fredoka',monospace}
+.mbox input.code::placeholder{letter-spacing:0;font-size:17px;font-family:'Sarabun',sans-serif}
 .linkbtn.small{font-size:13.5px;padding:4px 0}
 @media (max-width:640px){ .acct .lbl{display:none} .acct{padding:6px 10px} }
 .ghead.lh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
@@ -2081,7 +2082,7 @@ function openLogin(prefill){
     go.addEventListener('click',send);
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
     m.append(el('h3',{text:'👤 เข้าสู่ระบบ / สมัครสมาชิก'}),
-      el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัส 6 หลักไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
+      el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัสตัวเลขไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
       inp, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
       el('p',{class:'note',text:'☁️ เมื่อเข้าสู่ระบบ ฉาก รูป และความคืบหน้าจะถูกเก็บในบัญชี ใช้ได้ทุกเครื่องที่เข้าสู่ระบบด้วยอีเมลเดียวกัน'}));
@@ -2090,7 +2091,7 @@ function openLogin(prefill){
 function openCode(email){
   let wait=60, timer=null;
   openModal(m=>{
-    const inp=el('input',{class:'code',inputmode:'numeric',autocomplete:'one-time-code',maxlength:'10',placeholder:'••••••'});
+    const inp=el('input',{class:'code',inputmode:'numeric',autocomplete:'one-time-code',maxlength:'10',placeholder:'รหัสจากอีเมล'});
     const err=el('p',{class:'err'});
     const ok=el('button',{class:'primary',text:'ยืนยัน'});
     const again=el('button',{class:'linkbtn small'});
@@ -2099,14 +2100,19 @@ function openCode(email){
     modalClose=()=>clearInterval(timer);
     const verify=async()=>{
       const token=inp.value.replace(/\D/g,'');
-      if(token.length<6){ err.textContent='ใส่รหัสให้ครบ 6 หลัก'; inp.focus(); return; }
+      if(token.length<6){ err.textContent='ใส่รหัสจากอีเมลให้ครบทุกหลัก'; inp.focus(); return; }
       ok.disabled=true; ok.textContent='กำลังตรวจ…'; err.textContent='';
       const { error } = await sb.auth.verifyOtp({ email, token, type:'email' });
       if(error){ ok.disabled=false; ok.textContent='ยืนยัน'; err.textContent=authErr(error); inp.select(); return; }
       closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000);
     };
     ok.addEventListener('click',verify);
-    inp.addEventListener('input',()=>{ const d=inp.value.replace(/\D/g,''); if(d!==inp.value) inp.value=d; if(d.length===6) verify(); });
+    inp.addEventListener('input',e=>{
+      const d=inp.value.replace(/\D/g,''); if(d!==inp.value) inp.value=d;
+      const whole = e.inputType==='insertFromPaste' || e.inputType==='insertReplacementText' || e.inputType===undefined;
+      if(whole && d.length>=6) verify();          // pasted or auto-filled → submit; typing → press ยืนยัน / Enter
+      else if(d.length>=6) ok.classList.add('ready');
+    });
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') verify(); });
     again.addEventListener('click',async()=>{
       wait=60; tick(); clearInterval(timer); timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000);
