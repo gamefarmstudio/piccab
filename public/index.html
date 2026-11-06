@@ -224,8 +224,8 @@ button.ai{background:linear-gradient(135deg,#5b4bd6,#9a63f2);color:#fff;border-c
 .mbox .opt input{display:inline;width:auto;margin:0}
 rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-effect:non-scaling-stroke;stroke-dasharray:6 4;pointer-events:none}
 .overlay{position:absolute;inset:0;pointer-events:none}
-.tag{position:absolute;z-index:6;transform:translateY(-100%);background:#fff;border-radius:12px 12px 12px 3px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid var(--gold)}
-.tag.below{transform:none;border-radius:3px 12px 12px 12px}
+.tag{position:absolute;z-index:6;transform:translateY(-100%);background:#fff;border-radius:12px;padding:7px 8px 7px 13px;box-shadow:0 6px 18px rgba(30,25,60,.22);white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px;border:2px solid transparent}
+.tag.below{transform:none}
 .tag b{display:block;font-family:'Fredoka',sans-serif;font-size:21px;font-weight:600;line-height:1.1}
 .tag small{display:block;font-size:14px;color:var(--muted);line-height:1.25}
 .tag.pinned{pointer-events:auto}
@@ -302,7 +302,6 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  .chips .chip.all{display:inline-block;background:var(--soft);border-color:#c9bdf0}
  .wrap:has(.tag.wcard:not([hidden])) #scene{border-radius:18px 18px 0 0}
  .tag.wcard{position:static;transform:none;display:flex;align-items:center;gap:6px;border:none;border-top:1px solid var(--line);border-left:5px solid transparent;border-radius:0 0 18px 18px;box-shadow:none;padding:8px 8px 8px 12px;min-height:62px;white-space:normal;pointer-events:auto}
- .tag.wcard.active{border-left-color:var(--gold)}
  .tag.wcard.good{border-left-color:var(--ok)}
  .tag.wcard.bad{border-left-color:var(--bad)}
  .tag.wcard .ctext{flex:1;min-width:0}
