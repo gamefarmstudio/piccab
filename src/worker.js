@@ -2,6 +2,8 @@
 //
 //   GET  /api/health  -> { ai: boolean, needCode: boolean }
 //   POST /api/scan    -> { items: [{ word, th, alts, box:[x0,y0,x1,y1] }] }
+//   GET|PUT|DELETE /api/img/<sceneId>  -> the signed-in user's scene picture in R2 (binding IMAGES)
+//                      requires "Authorization: Bearer <Supabase access token>"; stored at u/<user id>/<sceneId>
 //
 // Secrets / variables (Cloudflare → Workers & Pages → piccab → Settings → Variables and Secrets).
 // Set the key for at least one AI provider:
@@ -17,6 +19,12 @@
 // endpoint cannot be used as a general-purpose proxy to an AI API.
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
+
+// Supabase project (public values: the publishable key is meant for browsers; data is protected by RLS).
+export const SUPABASE_URL = 'https://oftzpfyydnmahkntucnj.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_R8bX28KY2kU5997XFqHelw_fqUvywBh';
+const MAX_UPLOAD = 3 * 1024 * 1024;
+const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Tried in order: the most accurate first; each model has its own free daily quota (20, 20 and 500).
 const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite';
 // Models that just ran out of quota are skipped for a while (per Worker instance; best effort).
@@ -50,6 +58,7 @@ export default {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return scan(request, env);
     }
+    if (url.pathname.startsWith('/api/img/')) return image(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
     return env.ASSETS.fetch(request);
   },
@@ -202,6 +211,64 @@ async function callGemini(env, model, mime, data64, prompt) {
   if (!items) return { code: 'invalid_json', status: 502 };
   const u = data.usageMetadata;
   return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: u.candidatesTokenCount } : undefined };
+}
+
+// ---------- scene pictures in R2 ----------
+// Who is calling? Asks Supabase Auth to check the access token (also catches signed-out / revoked sessions).
+const userCache = new Map(); // token -> { uid, until }
+export async function userFromRequest(request, env) {
+  const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') || '');
+  if (!m) return null;
+  const token = m[1], now = Date.now(), hit = userCache.get(token);
+  if (hit && hit.until > now) return hit.uid;
+  let res;
+  try {
+    res = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${token}` },
+    });
+  } catch (e) { return null; }
+  if (!res.ok) return null;
+  const u = await res.json().catch(() => null);
+  const uid = u && typeof u.id === 'string' && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id : null;
+  if (uid) {
+    if (userCache.size > 500) userCache.clear();
+    userCache.set(token, { uid, until: now + 5 * 60 * 1000 });
+  }
+  return uid;
+}
+
+async function image(request, env, url) {
+  if (!env.IMAGES) return error('not_configured', 503);
+  const id = decodeURIComponent(url.pathname.slice('/api/img/'.length));
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) return error('bad_id', 400);
+  const uid = await userFromRequest(request, env);
+  if (!uid) return error('unauthorized', 401);
+  const key = `u/${uid}/${id}`;
+
+  if (request.method === 'GET') {
+    const obj = await env.IMAGES.get(key);
+    if (!obj) return error('not_found', 404);
+    return new Response(obj.body, { headers: {
+      'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg',
+      'cache-control': 'private, max-age=31536000, immutable',
+    } });
+  }
+  if (request.method === 'PUT') {
+    const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!UPLOAD_TYPES.includes(type)) return error('bad_image', 400);
+    const len = Number(request.headers.get('content-length') || 0);
+    if (len > MAX_UPLOAD) return error('image_too_large', 413);
+    const body = await request.arrayBuffer();
+    if (!body.byteLength) return error('bad_image', 400);
+    if (body.byteLength > MAX_UPLOAD) return error('image_too_large', 413);
+    await env.IMAGES.put(key, body, { httpMetadata: { contentType: type } });
+    return json({ ok: true, key, size: body.byteLength });
+  }
+  if (request.method === 'DELETE') {
+    await env.IMAGES.delete(key);
+    return json({ ok: true });
+  }
+  return error('method_not_allowed', 405);
 }
 
 function buildPrompt(count, level, existing, provider) {

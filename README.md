@@ -13,10 +13,13 @@
 ## โครงสร้าง
 
 ```
+public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้ในเว็บเอง
 public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
                      GET  /api/health  → { ai, needCode }
                      POST /api/scan    → ส่งรูปให้ Gemini หรือ Claude แล้วคืนรายการคำศัพท์ + กรอบ
+                     GET|PUT|DELETE /api/img/<id> → รูปฉากใน R2 (เฉพาะเจ้าของที่ล็อกอิน)
+supabase/schema.sql  ตารางฐานข้อมูล + สิทธิ์ (RLS) + เครดิต AI — รันใน Supabase SQL Editor
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
 ```
@@ -56,6 +59,15 @@ npx wrangler dev
 - โหมดเรียน: ดูคำศัพท์ (Manual / Auto), ทบทวน (พิมพ์), ฟังแล้วหา
 - สร้างและแก้ไขฉาก: ตีกรอบ เลือก ย้าย ปรับขนาด กรอบซ้อน คำแปล คำตอบอื่น
 - เสียงอ่าน: Web Speech API (สำเนียง UK/US, พูดช้า)
+
+## Supabase (บัญชีผู้ใช้)
+
+- โปรเจกต์: `piccab` (Singapore) — URL และ publishable key อยู่ใน `public/index.html` (ใช้ในเบราว์เซอร์ได้ ข้อมูลป้องกันด้วย RLS)
+- ล็อกอินด้วยอีเมล + รหัสครั้งเดียว (OTP) — ต้องใส่ `{{ .Token }}` ในเทมเพลตอีเมล Magic Link / Confirm signup
+- Authentication → URL Configuration: Site URL `https://piccab.com`, Redirect URLs `https://piccab.com/**` และ `https://*-piccab.itthanun-s.workers.dev/**`
+- Sync: ฉาก + ความคืบหน้าเก็บใน Supabase (ใหม่กว่าชนะ), รูปเก็บใน **Cloudflare R2** bucket `piccab-images` (binding `IMAGES`)
+- ในเครื่อง: ข้อมูลฉากใน localStorage (`pv-scenes2`), รูปใน IndexedDB (`piccab` → `img`)
+- **ห้าม** ใส่ secret / service_role key ในโค้ด — ใช้เป็น Secret ใน Cloudflare เท่านั้น
 
 ## ข้อจำกัดที่ควรรู้
 
