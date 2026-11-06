@@ -37,8 +37,8 @@
 const DEFAULT_MODEL = 'claude-haiku-5-5';
 
 // Supabase project (public values: the publishable key is meant for browsers; data is protected by RLS).
-export const SUPABASE_URL = 'https://oftzpfyydnmahkntucnj.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_R8bX28KY2kU5997XFqHelw_fqUvywBh';
+const SUPABASE_URL = 'https://oftzpfyydnmahkntucnj.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_R8bX28KY2kU5997XFqHelw_fqUvywBh';
 const MAX_UPLOAD = 3 * 1024 * 1024;
 const DEFAULT_MONTHLY_CREDITS = 30;
 const monthlyCredits = env => clampInt(env.AI_MONTHLY_CREDITS, 0, 1000000, DEFAULT_MONTHLY_CREDITS);
@@ -80,9 +80,11 @@ export default {
     if (url.pathname.startsWith('/api/img/')) return image(request, env, url);
     if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname === '/api/shares') return listShares(request, env);
+    if (url.pathname === '/api/classes' || url.pathname.startsWith('/api/classes/')) return classes(request, env, url, ctx);
     if (url.pathname === '/api/share' || url.pathname.startsWith('/api/share/')) return share(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
     if (/^\/s\/[A-Za-z0-9]{8,16}\/?$/.test(url.pathname)) return sharePage(request, env, url);
+    if (/^\/c\/[A-Za-z2-9]{6}\/?$/.test(url.pathname)) return classPage(request, env, url);
     return env.ASSETS.fetch(request);
   },
 };
@@ -93,7 +95,9 @@ async function scan(request, env) {
 
   // Who is asking: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
   const useCredits = !!env.SUPABASE_SECRET_KEY;
-  const uid = request.headers.get('authorization') ? await userFromRequest(request, env) : null;
+  const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
+  if (who && who.anon) return error('student_account', 403);       // students (no e-mail) don't use AI
+  const uid = who ? who.uid : null;
   if (!(uid && useCredits)) {
     const code = (request.headers.get('x-piccab-code') || '').trim();
     if (env.SCAN_CODE) {
@@ -276,12 +280,17 @@ async function callGemini(env, model, mime, data64, prompt) {
 
 // ---------- scene pictures in R2 ----------
 // Who is calling? Asks Supabase Auth to check the access token (also catches signed-out / revoked sessions).
-const userCache = new Map(); // token -> { uid, until }
+const userCache = new Map(); // token -> { uid, anon, until }
 export async function userFromRequest(request, env) {
+  const u = await userInfo(request, env);
+  return u ? u.uid : null;
+}
+// { uid, anon } — anon: a student account made from a room code + nickname (no e-mail)
+export async function userInfo(request, env) {
   const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') || '');
   if (!m) return null;
   const token = m[1], now = Date.now(), hit = userCache.get(token);
-  if (hit && hit.until > now) return hit.uid;
+  if (hit && hit.until > now) return { uid: hit.uid, anon: hit.anon };
   let res;
   try {
     res = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/user`, {
@@ -291,11 +300,11 @@ export async function userFromRequest(request, env) {
   if (!res.ok) return null;
   const u = await res.json().catch(() => null);
   const uid = u && typeof u.id === 'string' && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id : null;
-  if (uid) {
-    if (userCache.size > 500) userCache.clear();
-    userCache.set(token, { uid, until: now + 5 * 60 * 1000 });
-  }
-  return uid;
+  if (!uid) return null;
+  const anon = u.is_anonymous === true;
+  if (userCache.size > 500) userCache.clear();
+  userCache.set(token, { uid, anon, until: now + 5 * 60 * 1000 });
+  return { uid, anon };
 }
 
 // Delete everything the signed-in user has with us: pictures first, then the account
@@ -501,7 +510,7 @@ export function cleanShareBody(b) {
     }
     const w = Math.round(+sc.w), h = Math.round(+sc.h);
     if (!builtin && !(w > 0 && w <= 4000 && h > 0 && h <= 4000)) return null;
-    out.scenes.push(builtin ? { id: 'tea', builtin: true } : { id: sc.id, name: cleanStr(sc.name, 60), w, h, items });
+    out.scenes.push(builtin ? { id: 'tea', builtin: true, n: clampInt(sc.n, 0, 500, 0) } : { id: sc.id, name: cleanStr(sc.name, 60), w, h, items });
   }
   if (b.kind === 'deck') {
     const ids = new Set(out.scenes.map(s => s.id));
@@ -612,6 +621,168 @@ async function sharePage(request, env, url) {
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${esc(img)}"><meta property="og:url" content="${esc(url.origin + '/s/' + id)}">
 <meta name="twitter:card" content="summary_large_image">`;
+    html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
+  }
+  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
+}
+
+// ---------- classrooms ----------
+//   GET    /api/classes                         -> { teaching:[…], learning:[…] }
+//   POST   /api/classes            {name}       -> new class (teachers: accounts with an e-mail)
+//   POST   /api/classes/join       {code, nickname}
+//   POST   /api/classes/progress   {rows:[{class_id, share_id, total, done, star}]}  (a student's own progress)
+//   GET    /api/classes/<id>                    -> teacher: items + members + everyone's progress; student: items + own progress
+//   PATCH  /api/classes/<id>       {name}       (teacher)
+//   DELETE /api/classes/<id>                    (teacher)
+//   POST   /api/classes/<id>/items {share_id}   (teacher; a share link of theirs)
+//   DELETE /api/classes/<id>/items/<share_id>   (teacher)
+//   DELETE /api/classes/<id>/members/<user id|me>  (teacher removes / student leaves)
+const CLASS_CODE = /^[A-Z2-9]{6}$/;
+const MAX_CLASSES = 50, MAX_MEMBERS = 200, MAX_ITEMS = 100;
+const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export function newClassCode() { return Array.from(crypto.getRandomValues(new Uint8Array(6)), x => CODE_ABC[x % 32]).join(''); }
+const inList = ids => `in.(${ids.map(x => `"${x}"`).join(',')})`;
+async function q(env, path, init) {
+  const r = await sbRest(env, path, init);
+  if (!r.ok) { const t = await r.text().catch(() => ''); const e = new Error(`db ${r.status} ${t.slice(0, 200)}`); e.status = r.status; e.body = t; throw e; }
+  return r.status === 204 || r.headers.get('content-length') === '0' ? null : r.json().catch(() => null);
+}
+function shareTotal(sh) {
+  if (!sh || !sh.data) return 0;
+  if (sh.kind === 'deck') return (sh.data.words || []).length;
+  const sc = (sh.data.scenes || [])[0]; return sc ? (sc.builtin ? (sc.n || 0) : Object.keys(sc.items || {}).length) : 0;
+}
+async function classItems(env, cid) {
+  const items = await q(env, `class_items?class_id=eq.${cid}&select=share_id,added_at&order=added_at.asc`) || [];
+  if (!items.length) return [];
+  const shares = await q(env, `shares?id=${inList(items.map(i => i.share_id))}&select=id,kind,name,data`) || [];
+  const by = new Map(shares.map(x => [x.id, x]));
+  return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id); return { share_id: i.share_id, kind: sh.kind, name: sh.name, total: shareTotal(sh), added_at: i.added_at }; });
+}
+const cleanNick = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 30);
+async function classes(request, env, url, ctx) {
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const me = await userInfo(request, env);
+  if (!me) return error('unauthorized', 401);
+  const uid = me.uid, parts = url.pathname.split('/').filter(Boolean);   // api, classes, <id|join|progress>, …
+  const m = request.method, id = parts[2];
+  try {
+    if (!id && m === 'GET') {
+      const teaching = await q(env, `classes?owner=eq.${uid}&select=id,code,name,created_at&order=created_at.desc`) || [];
+      const mem = await q(env, `class_members?user_id=eq.${uid}&select=class_id,nickname,joined_at`) || [];
+      const learn = mem.length ? await q(env, `classes?id=${inList(mem.map(x => x.class_id))}&select=id,name`) || [] : [];
+      const counts = {};
+      if (teaching.length) for (const r of await q(env, `class_members?class_id=${inList(teaching.map(c => c.id))}&select=class_id`) || []) counts[r.class_id] = (counts[r.class_id] || 0) + 1;
+      const nick = new Map(mem.map(x => [x.class_id, x.nickname]));
+      return json({ teaching: teaching.map(c => ({ ...c, members: counts[c.id] || 0 })), learning: learn.map(c => ({ id: c.id, name: c.name, nickname: nick.get(c.id) })) });
+    }
+    if (!id && m === 'POST') {
+      if (me.anon) return error('student_account', 403);
+      const body = await request.json().catch(() => ({}));
+      const name = String(body.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
+      if (!name) return error('bad_request', 400);
+      const mine = await q(env, `classes?owner=eq.${uid}&select=id`) || [];
+      if (mine.length >= MAX_CLASSES) return error('too_many_classes', 429);
+      for (let tries = 0; tries < 6; tries++) {
+        const row = { id: newShareId(), code: newClassCode(), owner: uid, name };
+        try { await q(env, 'classes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify(row) }); return json({ id: row.id, code: row.code, name }); }
+        catch (e) { if (e.status !== 409) throw e; }                    // code taken → try another
+      }
+      return error('db_error', 502);
+    }
+    if (id === 'join' && m === 'POST') {
+      if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'join:' + uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+      const body = await request.json().catch(() => ({}));
+      const code = String(body.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const nickname = cleanNick(body.nickname);
+      if (!CLASS_CODE.test(code)) return error('bad_code', 400);
+      if (!nickname) return error('bad_nickname', 400);
+      const c = (await q(env, `classes?code=eq.${code}&select=id,name,owner`) || [])[0];
+      if (!c) return error('bad_code', 404);
+      if (c.owner === uid) return error('own_class', 400);
+      const members = await q(env, `class_members?class_id=eq.${c.id}&select=user_id`) || [];
+      if (!members.some(x => x.user_id === uid) && members.length >= MAX_MEMBERS) return error('class_full', 429);
+      await q(env, 'class_members?on_conflict=class_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ class_id: c.id, user_id: uid, nickname }) });
+      return json({ id: c.id, name: c.name, nickname });
+    }
+    if (id === 'progress' && m === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      const rows = (Array.isArray(body.rows) ? body.rows : []).slice(0, 300).filter(r => r && SHARE_ID.test(String(r.class_id)) && SHARE_ID.test(String(r.share_id)));
+      if (!rows.length) return json({ ok: true, saved: 0 });
+      const cids = [...new Set(rows.map(r => r.class_id))];
+      const mem = new Set((await q(env, `class_members?user_id=eq.${uid}&class_id=${inList(cids)}&select=class_id`) || []).map(x => x.class_id));
+      const items = new Set((await q(env, `class_items?class_id=${inList(cids)}&select=class_id,share_id`) || []).map(x => x.class_id + '/' + x.share_id));
+      const n = v => Math.max(0, Math.min(10000, Math.round(+v || 0)));
+      const ok = rows.filter(r => mem.has(r.class_id) && items.has(r.class_id + '/' + r.share_id))
+        .map(r => { const total = n(r.total); return { class_id: r.class_id, share_id: r.share_id, user_id: uid, total, done: Math.min(n(r.done), total), star: Math.min(n(r.star), total), updated_at: new Date().toISOString() }; });
+      if (ok.length) await q(env, 'class_progress?on_conflict=class_id,share_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(ok) });
+      return json({ ok: true, saved: ok.length });
+    }
+    if (!SHARE_ID.test(id)) return error('not_found', 404);
+    const c = (await q(env, `classes?id=eq.${id}&select=id,code,name,owner,created_at`) || [])[0];
+    if (!c) return error('not_found', 404);
+    const teacher = c.owner === uid;
+    const membership = teacher ? null : (await q(env, `class_members?class_id=eq.${id}&user_id=eq.${uid}&select=nickname`) || [])[0];
+    if (!teacher && !membership) return error('not_found', 404);
+    const sub = parts[3];
+    if (!sub && m === 'GET') {
+      const items = await classItems(env, id);
+      if (teacher) {
+        const members = await q(env, `class_members?class_id=eq.${id}&select=user_id,nickname,joined_at&order=nickname.asc`) || [];
+        const progress = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,total,done,star,updated_at`) || [];
+        return json({ role: 'teacher', id: c.id, code: c.code, name: c.name, items, members, progress });
+      }
+      const progress = await q(env, `class_progress?class_id=eq.${id}&user_id=eq.${uid}&select=share_id,total,done,star,updated_at`) || [];
+      return json({ role: 'student', id: c.id, name: c.name, nickname: membership.nickname, items, progress });
+    }
+    if (sub === 'members' && m === 'DELETE' && parts[4]) {
+      const who = parts[4] === 'me' ? uid : parts[4];
+      if (!teacher && who !== uid) return error('forbidden', 403);
+      if (!/^[0-9a-f-]{36}$/i.test(who)) return error('bad_request', 400);
+      await q(env, `class_members?class_id=eq.${id}&user_id=eq.${who}`, { method: 'DELETE' });
+      return json({ ok: true });
+    }
+    if (!teacher) return error('forbidden', 403);
+    if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
+    if (!sub && m === 'PATCH') {
+      const body = await request.json().catch(() => ({}));
+      const name = String(body.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
+      if (!name) return error('bad_request', 400);
+      await q(env, `classes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+      return json({ ok: true, name });
+    }
+    if (sub === 'items' && m === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      const sid = String(body.share_id || '');
+      const sh = SHARE_ID.test(sid) ? await getShare(env, sid) : null;
+      if (!sh || sh.owner !== uid) return error('bad_share', 400);
+      const have = await q(env, `class_items?class_id=eq.${id}&select=share_id`) || [];
+      if (!have.some(x => x.share_id === sid) && have.length >= MAX_ITEMS) return error('too_many_items', 429);
+      await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid }) });
+      return json({ ok: true });
+    }
+    if (sub === 'items' && m === 'DELETE' && parts[4]) {
+      await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'DELETE' });
+      return json({ ok: true });
+    }
+    return error('method_not_allowed', 405);
+  } catch (e) {
+    console.log('classes error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+// /c/<code>: the app page, with a preview that names the class (a join link)
+async function classPage(request, env, url) {
+  const code = url.pathname.split('/')[2].toUpperCase();
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  let html = await page.text();
+  const c = env.SUPABASE_SECRET_KEY && CLASS_CODE.test(code) ? (await q(env, `classes?code=eq.${code}&select=name`).catch(() => null) || [])[0] : null;
+  if (c) {
+    const title = `เข้าห้องเรียน “${c.name}” — Piccab`;
+    const tags = `<title>${esc(title)}</title>
+<meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc('กดลิงก์ ใส่ชื่อเล่น แล้วเริ่มฝึกคำศัพท์ที่ครูมอบหมายได้เลย')}">
+<meta property="og:image" content="${esc(url.origin + '/icon-512.png')}"><meta property="og:url" content="${esc(url.origin + '/c/' + code)}">`;
     html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
   }
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
