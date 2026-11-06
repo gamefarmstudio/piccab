@@ -4,6 +4,14 @@
 //   POST /api/scan    -> { items: [{ word, th, alts, box:[x0,y0,x1,y1] }] }
 //   GET|PUT|DELETE /api/img/<sceneId>  -> the signed-in user's scene picture in R2 (binding IMAGES)
 //                      requires "Authorization: Bearer <Supabase access token>"; stored at u/<user id>/<sceneId>
+//   POST   /api/share            -> (signed in) make or update a share link for a scene or a word deck: a snapshot
+//                                   of the words + copies of the pictures at s/<share id>/<scene id> in R2
+//   GET    /api/share/<id>       -> (anyone with the link) the shared scene(s) / deck — never the owner's e-mail
+//   GET    /api/share/<id>/img/<sceneId> -> (anyone with the link) a shared picture
+//   DELETE /api/share/<id>       -> (owner) remove the link and its picture copies
+//   GET    /api/shares           -> (signed in) the user's own links
+//   GET    /s/<id>               -> the app page, with link-preview tags (LINE, Facebook…) for that share
+//                      The shares table has no public access: only this Worker (secret key) reads it, by id.
 //   DELETE /api/account -> deletes the signed-in user's pictures (R2) and account (Supabase Auth admin;
 //                      their rows in profiles/scenes/progress/decks go with it via "on delete cascade").
 //                      Needs SUPABASE_SECRET_KEY.
@@ -71,7 +79,10 @@ export default {
     }
     if (url.pathname.startsWith('/api/img/')) return image(request, env, url);
     if (url.pathname === '/api/account') return deleteAccount(request, env);
+    if (url.pathname === '/api/shares') return listShares(request, env);
+    if (url.pathname === '/api/share' || url.pathname.startsWith('/api/share/')) return share(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
+    if (/^\/s\/[A-Za-z0-9]{8,16}\/?$/.test(url.pathname)) return sharePage(request, env, url);
     return env.ASSETS.fetch(request);
   },
 };
@@ -297,6 +308,8 @@ async function deleteAccount(request, env) {
   if (!uid) return error('unauthorized', 401);
   let removed = 0;
   if (env.IMAGES) {
+    const mine = await sbRest(env, `shares?owner=eq.${uid}&select=id`).then(r => r.ok ? r.json() : []).catch(() => []);
+    for (const row of Array.isArray(mine) ? mine : []) removed += await deletePrefix(env, `s/${row.id}/`);
     let cursor;
     do {
       const page = await env.IMAGES.list({ prefix: `u/${uid}/`, cursor });
@@ -430,6 +443,178 @@ function json(obj, status = 200) {
 
 function error(code, status) {
   return json({ error: code }, status);
+}
+
+// ---------- share links ----------
+const SHARE_ID = /^[A-Za-z0-9]{8,16}$/;
+const SCENE_ID = /^[A-Za-z0-9_-]{1,40}$/;
+const MAX_SHARES = 200;           // per user
+const MAX_SHARE_SCENES = 30;      // per deck
+const MAX_SHARE_JSON = 300000;    // characters of words/boxes data
+
+function sbRest(env, path, init = {}) {
+  const key = env.SUPABASE_SECRET_KEY;
+  return fetch(`${env.SUPABASE_URL || SUPABASE_URL}/rest/v1/${path}`, {
+    ...init,
+    headers: { apikey: key, authorization: `Bearer ${key}`, 'content-type': 'application/json', ...(init.headers || {}) },
+  });
+}
+async function getShare(env, id) {
+  if (!SHARE_ID.test(id)) return null;
+  const r = await sbRest(env, `shares?id=eq.${id}&select=id,owner,kind,name,data,created_at,updated_at`);
+  if (!r.ok) throw new Error('db ' + r.status);
+  const rows = await r.json();
+  return rows && rows[0] || null;
+}
+async function deletePrefix(env, prefix) {
+  let n = 0, cursor;
+  do {
+    const page = await env.IMAGES.list({ prefix, cursor });
+    const keys = (page.objects || []).map(o => o.key);
+    if (keys.length) { await env.IMAGES.delete(keys); n += keys.length; }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return n;
+}
+export function newShareId() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', b = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(b, x => abc[x % abc.length]).join('');
+}
+const cleanStr = (v, n) => String(v == null ? '' : v).slice(0, n);
+const num = v => (Number.isFinite(+v) ? Math.round(+v * 10) / 10 : 0);
+// Keep only the fields the app needs, with sane sizes.
+export function cleanShareBody(b) {
+  if (!b || (b.kind !== 'scene' && b.kind !== 'deck')) return null;
+  const scenes = Array.isArray(b.scenes) ? b.scenes.slice(0, b.kind === 'scene' ? 1 : MAX_SHARE_SCENES) : [];
+  if (!scenes.length) return null;
+  const out = { kind: b.kind, name: cleanStr(b.name, 60).trim() || (b.kind === 'deck' ? 'ชุดคำ' : 'ฉาก'), scenes: [] };
+  for (const sc of scenes) {
+    if (!sc || !SCENE_ID.test(String(sc.id))) return null;
+    const builtin = sc.id === 'tea' && sc.builtin === true;
+    const items = {};
+    if (!builtin) {
+      for (const [k, it] of Object.entries(sc.items || {}).slice(0, 80)) {
+        if (!it || typeof it.word !== 'string' || !SCENE_ID.test(k)) continue;
+        items[k] = { word: cleanStr(it.word, 80), th: cleanStr(it.th, 120), alts: Array.isArray(it.alts) ? it.alts.filter(a => typeof a === 'string').slice(0, 4).map(a => a.slice(0, 60)) : [],
+          ...(it.say ? { say: cleanStr(it.say, 80) } : {}), x: num(it.x), y: num(it.y), w: num(it.w), h: num(it.h) };
+      }
+    }
+    const w = Math.round(+sc.w), h = Math.round(+sc.h);
+    if (!builtin && !(w > 0 && w <= 4000 && h > 0 && h <= 4000)) return null;
+    out.scenes.push(builtin ? { id: 'tea', builtin: true } : { id: sc.id, name: cleanStr(sc.name, 60), w, h, items });
+  }
+  if (b.kind === 'deck') {
+    const ids = new Set(out.scenes.map(s => s.id));
+    out.words = (Array.isArray(b.words) ? b.words : []).filter(k => typeof k === 'string' && k.length <= 90 && ids.has(k.split('|')[0])).slice(0, 2000);
+    if (!out.words.length) return null;
+  }
+  if (JSON.stringify(out).length > MAX_SHARE_JSON) return null;
+  return out;
+}
+async function share(request, env, url) {
+  if (!env.SUPABASE_SECRET_KEY || !env.IMAGES) return error('not_configured', 503);
+  const parts = url.pathname.split('/').filter(Boolean);       // api, share, <id>, img, <sceneId>
+  const id = parts[2];
+  try {
+    // public: read a share / one of its pictures
+    if (request.method === 'GET' && id) {
+      const row = await getShare(env, id);
+      if (!row) return error('not_found', 404);
+      if (parts[3] === 'img' && parts.length === 5) {
+        const sid = parts[4];
+        if (!row.data.scenes.some(s => s.id === sid && !s.builtin)) return error('not_found', 404);
+        const obj = await env.IMAGES.get(`s/${id}/${sid}`);
+        if (!obj) return error('not_found', 404);
+        return new Response(obj.body, { headers: {
+          'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg',
+          'cache-control': 'public, max-age=3600',
+        } });
+      }
+      if (parts.length !== 3) return error('not_found', 404);
+      return json({ id: row.id, kind: row.kind, name: row.name, scenes: row.data.scenes, words: row.data.words, updated_at: row.updated_at });
+    }
+    const uid = await userFromRequest(request, env);
+    if (!uid) return error('unauthorized', 401);
+    if (request.method === 'DELETE' && id && parts.length === 3) {
+      const row = await getShare(env, id);
+      if (!row || row.owner !== uid) return error('not_found', 404);
+      await deletePrefix(env, `s/${id}/`);
+      const r = await sbRest(env, `shares?id=eq.${id}&owner=eq.${uid}`, { method: 'DELETE' });
+      if (!r.ok) return error('db_error', 502);
+      return json({ ok: true });
+    }
+    if (request.method === 'POST' && !id) {
+      const raw = await request.json().catch(() => null);
+      const body = cleanShareBody(raw);
+      if (!body) return error('bad_request', 400);
+      let shareId = typeof raw.id === 'string' && SHARE_ID.test(raw.id) ? raw.id : null;
+      if (shareId) {
+        const row = await getShare(env, shareId);
+        if (!row || row.owner !== uid) shareId = null;              // not theirs → make a new link
+      }
+      if (!shareId) {
+        const cnt = await sbRest(env, `shares?owner=eq.${uid}&select=id`, { headers: { prefer: 'count=exact', range: '0-0' } });
+        const total = +(String(cnt.headers.get('content-range') || '').split('/')[1] || 0);
+        if (total >= MAX_SHARES) return error('too_many_shares', 429);
+        shareId = newShareId();
+      }
+      // copy the pictures (a snapshot: later edits or deleting the scene don't change the link)
+      for (const sc of body.scenes) {
+        if (sc.builtin) continue;
+        const obj = await env.IMAGES.get(`u/${uid}/${sc.id}`);
+        if (!obj) return json({ error: 'picture_missing', scene: sc.id }, 409);
+        await env.IMAGES.put(`s/${shareId}/${sc.id}`, await obj.arrayBuffer(), { httpMetadata: { contentType: (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg' } });
+      }
+      const now = new Date().toISOString();
+      const r = await sbRest(env, 'shares?on_conflict=id', {
+        method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ id: shareId, owner: uid, kind: body.kind, name: body.name, data: { scenes: body.scenes, words: body.words }, updated_at: now }),
+      });
+      if (!r.ok) { console.log('share insert failed', r.status, (await r.text().catch(() => '')).slice(0, 300)); return error('db_error', 502); }
+      // pictures of scenes no longer in an updated deck
+      const keep = new Set(body.scenes.map(s => `s/${shareId}/${s.id}`));
+      const old = await env.IMAGES.list({ prefix: `s/${shareId}/` });
+      const drop = (old.objects || []).map(o => o.key).filter(k => !keep.has(k));
+      if (drop.length) await env.IMAGES.delete(drop);
+      return json({ id: shareId, url: `${url.origin}/s/${shareId}`, updated_at: now });
+    }
+    return error('method_not_allowed', 405);
+  } catch (e) {
+    console.log('share error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+async function listShares(request, env) {
+  if (request.method !== 'GET') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const uid = await userFromRequest(request, env);
+  if (!uid) return error('unauthorized', 401);
+  const r = await sbRest(env, `shares?owner=eq.${uid}&select=id,kind,name,updated_at&order=updated_at.desc`).catch(() => null);
+  if (!r || !r.ok) return error('db_error', 502);
+  return json({ shares: await r.json() });
+}
+// /s/<id>: the normal app page, plus title / preview tags so chat apps show the scene.
+async function sharePage(request, env, url) {
+  const id = url.pathname.split('/')[2];
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  let html = await page.text();
+  let row = null;
+  if (env.SUPABASE_SECRET_KEY) row = await getShare(env, id).catch(() => null);
+  if (row) {
+    const scenes = row.data.scenes || [];
+    const n = row.kind === 'deck' ? (row.data.words || []).length : Object.keys((scenes[0] && scenes[0].items) || {}).length;
+    const title = row.kind === 'deck' ? `ชุดคำ “${row.name}” · ${n} คำ — Piccab` : `ฉาก “${row.name}” · ${n} คำ — Piccab`;
+    const pic = scenes.find(s => !s.builtin);
+    const img = pic ? `${url.origin}/api/share/${id}/img/${pic.id}` : `${url.origin}/icon-512.png`;
+    const desc = 'ฝึกคำศัพท์ภาษาอังกฤษจากภาพ — กดเพื่อเปิดใน Piccab แล้วเก็บไว้ฝึกได้เลย';
+    const tags = `<title>${esc(title)}</title>
+<meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(img)}"><meta property="og:url" content="${esc(url.origin + '/s/' + id)}">
+<meta name="twitter:card" content="summary_large_image">`;
+    html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
+  }
+  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
 }
 
 // ---------- sign-in e-mails (Supabase "Send Email" auth hook → Resend) ----------

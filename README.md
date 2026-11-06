@@ -24,6 +24,7 @@ src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน publi
                      GET|PUT|DELETE /api/img/<id> → รูปฉากใน R2 (เฉพาะเจ้าของที่ล็อกอิน)
 supabase/schema.sql  ตารางฐานข้อมูล + สิทธิ์ (RLS) + เครดิต AI — รันใน Supabase SQL Editor
 supabase/2026-11-decks.sql  เพิ่มตาราง decks (ชุดคำ) สำหรับโปรเจกต์ที่รัน schema.sql ไปก่อนหน้านี้แล้ว
+supabase/2026-11-shares.sql เพิ่มตาราง shares (ลิงก์แชร์ /s/<id>) — ไม่มีสิทธิ์อ่านจากเบราว์เซอร์ อ่านผ่าน Worker เท่านั้น
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
 ```
