@@ -290,7 +290,41 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  .qcard{position:fixed;left:10px!important;right:10px;top:10px!important;width:auto}
  .badge{width:20px;height:20px;font-size:11px}
  .sub .hint{font-size:14px}
+ /* tidy play screen: picture → word card → word strip → controls */
+ #playView:not([hidden]){display:flex;flex-direction:column}
+ #modes{order:1} #playView>main{order:2} #sub{order:3;margin-top:6px}
+ .sub .tip{display:none}
+ .sub .icon{width:42px;height:40px;padding:0;font-size:17px}
+ .sub .play{padding:8px 14px;font-weight:600}
+ .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;position:relative;margin:10px 0 0;padding:2px 0 4px}
+ .chips::-webkit-scrollbar{display:none}
+ .chip{flex:none}
+ .chips .chip.all{display:inline-block;background:var(--soft);border-color:#c9bdf0}
+ .wrap:has(.tag.wcard:not([hidden])) #scene{border-radius:18px 18px 0 0}
+ .tag.wcard{position:static;transform:none;display:flex;align-items:center;gap:6px;border:none;border-top:1px solid var(--line);border-left:5px solid transparent;border-radius:0 0 18px 18px;box-shadow:none;padding:8px 8px 8px 12px;min-height:62px;white-space:normal;pointer-events:auto}
+ .tag.wcard.active{border-left-color:var(--gold)}
+ .tag.wcard.good{border-left-color:var(--ok)}
+ .tag.wcard.bad{border-left-color:var(--bad)}
+ .tag.wcard .ctext{flex:1;min-width:0}
+ .tag.wcard .ph{flex:1;color:var(--muted);font-size:14px}
+ .tag.wcard .nav{width:38px;height:38px;padding:0;border-radius:50%;font-size:22px;line-height:1;flex:none}
+ .tag.wcard .say{flex:none}
+ .modal.sheetmode{align-items:flex-end;padding:0}
+ .mbox.sheet{width:100%;border-radius:18px 18px 0 0;max-height:72vh;padding:12px 14px 18px}
 }
+.chip.all{display:none}
+.sheethead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.sheethead b{font-size:17px}
+.sheethead button{width:36px;height:36px;padding:0;border-radius:50%}
+.wlist{display:flex;flex-direction:column;gap:6px}
+.wrow{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:9px 12px;border-radius:12px}
+.wrow b{font-family:'Fredoka',sans-serif;font-size:17px;font-weight:600}
+.wrow small{color:var(--muted);font-size:13.5px}
+.wrow.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.wrow.on small{color:#d9d4f0}
+.wrow.done{background:#e5f5eb;border-color:#b5dfc5}
+.wrow.unk b{color:var(--muted);font-family:inherit;font-weight:500}
+.mbox.sheet label{display:block;margin-top:10px}
 </style>
 </head>
 <body>
@@ -664,6 +698,8 @@ const BUILTIN = [{id:'tea', name:'Afternoon tea ☕', builtin:true, w:1000, h:68
 const $ = s => document.querySelector(s);
 const NS = 'http://www.w3.org/2000/svg';
 const svg=$('#scene'), wrap=$('#wrap'), overlay=$('#overlay'), tag=$('#tag'), qcard=$('#qcard'), sub=$('#sub'), chips=$('#chips');
+// Phones get a tidier play screen: word card under the picture, one-row word strip, one-row controls.
+const MQ=matchMedia('(max-width:640px)'), isMobile=()=>MQ.matches;
 const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
@@ -743,7 +779,7 @@ function apList(){
   return l;
 }
 function apShow(id){ pinnedId=id; hoverId=null; setHL(); updateTag(); renderChips(); apCounter(); }
-function apCounter(){ const c=$('#apCount'); if(c) c.textContent=AP.queue.length?`${Math.min(AP.idx+1,AP.queue.length)}/${AP.queue.length}`:''; }
+function apCounter(){ const c=$('#apCount'); if(c) c.textContent=AP.queue.length?`${Math.min(AP.idx+1,AP.queue.length)}/${AP.queue.length}`:`${ids().length} คำ`; }
 function apStep(){
   if(!AP.playing) return;
   if(!AP.queue.length || AP.idx>=AP.queue.length){ AP.queue=apList(); AP.idx=0; }   // loop (reshuffles when random)
@@ -798,7 +834,7 @@ function clampX(elm, x, W){ const half=elm.offsetWidth/2+4; return Math.max(half
 function renderScene(){
   const sc=scene();
   svg.setAttribute('viewBox', `0 0 ${sc.w} ${sc.h}`);
-  wrap.style.maxWidth = `calc(86vh * ${sc.w/sc.h})`;
+  wrap.style.maxWidth = `calc(${isMobile()?48:86}vh * ${sc.w/sc.h})`;
   if(sc.builtin){
     // The sample is drawn as vector art, but it behaves exactly like a photo scene:
     // the art is just the background and every word has an ordinary box.
@@ -1150,6 +1186,7 @@ function updateTag(){
     else if(S.mode==='learn'){ id=hoverId||pinnedId; pinned=!!pinnedId && id===pinnedId; }
   }
   const it=id && items()[id];
+  if(isMobile()) return mobileCard(id, it, kind);
   if(!it){ tag.hidden=true; return; }
   tag.innerHTML='';
   const txt=el('div');
@@ -1164,6 +1201,27 @@ function updateTag(){
   tag.classList.toggle('below', !above);
   tag.style.top=(above? b.t+1 : b.b-1)+'px';
   tag.style.left=Math.max(0, Math.min(b.W-tag.offsetWidth, b.l))+'px';
+}
+const CARD_TIP={learn:'แตะของในภาพ เพื่อดูคำศัพท์และฟังเสียง', quiz:'แตะของในภาพ แล้วพิมพ์ว่าคืออะไร', find:'กด 🔊 ฟังคำ แล้วแตะของชิ้นนั้นในภาพ'};
+function mobileCard(id, it, kind){
+  tag.style.top=tag.style.left='';
+  if(S.editing || !ids().length){ tag.hidden=true; return; }
+  tag.innerHTML=''; tag.hidden=false;
+  const learn=S.mode==='learn', L=ids();
+  const go=d=>{ if(AP.on) return apJump(d); const i=L.indexOf(id); select(L[i<0?(d>0?0:L.length-1):(i+d+L.length)%L.length]); };
+  const nav=(d,t,lbl)=>el('button',{class:'nav',text:t,'aria-label':lbl,onclick:e=>{ e.stopPropagation(); go(d); }});
+  if(!it){
+    tag.className='tag wcard empty';
+    tag.append(...[el('span',{class:'ph',text:CARD_TIP[S.mode]||''}), learn?nav(1,'›','เริ่มที่คำแรก'):null].filter(Boolean));
+    return;
+  }
+  const txt=el('div',{class:'ctext'});
+  if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
+  txt.append(el('b',{text:it.word}));
+  if(it.th) txt.append(el('small',{text:it.th}));
+  tag.className='tag wcard active'+(kind?' '+kind:'');
+  tag.append(...[txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
+    learn?nav(-1,'‹','คำก่อนหน้า'):null, learn?nav(1,'›','คำถัดไป'):null].filter(Boolean));
 }
 function updateOverlay(){
   overlay.innerHTML='';
@@ -1251,9 +1309,19 @@ function renderSub(){
     const seg=el('div',{class:'seg',role:'group','aria-label':'วิธีเล่น'},
       el('button',{class:AP.on?'':'on',text:'✋ Manual',onclick:()=>{ if(!AP.on) return; AP.on=false; apReset(); renderSub(); }}),
       el('button',{class:AP.on?'on':'',text:'▶ Auto',onclick:()=>{ if(AP.on) return; AP.on=true; AP.queue=[]; AP.idx=0; apPlay(); }}));
-    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':''),text:(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+'ป้ายและกรอบทั้งหมด',onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
+    const mob=isMobile();
+    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':''),text:(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+(mob?'ป้าย':'ป้ายและกรอบทั้งหมด'),onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
     if(!AP.on){
-      put(seg, el('span',{class:'hint',text:'ชี้เมาส์หรือแตะที่สิ่งของ เพื่อดูคำศัพท์และฟังเสียง'}), el('span',{class:'grow'}), allBtn);
+      put(seg, el('span',{class:'hint tip',text:'ชี้เมาส์หรือแตะที่สิ่งของ เพื่อดูคำศัพท์และฟังเสียง'}), el('span',{class:'grow'}), allBtn);
+    } else if(mob){
+      put(el('button',{class:'icon',text:'✋','aria-label':'กลับไปเลือกเอง (Manual)',title:'Manual',onclick:()=>{ AP.on=false; apReset(); renderSub(); updateTag(); }}),
+        el('button',{class:'icon',text:'⏮','aria-label':'คำก่อนหน้า',onclick:()=>apJump(-1)}),
+        el('button',{class:'primary play',text:AP.playing?'⏸ หยุด':'▶ เล่น',onclick:()=>{ AP.playing?apPause():apPlay(); }}),
+        el('button',{class:'icon',text:'⏭','aria-label':'คำถัดไป',onclick:()=>apJump(1)}),
+        el('span',{class:'pill',id:'apCount',text:''}),
+        el('span',{class:'grow'}),
+        el('button',{class:'icon',text:'⚙','aria-label':'ตั้งค่าการเล่น',onclick:openApSettings}));
+      apCounter();
     } else {
       const ord=el('select',{'aria-label':'ลำดับการเล่น'}); Object.entries(AP_ORDERS).forEach(([k,v])=>ord.add(new Option('🔀 '+v,k))); ord.value=AP.order;
       ord.addEventListener('change',()=>{ AP.order=ord.value; store.set('pv-ap-order',AP.order); AP.token++; clearTimeout(AP.timer); AP.queue=apList(); AP.idx=0; if(AP.playing) apStep(); else apCounter(); });
@@ -1272,7 +1340,7 @@ function renderSub(){
     const p=prog(), d=ids().filter(i=>p.done[i]).length, st=ids().filter(i=>p.star[i]).length;
     const bar=el('span',{class:'bar'+(d===n?' full':'')},el('i')); bar.firstChild.style.width=(d/n*100)+'%';
     put(
-      el('span',{class:'hint',text: d===n ? '🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!' : 'แตะสิ่งของ แล้วพิมพ์ว่ามันคืออะไรเป็นภาษาอังกฤษ'}),
+      el('span',{class:'hint'+(d===n?'':' tip'),text: d===n ? '🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!' : 'แตะสิ่งของ แล้วพิมพ์ว่ามันคืออะไรเป็นภาษาอังกฤษ'}),
       el('span',{class:'grow'}),
       el('span',{class:'pill'}, bar, `${d}/${n}`, el('span',{title:'ตอบถูกโดยไม่ใช้ตัวช่วย',text:`★ ${st}`})),
       el('button',{text:'↺ เริ่มใหม่',onclick:resetQuiz})
@@ -1283,7 +1351,7 @@ function renderSub(){
       put(
         el('button',{class:'primary big',text:'🔊 ฟังคำ',onclick:()=>speak(sayOf(find.target))}),
         word,
-        el('span',{class:'hint',text:'แล้วแตะของชิ้นนั้นในภาพ'}),
+        el('span',{class:'hint tip',text:'แล้วแตะของชิ้นนั้นในภาพ'}),
         el('span',{class:'grow'}),
         el('button',{class:'toggle'+(find.showWord?' on':''),text:find.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ find.showWord=!find.showWord; renderSub(); }}),
         el('button',{text:'ข้าม ⏭',onclick:()=>{ find.missed=true; doFlash(find.target,'good',1300); speak(sayOf(find.target)); lockNext(1300); }}),
@@ -1299,6 +1367,7 @@ function renderSub(){
   }
 }
 function renderChips(){
+  const keepScroll=chips.scrollLeft;
   chips.innerHTML='';
   const hide = !S.editing && S.mode==='find';
   chips.hidden = hide; if(hide) return;
@@ -1316,6 +1385,47 @@ function renderChips(){
     b.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse') setHover(id); });
     b.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse') setHover(null); });
     chips.append(b);
+  });
+  if(isMobile() && ids().length){
+    chips.append(el('button',{class:'chip all',text:`📋 ทั้งหมด (${ids().length})`,onclick:openWordSheet}));
+    chips.scrollLeft=keepScroll;
+    const on=chips.querySelector('.chip.on');
+    if(on) requestAnimationFrame(()=>chips.scrollTo({left:on.offsetLeft-(chips.clientWidth-on.offsetWidth)/2, behavior:'smooth'}));
+  }
+}
+// Phones: the full word list (with Thai meanings in learn mode) in a sheet from the bottom.
+function openWordSheet(){
+  openModal(m=>{
+    m.classList.add('sheet'); $('#modal').classList.add('sheetmode');
+    const its=items(), p=prog(), learn=S.editing||S.mode==='learn';
+    const cur=S.editing?selId:(pinnedId||quizId);
+    m.append(el('div',{class:'sheethead'}, el('b',{text:`คำศัพท์ในฉากนี้ (${ids().length})`}), el('button',{text:'✕','aria-label':'ปิด',onclick:closeModal})));
+    const list=el('div',{class:'wlist'});
+    ids().forEach((id,i)=>{
+      const it=its[id]; let main, sub2=null, cls='wrow';
+      if(learn){ main=it.word; sub2=it.th||null; }
+      else if(p.done[id]){ main=(p.star[id]?'★ ':'✓ ')+it.word; sub2=it.th||null; cls+=' done'; }
+      else { main='คำที่ '+(i+1); cls+=' unk'; }
+      list.append(el('button',{class:cls+(id===cur?' on':''),onclick:()=>{ closeModal(); select(id); }},
+        el('b',{text:main}), sub2?el('small',{text:sub2}):null));
+    });
+    m.append(list);
+    const on=list.querySelector('.on'); if(on) setTimeout(()=>on.scrollIntoView({block:'center'}),30);
+  });
+}
+// Phones: auto-play settings (order, speed, labels) live behind ⚙ to keep one row of controls.
+function openApSettings(){
+  openModal(m=>{
+    m.classList.add('sheet'); $('#modal').classList.add('sheetmode');
+    const ord=el('select',{}); Object.entries(AP_ORDERS).forEach(([k,v])=>ord.add(new Option(v,k))); ord.value=AP.order;
+    ord.addEventListener('change',()=>{ AP.order=ord.value; store.set('pv-ap-order',AP.order); AP.token++; clearTimeout(AP.timer); AP.queue=apList(); AP.idx=0; if(AP.playing) apStep(); else apCounter(); });
+    const gap=el('select',{}); Object.entries(AP_GAPS).forEach(([k,v])=>gap.add(new Option(v,k))); gap.value=String(AP.gap);
+    gap.addEventListener('change',()=>{ AP.gap=+gap.value; store.set('pv-ap-gap',AP.gap); });
+    const lab=el('input',{type:'checkbox'}); lab.checked=S.showAll;
+    lab.addEventListener('change',()=>{ S.showAll=lab.checked; refresh(); });
+    m.append(el('div',{class:'sheethead'}, el('b',{text:'⚙ ตั้งค่าการเล่นอัตโนมัติ'}), el('button',{text:'✕','aria-label':'ปิด',onclick:closeModal})),
+      el('label',{},'🔀 ลำดับ', ord), el('label',{},'⏱ ความเร็ว', gap),
+      el('label',{class:'opt'}, lab, '🏷 แสดงป้ายและกรอบทั้งหมด'));
   });
 }
 
@@ -1480,7 +1590,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) ap
 
 // ---------- modal ----------
 let modalClose=null;
-function openModal(build){ const m=$('#mbox'); m.className='mbox'; m.innerHTML=''; build(m); $('#modal').hidden=false; const f=m.querySelector('input,textarea,button.primary'); if(f) setTimeout(()=>f.focus(),30); }
+function openModal(build){ const m=$('#mbox'); m.className='mbox'; $('#modal').classList.remove('sheetmode'); m.innerHTML=''; build(m); $('#modal').hidden=false; const f=m.querySelector('input,textarea,button.primary'); if(f) setTimeout(()=>f.focus(),30); }
 function closeModal(){ $('#modal').hidden=true; const cb=modalClose; modalClose=null; if(cb) cb(); }
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
 function ask(msg, okText){
@@ -1863,6 +1973,7 @@ if(window.ResizeObserver) new ResizeObserver(relayout).observe(wrap); else windo
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
 
 // ---------- start ----------
+MQ.addEventListener('change',()=>{ if(S.view==='play'){ renderScene(); refresh(); } });
 if(!scenes().some(s=>s.id===S.sceneId)) S.sceneId='tea';
 fullRender();
 })();
