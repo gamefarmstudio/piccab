@@ -4,6 +4,9 @@
 //   POST /api/scan    -> { items: [{ word, th, alts, box:[x0,y0,x1,y1] }] }
 //   GET|PUT|DELETE /api/img/<sceneId>  -> the signed-in user's scene picture in R2 (binding IMAGES)
 //                      requires "Authorization: Bearer <Supabase access token>"; stored at u/<user id>/<sceneId>
+//   DELETE /api/account -> deletes the signed-in user's pictures (R2) and account (Supabase Auth admin;
+//                      their rows in profiles/scenes/progress/decks go with it via "on delete cascade").
+//                      Needs SUPABASE_SECRET_KEY.
 //
 // Secrets / variables (Cloudflare → Workers & Pages → piccab → Settings → Variables and Secrets).
 // Set the key for at least one AI provider:
@@ -12,7 +15,7 @@
 //   AI_PROVIDER        (text, optional)  "gemini" or "claude"; needed only when both keys are set (default: claude)
 //   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
 //                      out of quota / busy; default gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite
-//   CLAUDE_MODEL       (text, optional)  defaults to claude-sonnet-5-5
+//   CLAUDE_MODEL       (text, optional)  defaults to claude-haiku-5-5 (cheapest); claude-sonnet-5-5 for harder pictures
 //   SCAN_CODE          (secret, optional) access code for using AI without signing in (testers)
 //   SUPABASE_SECRET_KEY (secret, optional) Supabase secret key → signed-in users get monthly AI credits
 //   AI_MONTHLY_CREDITS (text, optional)  credits per user per month (default 30)
@@ -23,7 +26,7 @@
 // The prompt is built here on the server from a few validated options, so this
 // endpoint cannot be used as a general-purpose proxy to an AI API.
 
-const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const DEFAULT_MODEL = 'claude-haiku-5-5';
 
 // Supabase project (public values: the publishable key is meant for browsers; data is protected by RLS).
 export const SUPABASE_URL = 'https://oftzpfyydnmahkntucnj.supabase.co';
@@ -67,6 +70,7 @@ export default {
       return scan(request, env);
     }
     if (url.pathname.startsWith('/api/img/')) return image(request, env, url);
+    if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
     return env.ASSETS.fetch(request);
   },
@@ -283,6 +287,39 @@ export async function userFromRequest(request, env) {
   return uid;
 }
 
+// Delete everything the signed-in user has with us: pictures first, then the account
+// (the database rows go with the account through "on delete cascade").
+async function deleteAccount(request, env) {
+  if (request.method !== 'DELETE') return error('method_not_allowed', 405);
+  const key = env.SUPABASE_SECRET_KEY;
+  if (!key) return error('not_configured', 503);
+  const uid = await userFromRequest(request, env);
+  if (!uid) return error('unauthorized', 401);
+  let removed = 0;
+  if (env.IMAGES) {
+    let cursor;
+    do {
+      const page = await env.IMAGES.list({ prefix: `u/${uid}/`, cursor });
+      const keys = (page.objects || []).map(o => o.key);
+      if (keys.length) { await env.IMAGES.delete(keys); removed += keys.length; }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+  }
+  let res;
+  try {
+    // A secret key may go in Authorization only when it equals the apikey header.
+    res = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/admin/users/${uid}`, {
+      method: 'DELETE', headers: { apikey: key, authorization: `Bearer ${key}` },
+    });
+  } catch (e) { return error('upstream_unreachable', 502); }
+  if (!res.ok && res.status !== 404) {
+    console.log('delete user failed', res.status, (await res.text().catch(() => '')).slice(0, 300));
+    return error('delete_failed', 502);
+  }
+  for (const [t, v] of userCache) if (v.uid === uid) userCache.delete(t);
+  return json({ ok: true, pictures: removed });
+}
+
 async function image(request, env, url) {
   if (!env.IMAGES) return error('not_configured', 503);
   const id = decodeURIComponent(url.pathname.slice('/api/img/'.length));
@@ -322,6 +359,8 @@ function buildPrompt(count, level, existing, provider) {
   // less accurate with any other order, so it gets that format and parseItems() converts it.
   const gem = provider === 'gemini';
   return `You are building a picture-vocabulary game for Thai learners of English. Look at the attached image.
+
+Learners may be children, so keep every word suitable for all ages. If the image shows nudity, sexual content, graphic violence, weapons in use or drugs, reply with [] and nothing else.
 
 Find up to ${count} different things that are clearly visible in the image and worth learning, at ${LEVELS[level]} level. Prefer concrete things a learner can point at: objects, food, furniture, tools, clothing, animals, plants, vehicles, parts of the room or scene. Do not include people's names, brands, logos, or text printed in the image. If the image contains text labels or captions, ignore them: each box must surround the object itself, never a label.${existing.length ? '\nThese words are already in the game, so do not repeat them: ' + existing.join(', ') + '.' : ''}
 
