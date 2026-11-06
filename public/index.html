@@ -1793,7 +1793,7 @@ async function runAI({count=20, level='mid', replace=true}={}){
     }
     saveScenes(); help={}; used={}; if(replace){ progress[sc.id]={done:{},star:{}}; saveProg(); }
     if(scene()===sc){ renderScene(); refresh(); }
-    toast(added ? `✨ ได้คำศัพท์ ${added} คำ — ตรวจดูกรอบ ลากย้าย/ปรับขนาด หรือแตะเพื่อแก้คำได้ แล้วกด ✓ เสร็จแล้ว` : 'AI ไม่พบสิ่งของใหม่ในรูปนี้', 6000);
+    toast((added ? `✨ ได้คำศัพท์ ${added} คำ — ตรวจดูกรอบ ลากย้าย/ปรับขนาด หรือแตะเพื่อแก้คำได้ แล้วกด ✓ เสร็จแล้ว` : 'AI ไม่พบสิ่งของใหม่ในรูปนี้')+(data.model?` · AI: ${data.model}`:''), 6000);
   }catch(e){
     const c=e && e.code;
     if(c==='bad_code'){ store.set('pv-ai-code',''); aiNeedCode=true; retryCode=true; }

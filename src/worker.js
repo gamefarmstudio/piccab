@@ -8,7 +8,8 @@
 //   GEMINI_API_KEY     (secret)  key from aistudio.google.com (has a free tier)
 //   ANTHROPIC_API_KEY  (secret)  key from console.anthropic.com
 //   AI_PROVIDER        (text, optional)  "gemini" or "claude"; needed only when both keys are set (default: claude)
-//   GEMINI_MODEL       (text, optional)  defaults to gemini-3.8-flash
+//   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
+//                      out of quota / busy; default gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite
 //   CLAUDE_MODEL       (text, optional)  defaults to claude-sonnet-5-5
 //   SCAN_CODE          (secret, optional) access code users must enter before using AI
 //
@@ -16,7 +17,10 @@
 // endpoint cannot be used as a general-purpose proxy to an AI API.
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
-const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+// Tried in order: the most accurate first; each model has its own free daily quota (20, 20 and 500).
+const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite';
+// Models that just ran out of quota are skipped for a while (per Worker instance; best effort).
+const skipUntil = new Map();
 
 // Which provider to use, or null when no key is set.
 export function pickProvider(env) {
@@ -129,11 +133,31 @@ async function scanClaude(env, mime, data64, prompt) {
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
   const items = parseItems(text);
   if (!items) return error('invalid_json', 502);
-  return json({ items, provider: 'claude', usage: data.usage ? { in: data.usage.input_tokens, out: data.usage.output_tokens } : undefined });
+  return json({ items, provider: 'claude', model: env.CLAUDE_MODEL || DEFAULT_MODEL, usage: data.usage ? { in: data.usage.input_tokens, out: data.usage.output_tokens } : undefined });
+}
+
+export function geminiModels(env) {
+  return String(env.GEMINI_MODEL || DEFAULT_GEMINI_MODELS).split(',')
+    .map(m => m.trim().replace(/[^a-z0-9.\-]/gi, '')).filter(Boolean).slice(0, 5);
 }
 
 async function scanGemini(env, mime, data64, prompt) {
-  const model = String(env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).replace(/[^a-z0-9.\-]/gi, '');
+  const models = geminiModels(env);
+  const now = Date.now();
+  const order = [...models.filter(m => !(skipUntil.get(m) > now)), ...models.filter(m => skipUntil.get(m) > now)];
+  let last = error('not_configured', 503);
+  for (const model of order) {
+    const r = await callGemini(env, model, mime, data64, prompt);
+    if (r.ok) return json({ items: r.items, provider: 'gemini', model, usage: r.usage });
+    last = error(r.code, r.status);
+    // Out of quota, model not available to this key, or Google busy: try the next model.
+    if (r.next) { if (r.skipMs) skipUntil.set(model, Date.now() + r.skipMs); continue; }
+    return last;
+  }
+  return last;
+}
+
+async function callGemini(env, model, mime, data64, prompt) {
   let res;
   try {
     res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -148,31 +172,36 @@ async function scanGemini(env, mime, data64, prompt) {
       }),
     });
   } catch (e) {
-    return error('upstream_unreachable', 502);
+    return { code: 'upstream_unreachable', status: 502, next: true };
   }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    console.log('Gemini API error', res.status, detail.slice(0, 500));
-    // 429 with "limit: 0" means this model has no free quota for the project; otherwise it's a rate limit.
-    if (res.status === 429) return /limit: ?0\b/.test(detail) ? error('not_configured', 503) : error('rate_limited', 429);
-    if (res.status === 503 || res.status === 500) return error('busy', 503);
-    if (res.status === 400 && /api key/i.test(detail)) return error('not_configured', 503);
-    if (res.status === 401 || res.status === 403 || res.status === 404) return error('not_configured', 503);
-    if (res.status === 400 && /image|inline_data|mime/i.test(detail)) return error('image_rejected', 400);
-    return error('upstream_error', 502);
+    console.log('Gemini API error', model, res.status, detail.slice(0, 500));
+    if (res.status === 429) {
+      // "limit: 0" = no free quota for this model; "per day" = daily quota used up; otherwise per-minute.
+      const none = /limit: ?0\b/.test(detail), daily = /per ?day|PerDay/i.test(detail);
+      return { code: none ? 'not_configured' : 'rate_limited', status: none ? 503 : 429, next: true,
+               skipMs: none || daily ? 60 * 60 * 1000 : 60 * 1000 };
+    }
+    if (res.status === 503 || res.status === 500) return { code: 'busy', status: 503, next: true, skipMs: 30 * 1000 };
+    if (res.status === 404) return { code: 'not_configured', status: 503, next: true, skipMs: 60 * 60 * 1000 };
+    if (res.status === 400 && /api key/i.test(detail)) return { code: 'not_configured', status: 503 };
+    if (res.status === 401 || res.status === 403) return { code: 'not_configured', status: 503 };
+    if (res.status === 400 && /image|inline_data|mime/i.test(detail)) return { code: 'image_rejected', status: 400 };
+    return { code: 'upstream_error', status: 502 };
   }
 
   const data = await res.json();
-  if (data.promptFeedback && data.promptFeedback.blockReason) return error('refused', 422);
+  if (data.promptFeedback && data.promptFeedback.blockReason) return { code: 'refused', status: 422 };
   const cand = (data.candidates || [])[0];
-  if (!cand) return error('empty_completion', 502);
-  if (/SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(cand.finishReason || '')) return error('refused', 422);
+  if (!cand) return { code: 'empty_completion', status: 502 };
+  if (/SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(cand.finishReason || '')) return { code: 'refused', status: 422 };
   const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
   const items = parseItems(text);
-  if (!items) return error('invalid_json', 502);
+  if (!items) return { code: 'invalid_json', status: 502 };
   const u = data.usageMetadata;
-  return json({ items, provider: 'gemini', usage: u ? { in: u.promptTokenCount, out: u.candidatesTokenCount } : undefined });
+  return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: u.candidatesTokenCount } : undefined };
 }
 
 function buildPrompt(count, level, existing, provider) {
