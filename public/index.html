@@ -298,8 +298,12 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox input.word{font-family:'Fredoka',sans-serif;font-size:20px}
 .mbox textarea{font-size:12px;height:140px;font-family:ui-monospace,monospace}
 .mbox .createrow{margin:4px 0 6px}
-.mbox .orline{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:16px 0 4px}
-.mbox .orline::before,.mbox .orline::after{content:"";flex:1;height:1px;background:var(--line)}
+.mbox .imphint{text-align:center;color:var(--muted);font-size:13px;margin:10px 0 0}
+.mbox .impfoot{display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.mbox .impfoot .sp{flex:1}
+.mbox .linkbtn{background:none;border:0;padding:6px 2px;color:var(--muted);font-size:14px;text-align:left}
+.mbox .linkbtn u{color:var(--ink);text-underline-offset:3px;white-space:nowrap}
+.mbox .linkbtn:hover u{color:#e8607a}
 .mbox.drop{outline:3px dashed var(--accent,#7c5cff);outline-offset:-8px}
 .mbox .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .mbox .row .sp{flex:1}
@@ -442,7 +446,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 <div class="toast" id="toast" role="status"></div>
 <input type="file" id="fileImg" accept="image/*" hidden>
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
-<input type="file" id="fileJson" accept="image/*,.json,.txt,application/json,text/plain" hidden>
+<input type="file" id="fileJson" hidden>
 
 <script type="text/template" id="tea-svg">
 <defs>
@@ -786,7 +790,7 @@ function saveScenes(){
     ok=store.set('pv-scenes2', customs.map(metaOf));
     customs.forEach(sc=>{ if(sc.img && !imgSaved.has(sc.id)){ imgSaved.add(sc.id); IDB.set(sc.id, sc.img).catch(()=>{ imgSaved.delete(sc.id); toast('บันทึกรูปในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ)', 5000); }); } });
   } else ok=store.set('pv-scenes', customs);
-  if(!ok) toast('บันทึกฉากในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ) — กด “คัดลอกข้อมูลฉาก” เก็บไว้ก่อนปิดหน้า', 5000);
+  if(!ok) toast('บันทึกฉากในเบราว์เซอร์ไม่ได้ (พื้นที่ไม่พอ) — กด “📤 ส่งฉากเป็นไฟล์” เก็บไว้ก่อนปิดหน้า', 5000);
   if(typeof syncSoon==='function') syncSoon();
 }
 // Save scenes as they are, without stamping edit times (used by sync).
@@ -1115,7 +1119,7 @@ function renderHome(){
     : el('div',{class:'tile review'}, el('span',{class:'ic',text:'🎉'}), el('span',{}, el('b',{text:'ทบทวนครบทุกคำแล้ว'}), el('small',{text:'ลองสร้างฉากใหม่จากรูปรอบตัว'}))));
   h.append(el('div',{class:'createrow'},
     el('button',{class:'cbtn',onclick:()=>$('#fileCam').click()},'📷 ถ่ายรูป'),
-    el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()},'🖼 เลือกรูป')));
+    el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()},'🖼️ เลือกรูป')));
   h.append(el('p',{class:'capt',text: aiReady?'AI หาคำศัพท์ให้อัตโนมัติ':'อัปโหลดแล้วตีกรอบใส่คำศัพท์เอง'}));
   // recent
   const list=all.filter(sc=>sc!==cur).sort(byRecent).slice(0,4);
@@ -1351,7 +1355,7 @@ function renderSub(){
       el('label',{class:'namefield'},'📝 ชื่อฉาก', name),
       el('span',{class:'grow'}),
       listBtn(),
-      el('button',{text:'📋 คัดลอกข้อมูลฉาก',onclick:exportScene}),
+      el('button',{text:'📤 ส่งฉากเป็นไฟล์',title:'บันทึกฉากนี้เป็นไฟล์ .piccab เพื่อส่งให้เพื่อน',onclick:shareScene}),
       el('button',{class:'danger',text:'🗑 ลบฉาก',onclick:deleteScene}),
       el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; selId=null; saveScenes(); if(S.mode==='find' && ids().length) startFind(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
       el('div',{class:'hint',style:'flex-basis:100%',text:'แตะกรอบเพื่อเลือก แล้วกด ✏️ แก้ไขคำ (หรือแตะซ้ำ) • ลากกรอบเพื่อย้าย • ลาก □ เพื่อปรับขนาด • จุดที่กรอบซ้อนกัน แตะซ้ำเพื่อสลับกรอบ • ลากบนที่ว่างเพื่อเพิ่มกรอบใหม่ • แตะที่ว่างหรือกด Esc เพื่อกลับไปดูทุกกรอบ'})
@@ -1968,18 +1972,24 @@ function deleteScene(){
     S.sceneId='tea'; store.set('pv-scene','tea'); S.editing=false; S.view='home'; fullRender(); toast('ลบฉากแล้ว');
   });
 }
-async function exportScene(){
-  const sc=scene();
+// Save the scene (picture + boxes) as a .piccab file to send to a friend.
+// Phones open the share menu (LINE, Messenger…) when the browser allows it; otherwise the file downloads.
+function sceneFile(sc){
   const data=JSON.stringify({app:'piccab',v:1,name:sc.name,img:sc.img,w:sc.w,h:sc.h,items:sc.items});
-  try{ await navigator.clipboard.writeText(data); toast('คัดลอกแล้ว — วางเก็บในไฟล์ข้อความ หรือส่งให้เพื่อนกด 📥 นำเข้า', 4000); }
-  catch(e){
-    openModal(m=>{
-      const ta=el('textarea',{readonly:'readonly'}); ta.value=data;
-      m.append(el('h3',{text:'ข้อมูลฉาก'}), el('p',{text:'คัดลอกข้อความทั้งหมดนี้ไปเก็บไว้ หรือส่งให้เพื่อนนำเข้า'}), ta,
-        el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})));
-      setTimeout(()=>{ ta.focus(); ta.select(); },50);
-    });
+  const base=String(sc.name||'').replace(/[\\/:*?"<>|\u0000-\u001f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,50)||'ฉาก';
+  return new File([data], base+'.piccab', {type:'application/json'});
+}
+async function shareScene(){
+  const sc=scene();
+  if(!sc.img){ toast('รูปของฉากนี้ยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
+  const file=sceneFile(sc);
+  if(matchMedia('(pointer:coarse)').matches && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:sc.name}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
   }
+  const url=URL.createObjectURL(file), a=el('a',{href:url,download:file.name,hidden:''});
+  document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),30000);
+  toast('บันทึกไฟล์ “'+file.name+'” แล้ว — ส่งไฟล์นี้ให้เพื่อน แล้วให้เพื่อนกด 📥 นำเข้า → นำเข้าไฟล์ฉาก', 6000);
 }
 function importData(text){
   let o; try{ o=JSON.parse(text); }catch(e){ toast('ข้อมูลไม่ถูกต้อง'); return false; }
@@ -2002,35 +2012,35 @@ function importFile(f){
 }
 function openImport(){
   openModal(m=>{
-    const ta=el('textarea',{placeholder:'วางข้อมูลฉากที่คัดลอกไว้ หรือวางรูป (Ctrl+V) ที่นี่…'});
     m.append(el('h3',{text:'เพิ่มฉากใหม่'}),
       el('p',{text: aiReady ? 'ใส่รูปแล้ว AI จะหาคำศัพท์ให้อัตโนมัติ' : 'ใส่รูปแล้วลากกรอบรอบสิ่งของเพื่อใส่คำศัพท์'}),
       el('div',{class:'createrow'},
         el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileCam').click(); }},'📷 ถ่ายรูป'),
-        el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileImg').click(); }},'🖼 เลือกรูป')),
-      el('div',{class:'orline',text:'หรือนำเข้าฉากที่บันทึกไว้'}),
-      el('p',{text:'วางข้อมูลจากปุ่ม “📋 คัดลอกข้อมูลฉาก” หรือเลือกไฟล์ (ลากรูปหรือไฟล์มาวางในกล่องนี้ก็ได้)'}), ta,
-      el('div',{class:'row'},
-        el('button',{text:'📄 เลือกไฟล์',onclick:()=>$('#fileJson').click()}),
+        el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileImg').click(); }},'🖼️ เลือกรูป')));
+    if(matchMedia('(pointer:fine)').matches) m.append(el('p',{class:'imphint',text:'หรือลากรูปมาวางที่นี่ / กด Ctrl+V เพื่อวางรูป'}));
+    m.append(el('div',{class:'impfoot'},
+        el('button',{class:'linkbtn',onclick:()=>$('#fileJson').click()},'📄 มีไฟล์ฉากจากเพื่อน? ',el('u',{text:'นำเข้าไฟล์ฉาก'})),
         el('span',{class:'sp'}),
-        el('button',{text:'ยกเลิก',onclick:closeModal}),
-        el('button',{class:'primary',text:'นำเข้า',onclick:()=>{ if(importData(ta.value)) closeModal(); }})));
-    // paste an image (e.g. a screenshot) straight into the box
-    ta.addEventListener('paste',e=>{
-      const f=[...((e.clipboardData&&e.clipboardData.files)||[])].find(isImageFile);
-      if(f){ e.preventDefault(); importFile(f); }
-    });
+        el('button',{text:'ยกเลิก',onclick:closeModal})));
   });
-  // on phones, don't pop the keyboard open over the photo buttons
-  if(matchMedia('(pointer:coarse)').matches) setTimeout(()=>{ if(document.activeElement && document.activeElement.tagName==='TEXTAREA') document.activeElement.blur(); },60);
 }
+const importOpen=()=>!$('#modal').hidden && !!$('#mbox .impfoot');
+// paste a picture (e.g. a screenshot) — or old copied scene text — while the dialog is open
+document.addEventListener('paste',e=>{
+  if(!importOpen()) return;
+  const cd=e.clipboardData; if(!cd) return;
+  const f=[...(cd.files||[])].find(isImageFile);
+  if(f){ e.preventDefault(); importFile(f); return; }
+  const t=(cd.getData('text')||'').trim();
+  if(t.startsWith('{')){ e.preventDefault(); if(importData(t)) closeModal(); }
+});
 // drag & drop an image or scene file onto the import box
 const mbox=$('#mbox');
-mbox.addEventListener('dragover',e=>{ if(mbox.querySelector('.orline') && e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ e.preventDefault(); mbox.classList.add('drop'); } });
+mbox.addEventListener('dragover',e=>{ if(importOpen() && e.dataTransfer && [...e.dataTransfer.types].includes('Files')){ e.preventDefault(); mbox.classList.add('drop'); } });
 mbox.addEventListener('dragleave',e=>{ if(!mbox.contains(e.relatedTarget)) mbox.classList.remove('drop'); });
 mbox.addEventListener('drop',e=>{
   mbox.classList.remove('drop');
-  if(!mbox.querySelector('.orline')) return;
+  if(!importOpen()) return;
   const f=e.dataTransfer && e.dataTransfer.files[0]; if(!f) return;
   e.preventDefault(); importFile(f);
 });
