@@ -65,6 +65,7 @@ npx wrangler dev
 | `RESEND_API_KEY` | Secret | ล็อกอิน | คีย์ Resend (`re_…`) ส่งอีเมลรหัสเข้าสู่ระบบภาษาไทยจาก `no-reply@piccab.com` |
 | `ADMIN_EMAILS` | Text | – | อีเมลผู้ดูแล (คั่นด้วย ,) ที่เปิดหน้า /admin ได้ |
 | `ADMIN_NOTIFY_EMAIL` | Text | – | อีเมลที่รับแจ้งรายงาน (ค่าเริ่มต้น contact@piccab.com) |
+| `TURNSTILE_SITE_KEY` | Text | – | Site key ของ Cloudflare Turnstile (ตรวจว่าไม่ใช่บอตตอนส่งรหัสเข้าอีเมล / นักเรียนเข้าห้องแบบไม่ใช้อีเมล) — Secret key ใส่ใน Supabase → Authentication → Attack Protection → CAPTCHA (ตั้ง site key และ merge ก่อน แล้วค่อยเปิดใน Supabase) |
 
 ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย
 
