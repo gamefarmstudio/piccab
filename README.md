@@ -14,6 +14,8 @@
 
 ```
 public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้ในเว็บเอง
+public/fonts/      ฟอนต์ Sarabun + Fredoka (OFL) เก็บในเว็บเอง ไม่โหลดจาก Google Fonts
+public/privacy.html, public/terms.html, public/legal.css  นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน (/privacy, /terms)
 public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
                      GET  /api/health  → { ai, needCode }
@@ -44,11 +46,11 @@ npx wrangler dev
 
 | ชื่อ | ชนิด | จำเป็น | ความหมาย |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com (มีระดับฟรี — Google อาจนำข้อมูลไปพัฒนาโมเดล ใช้ทดสอบ) |
-| `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com (ไม่มีคีย์เลย = ซ่อนปุ่ม AI) |
+| `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com — **ใช้ทดสอบเท่านั้น**: เงื่อนไข Gemini API ห้ามใช้ในแอปที่ผู้ใช้อายุต่ำกว่า 18 ปี และระดับฟรี Google นำข้อมูลไปพัฒนาโมเดล |
+| `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com — ใช้กับเว็บจริง (ผู้ใช้ทุกวัย; ไม่นำข้อมูล API ไปฝึกโมเดล) ไม่มีคีย์เลย = ซ่อนปุ่ม AI |
 | `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
 | `GEMINI_MODEL` | Text | – | รุ่นเดียว หรือหลายรุ่นคั่นด้วย , (ลองตามลำดับเมื่อโควตาหมด) ค่าเริ่มต้น `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite` |
-| `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-sonnet-5-5` เปลี่ยนเป็น `claude-haiku-5-5` เพื่อประหยัด |
+| `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-haiku-5-5` (ถูกที่สุด) ถ้ากรอบไม่แม่นเปลี่ยนเป็น `claude-sonnet-5-5` |
 | `SUPABASE_SECRET_KEY` | Secret | แนะนำ | Supabase secret key (`sb_secret_…`) → สมาชิกที่ล็อกอินได้เครดิต AI รายเดือน |
 | `AI_MONTHLY_CREDITS` | Text | – | เครดิต AI ต่อคนต่อเดือน (ค่าเริ่มต้น 30) |
 | `SCAN_CODE` | Secret | – | รหัสทดสอบ: ใช้ AI ได้โดยไม่ต้องล็อกอิน (ไม่ใช้เครดิต) — ลบออกเพื่อบังคับให้ล็อกอิน |

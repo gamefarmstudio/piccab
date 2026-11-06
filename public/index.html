@@ -9,9 +9,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#2d2a5a">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fonts/fonts.css">
 <style>
 :root{--ink:#2d2a5a;--bg:#f6f0e8;--muted:#77728c;--line:#e4dacd;--ok:#23915a;--bad:#d24343;--gold:#ffc928;--soft:#efeaf7}
 *{box-sizing:border-box}
@@ -269,6 +267,16 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .mbox input.code{font-size:26px;letter-spacing:5px;text-align:center;font-family:'Fredoka',monospace}
 .mbox input.code::placeholder{letter-spacing:0;font-size:17px;font-family:'Sarabun',sans-serif}
 .linkbtn.small{font-size:13.5px;padding:4px 0}
+.settings .legal{flex-basis:100%;font-size:13px;color:var(--muted)}
+.settings .legal a{color:var(--muted)}
+.mbox .consent{font-size:13px}
+.mbox .consent a{margin:0 3px}
+.mbox .ainote{font-size:13px;background:#faf6f1;border-radius:10px;padding:7px 10px}
+.acctlinks{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.acctlinks a{color:var(--muted)}
+.acctlinks .linkbtn.danger-link{color:var(--bad);font-size:13px;text-decoration:underline;text-underline-offset:2px}
+.mbox .dellist{margin:4px 0 8px;padding-left:22px;font-size:15px}
+.mbox button.danger[disabled]{opacity:.5}
 @media (max-width:640px){ .acct .lbl{display:none} .acct{padding:6px 10px} }
 .ghead.lh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
 .cont{display:block}
@@ -524,6 +532,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     </label>
     <label><input type="checkbox" id="slow"> 🐢 พูดช้า</label>
     <span class="note">เสียงอ่านใช้เสียงที่มีในเครื่อง/เบราว์เซอร์ของคุณ</span>
+    <nav class="legal"><a href="/privacy">นโยบายความเป็นส่วนตัว</a> · <a href="/terms">ข้อตกลงการใช้งาน</a> · <a href="mailto:contact@piccab.com">ติดต่อเรา</a></nav>
   </footer>
 </div>
 
@@ -2252,6 +2261,10 @@ function askCode(again){
         el('button',{class:'primary',text:'ตกลง',onclick:ok}))));
   });
 }
+// Shown wherever a picture may go to the AI (Anthropic's guidelines for products used by minors: say it is AI).
+function aiNotice(){
+  return el('p',{class:'note ainote'}, '🤖 คำศัพท์สร้างโดย AI (Claude) อาจผิดได้ ตรวจก่อนเรียนนะ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ', el('a',{href:'/privacy#ai',target:'_blank',text:'อ่านเพิ่ม'}));
+}
 function openAI(){
   const sc=scene(); if(sc.builtin) return;
   const has=Object.keys(sc.items).length;
@@ -2264,6 +2277,7 @@ function openAI(){
     m.append(
       el('h3',{text:'✨ ให้ AI หาคำศัพท์ในรูป'}),
       el('p',{text:'AI จะดูรูป ตีกรอบรอบสิ่งของ และใส่คำศัพท์พร้อมคำแปลให้ จากนั้นคุณแก้ไขหรือย้ายกรอบได้'}),
+      aiNotice(),
       (aiCredits && user && typeof aiLeft==='number') ? el('p',{class:'note',text:`✨ เครดิต AI เดือนนี้เหลือ ${aiLeft} / ${aiMonthly} ครั้ง (ใช้ 1 ครั้งต่อรูป)`}) : null,
       el('label',{},'จำนวนคำสูงสุด', cnt),
       el('label',{},'ระดับคำศัพท์', lv),
@@ -2473,6 +2487,7 @@ function openImport(){
       el('div',{class:'createrow'},
         el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileCam').click(); }},'📷 ถ่ายรูป'),
         el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileImg').click(); }},'🖼️ เลือกรูป')));
+    if(aiReady) m.append(aiNotice());
     if(matchMedia('(pointer:fine)').matches) m.append(el('p',{class:'imphint',text:'หรือลากรูปมาวางที่นี่ / กด Ctrl+V เพื่อวางรูป'}));
     m.append(el('div',{class:'impfoot'},
         el('button',{class:'linkbtn',onclick:()=>$('#fileJson').click()},'📄 มีไฟล์ฉากจากเพื่อน? ',el('u',{text:'นำเข้าไฟล์ฉาก'})),
@@ -2551,6 +2566,7 @@ function openLogin(prefill){
       el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัสตัวเลขไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
       inp, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
+      el('p',{class:'note consent'}, 'การเข้าสู่ระบบถือว่าคุณยอมรับ', el('a',{href:'/terms',target:'_blank',text:'ข้อตกลงการใช้งาน'}), 'และ', el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · อายุต่ำกว่า 20 ปีควรขออนุญาตพ่อแม่หรือผู้ปกครองก่อน'),
       el('p',{class:'note',text:'☁️ เมื่อเข้าสู่ระบบ ฉาก รูป และความคืบหน้าจะถูกเก็บในบัญชี ใช้ได้ทุกเครื่องที่เข้าสู่ระบบด้วยอีเมลเดียวกัน'}));
   });
 }
@@ -2617,7 +2633,8 @@ function askLoginForAI(){
 }
 function openAccount(){
   if(aiCredits) loadCredits();
-  openModal(m=>{
+  openModal(m0=>{
+    const m={append:(...k)=>m0.append(...k.filter(x=>x!=null))};
     m.append(el('h3',{text:'บัญชีของฉัน'}),
       el('p',{}, 'เข้าสู่ระบบด้วย ', el('b',{text:user.email||''})),
       el('p',{class:'note',id:'syncNote',text:syncText()}),
@@ -2629,8 +2646,55 @@ function openAccount(){
           await syncNow(false);
           if(SYNC.state==='error' && !(await ask('ยังซิงค์ข้อมูลล่าสุดขึ้นบัญชีไม่สำเร็จ ถ้าออกจากระบบตอนนี้ การเปลี่ยนแปลงล่าสุดในเครื่องนี้อาจหาย ออกจากระบบเลยไหม?','ออกจากระบบ'))) return;
           await sb.auth.signOut(); closeModal(); toast('ออกจากระบบแล้ว'); }}),
-        el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})));
+        el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})),
+      el('div',{class:'acctlinks'},
+        el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · ', el('a',{href:'/terms',target:'_blank',text:'ข้อตกลงการใช้งาน'}), ' · ',
+        el('button',{class:'linkbtn small danger-link',text:'ลบบัญชีและข้อมูลทั้งหมด',onclick:openDeleteAccount})));
   });
+}
+// Delete the account: pictures, scenes, progress, decks and the login itself — then clear this browser's Piccab data.
+function openDeleteAccount(){
+  openModal(m=>{
+    const inp=el('input',{placeholder:'พิมพ์คำว่า ลบ','aria-label':'พิมพ์คำว่า ลบ เพื่อยืนยัน',autocomplete:'off'});
+    const err=el('p',{class:'err'});
+    const go=el('button',{class:'danger',text:'ลบบัญชีถาวร',disabled:''});
+    inp.addEventListener('input',()=>{ go.disabled=inp.value.trim()!=='ลบ'; });
+    go.addEventListener('click',async()=>{
+      go.disabled=true; go.textContent='กำลังลบ…'; err.textContent='';
+      SYNC.ready=false; clearTimeout(SYNC.timer);                      // nothing more may be uploaded
+      let ok=false, code='';
+      try{
+        const tok=await accessToken();
+        const r=await fetch('/api/account',{ method:'DELETE', headers:{ authorization:'Bearer '+tok } });
+        ok=r.ok; if(!ok) code=((await r.json().catch(()=>({}))).error||'');
+      }catch(e){ code='network'; }
+      if(!ok){
+        SYNC.ready=true;
+        go.disabled=false; go.textContent='ลบบัญชีถาวร';
+        err.textContent = code==='not_configured' ? 'ตอนนี้ยังลบบัญชีอัตโนมัติไม่ได้ กรุณาส่งอีเมลถึง contact@piccab.com แล้วเราจะลบให้'
+          : code==='network' ? 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง' : 'ลบไม่สำเร็จ ลองใหม่อีกครั้ง หรือติดต่อ contact@piccab.com';
+        return;
+      }
+      await wipeLocal();
+      try{ await sb.auth.signOut({ scope:'local' }); }catch(e){}
+      store.set('pv-flash','ลบบัญชีและข้อมูลทั้งหมดแล้ว');
+      location.replace('/');
+    });
+    m.append(el('h3',{text:'ลบบัญชีและข้อมูลทั้งหมด'}),
+      el('p',{text:'สิ่งที่จะถูกลบถาวร และกู้คืนไม่ได้:'}),
+      el('ul',{class:'dellist'},
+        el('li',{text:'บัญชี '+(user&&user.email||'')}),
+        el('li',{text:'ฉากและรูปทั้งหมดในบัญชี'}),
+        el('li',{text:'ความคืบหน้า ชุดคำ และเครดิต AI'}),
+        el('li',{text:'ข้อมูล Piccab ที่เก็บในเบราว์เซอร์นี้'})),
+      el('p',{class:'note',text:'อยากเก็บฉากไว้ก่อน? กด 📤 ส่งฉากเป็นไฟล์ ในโหมดแก้ไขฉาก'}),
+      inp, err,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
+  });
+}
+async function wipeLocal(){
+  try{ Object.keys(localStorage).filter(k=>k.startsWith('pv-')).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  await new Promise(res=>{ try{ const r=indexedDB.deleteDatabase('piccab'); r.onsuccess=r.onerror=r.onblocked=()=>res(); }catch(e){ res(); } });
 }
 $('#acctBtn').addEventListener('click',()=>{ if(!sb) return; user ? openAccount() : openLogin(); });
 if(sb){
@@ -2644,6 +2708,7 @@ if(sb){
   });
 }
 renderAcct();
+{ const f=store.get('pv-flash',null); if(f){ try{ localStorage.removeItem('pv-flash'); }catch(e){} setTimeout(()=>toast(f,4000),300); } }
 
 // ---------- sync: scenes + progress in Supabase, pictures in R2 (via /api/img) ----------
 // Each device remembers what it last synced ('pv-sync'), so only changes are sent.
