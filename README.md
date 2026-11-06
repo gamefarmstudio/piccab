@@ -51,6 +51,8 @@ npx wrangler dev
 | `SUPABASE_SECRET_KEY` | Secret | แนะนำ | Supabase secret key (`sb_secret_…`) → สมาชิกที่ล็อกอินได้เครดิต AI รายเดือน |
 | `AI_MONTHLY_CREDITS` | Text | – | เครดิต AI ต่อคนต่อเดือน (ค่าเริ่มต้น 30) |
 | `SCAN_CODE` | Secret | – | รหัสทดสอบ: ใช้ AI ได้โดยไม่ต้องล็อกอิน (ไม่ใช้เครดิต) — ลบออกเพื่อบังคับให้ล็อกอิน |
+| `SEND_EMAIL_HOOK_SECRET` | Secret | ล็อกอิน | secret ของ Supabase Send Email hook (`v1,whsec_…`) → URL `https://piccab.com/api/auth-email` |
+| `RESEND_API_KEY` | Secret | ล็อกอิน | คีย์ Resend (`re_…`) ส่งอีเมลรหัสเข้าสู่ระบบภาษาไทยจาก `no-reply@piccab.com` |
 
 ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย
 

@@ -58,6 +58,7 @@ const LEVELS = {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === '/api/auth-email') return authEmail(request, env);
     if (url.pathname === '/api/health') {
       return json({ ai: !!pickProvider(env), needCode: !!env.SCAN_CODE, credits: !!env.SUPABASE_SECRET_KEY, monthly: monthlyCredits(env) });
     }
@@ -391,3 +392,77 @@ function json(obj, status = 200) {
 function error(code, status) {
   return json({ error: code }, status);
 }
+
+// ---------- sign-in e-mails (Supabase "Send Email" auth hook → Resend) ----------
+// Supabase calls POST /api/auth-email for every auth e-mail; we send our own Thai e-mail through Resend.
+// Secrets: SEND_EMAIL_HOOK_SECRET ("v1,whsec_…" from the hook settings), RESEND_API_KEY ("re_…").
+// The request is signed with Standard Webhooks (headers webhook-id / webhook-timestamp / webhook-signature).
+const b64ToBytes = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+const bytesToB64 = u => btoa(String.fromCharCode(...new Uint8Array(u)));
+export async function verifyWebhook(secret, headers, body, nowSec = Math.floor(Date.now() / 1000)) {
+  const id = headers.get('webhook-id'), ts = headers.get('webhook-timestamp'), sigs = headers.get('webhook-signature');
+  if (!id || !ts || !sigs || !secret) return false;
+  if (Math.abs(nowSec - Number(ts)) > 5 * 60) return false;            // replay protection
+  const raw = String(secret).replace(/^v1,/, '').replace(/^whsec_/, '');
+  const key = await crypto.subtle.importKey('raw', b64ToBytes(raw), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = bytesToB64(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${id}.${ts}.${body}`)));
+  return sigs.split(' ').some(p => { const [v, sig] = p.split(','); return v === 'v1' && sig && safeEqual(sig, mac); });
+}
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const MAIL_TEXT = {
+  signup:           { subject: 'ยืนยันอีเมลสมัคร Piccab', title: 'ยินดีต้อนรับสู่ Piccab 👋', lead: 'ใส่รหัสนี้ในแอปเพื่อยืนยันอีเมลและเข้าสู่ระบบ', button: 'ยืนยันและเข้าสู่ระบบ' },
+  magiclink:        { subject: 'รหัสเข้าสู่ระบบ Piccab', title: 'รหัสเข้าสู่ระบบ Piccab', lead: 'ใส่รหัสนี้ในแอปเพื่อเข้าสู่ระบบ', button: 'เข้าสู่ระบบ Piccab' },
+  email:            { subject: 'รหัสเข้าสู่ระบบ Piccab', title: 'รหัสเข้าสู่ระบบ Piccab', lead: 'ใส่รหัสนี้ในแอปเพื่อเข้าสู่ระบบ', button: 'เข้าสู่ระบบ Piccab' },
+  recovery:         { subject: 'รหัสตั้งค่าบัญชี Piccab ใหม่', title: 'ตั้งค่าบัญชีใหม่', lead: 'ใส่รหัสนี้ในแอปเพื่อดำเนินการต่อ', button: 'ดำเนินการต่อ' },
+  invite:           { subject: 'คุณได้รับเชิญให้ใช้ Piccab', title: 'คุณได้รับเชิญให้ใช้ Piccab', lead: 'กดปุ่มด้านล่างเพื่อเริ่มใช้งาน', button: 'เริ่มใช้งาน' },
+  email_change:     { subject: 'ยืนยันอีเมลใหม่ของ Piccab', title: 'ยืนยันอีเมลใหม่', lead: 'ใส่รหัสนี้ในแอปเพื่อยืนยันอีเมลใหม่', button: 'ยืนยันอีเมลใหม่' },
+  reauthentication: { subject: 'รหัสยืนยันตัวตน Piccab', title: 'ยืนยันตัวตน', lead: 'ใส่รหัสนี้ในแอปเพื่อยืนยันว่าเป็นคุณ', button: '' },
+};
+export function buildAuthEmail(p, supabaseUrl) {
+  const d = p.email_data || {}, type = d.email_action_type || 'magiclink', t = MAIL_TEXT[type] || MAIL_TEXT.magiclink;
+  const code = d.token || '';
+  const redirect = d.redirect_to || d.site_url || 'https://piccab.com/';
+  const link = d.token_hash && t.button
+    ? `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(d.token_hash)}&type=${encodeURIComponent(type === 'email' ? 'magiclink' : type)}&redirect_to=${encodeURIComponent(redirect)}`
+    : '';
+  const subject = code ? `${t.subject}: ${code}` : t.subject;
+  const html = `<!doctype html><html lang="th"><body style="margin:0;background:#f6f0e8;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:18px;padding:28px">
+<tr><td style="font-size:22px;font-weight:700;padding-bottom:6px">Pic<span style="color:#c2405c">cab</span></td></tr>
+<tr><td style="font-size:20px;font-weight:700;padding:10px 0 6px">${esc(t.title)}</td></tr>
+${code ? `<tr><td style="font-size:15px;color:#77728c">${esc(t.lead)}</td></tr>
+<tr><td style="padding:16px 0"><div style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;background:#efeaf7;border-radius:12px;padding:14px 0">${esc(code)}</div></td></tr>` : ''}
+${link ? `<tr><td style="font-size:14px;color:#77728c;padding-bottom:10px">${code ? 'หรือกดปุ่มนี้ (เปิดในเบราว์เซอร์เดียวกับที่ใช้ Piccab)' : ''}</td></tr>
+<tr><td><a href="${esc(link)}" style="display:inline-block;background:#2d2a5a;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:12px">${esc(t.button)}</a></td></tr>` : ''}
+<tr><td style="font-size:13px;color:#77728c;padding-top:22px">รหัสนี้ใช้ได้ครั้งเดียวและจะหมดอายุในไม่ช้า · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = [t.title, code ? `${t.lead}: ${code}` : '', link ? `${t.button}: ${link}` : '', 'รหัสนี้ใช้ได้ครั้งเดียว · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร'].filter(Boolean).join('\n\n');
+  return { subject, html, text };
+}
+
+async function authEmail(request, env) {
+  const hookErr = (msg, status) => json({ error: { http_code: status, message: msg } }, status);
+  if (request.method !== 'POST') return hookErr('method not allowed', 405);
+  if (!env.SEND_EMAIL_HOOK_SECRET || !env.RESEND_API_KEY) return hookErr('email hook not configured', 500);
+  const body = await request.text();
+  if (!(await verifyWebhook(env.SEND_EMAIL_HOOK_SECRET, request.headers, body))) return hookErr('invalid signature', 401);
+  let p;
+  try { p = JSON.parse(body); } catch (e) { return hookErr('bad payload', 400); }
+  const to = p.user && (p.user.new_email && p.email_data && p.email_data.email_action_type === 'email_change' ? p.user.new_email : p.user.email);
+  if (!to) return hookErr('no recipient', 400);
+  const mail = buildAuthEmail(p, env.SUPABASE_URL || SUPABASE_URL);
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to: [to], subject: mail.subject, html: mail.html, text: mail.text }),
+  });
+  if (!r.ok) {
+    const detail = await r.text().catch(() => '');
+    console.log('Resend error', r.status, detail.slice(0, 300));
+    return hookErr('could not send e-mail', 500);
+  }
+  return json({});
+}
+
