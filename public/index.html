@@ -294,16 +294,16 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  #playView:not([hidden]){display:flex;flex-direction:column}
  #modes{order:1} #playView>main{order:2} #sub{order:3;margin-top:6px}
  .sub .tip{display:none}
- .sub .icon{width:42px;height:40px;padding:0;font-size:17px}
- .sub .play{padding:8px 14px;font-weight:600}
- .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;position:relative;margin:10px 0 0;padding:2px 0 4px}
- .chips::-webkit-scrollbar{display:none}
- .chip{flex:none}
- .chips .chip.all{display:inline-block;background:var(--soft);border-color:#c9bdf0}
+ .sub{gap:6px}
+ .sub .seg button{padding:8px 9px;font-size:14.5px}
+ .sub .icon{width:38px;height:38px;padding:0;font-size:17px;flex:none}
+ .sub .play{width:50px;height:38px;padding:0;font-size:17px;flex:none}
+ .sub .bar{width:56px}
+ .chips{display:none!important}
+ .sub .listbtn{font-weight:600;background:var(--soft);border-color:#c9bdf0;white-space:nowrap;padding:8px 10px;font-size:14.5px}
  .modal.sheetmode{align-items:flex-end;padding:0}
  .mbox.sheet{width:100%;border-radius:18px 18px 0 0;max-height:72vh;padding:12px 14px 18px}
 }
-.chip.all{display:none}
 .sheethead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .sheethead b{font-size:17px}
 .sheethead button{width:36px;height:36px;padding:0;border-radius:50%}
@@ -770,7 +770,7 @@ function apList(){
   return l;
 }
 function apShow(id){ pinnedId=id; hoverId=null; setHL(); updateTag(); renderChips(); apCounter(); }
-function apCounter(){ const c=$('#apCount'); if(c) c.textContent=AP.queue.length?`${Math.min(AP.idx+1,AP.queue.length)}/${AP.queue.length}`:`${ids().length} คำ`; }
+function apCounter(){ const c=$('#apCount'); if(c) c.textContent=(c.tagName==='BUTTON'?'📖 ':'')+(AP.queue.length?`${Math.min(AP.idx+1,AP.queue.length)}/${AP.queue.length}`:`${ids().length} คำ`); }
 function apStep(){
   if(!AP.playing) return;
   if(!AP.queue.length || AP.idx>=AP.queue.length){ AP.queue=apList(); AP.idx=0; }   // loop (reshuffles when random)
@@ -1187,9 +1187,9 @@ function updateTag(){
   tag.className='tag'+(pinned?' pinned':'')+(kind?' '+kind:'');
   tag.hidden=false;
   const b=box(id); if(!b) return;
-  const above=b.t > tag.offsetHeight+10;
+  const th=tag.offsetHeight, above=b.t > th+10, below=!above && b.b+th+10 <= b.H;
   tag.classList.toggle('below', !above);
-  tag.style.top=(above? b.t-8 : b.b+8)+'px';
+  tag.style.top=(above? b.t-8 : below? b.b+8 : Math.max(4, b.t+8))+'px';
   tag.style.left=clampX(tag, b.cx, b.W)+'px';
 }
 function updateOverlay(){
@@ -1263,6 +1263,7 @@ function renderSub(){
         onclick:()=>{ S.allBoxes=!S.allBoxes; store.set('pv-allboxes',S.allBoxes); refresh(); }}),
       el('label',{class:'namefield'},'📝 ชื่อฉาก', name),
       el('span',{class:'grow'}),
+      listBtn(),
       el('button',{text:'📋 คัดลอกข้อมูลฉาก',onclick:exportScene}),
       el('button',{class:'danger',text:'🗑 ลบฉาก',onclick:deleteScene}),
       el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; selId=null; saveScenes(); if(S.mode==='find' && ids().length) startFind(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
@@ -1279,15 +1280,15 @@ function renderSub(){
       el('button',{class:AP.on?'':'on',text:'✋ Manual',onclick:()=>{ if(!AP.on) return; AP.on=false; apReset(); renderSub(); }}),
       el('button',{class:AP.on?'on':'',text:'▶ Auto',onclick:()=>{ if(AP.on) return; AP.on=true; AP.queue=[]; AP.idx=0; apPlay(); }}));
     const mob=isMobile();
-    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':''),text:(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+(mob?'ป้าย':'ป้ายและกรอบทั้งหมด'),onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
+    const allBtn=el('button',{class:'toggle'+(S.showAll?' on':'')+(mob?' icon':''),'aria-label':'แสดงป้ายและกรอบทั้งหมด',text:mob?'🏷':(S.showAll?'🏷 ซ่อน':'🏷 แสดง')+'ป้ายและกรอบทั้งหมด',onclick:()=>{ S.showAll=!S.showAll; refresh(); }});
     if(!AP.on){
-      put(seg, el('span',{class:'hint tip',text:'ชี้เมาส์หรือแตะที่สิ่งของ เพื่อดูคำศัพท์และฟังเสียง'}), el('span',{class:'grow'}), allBtn);
+      put(seg, el('span',{class:'hint tip',text:'ชี้เมาส์หรือแตะที่สิ่งของ เพื่อดูคำศัพท์และฟังเสียง'}), el('span',{class:'grow'}), listBtn(), allBtn);
     } else if(mob){
       put(el('button',{class:'icon',text:'✋','aria-label':'กลับไปเลือกเอง (Manual)',title:'Manual',onclick:()=>{ AP.on=false; apReset(); renderSub(); updateTag(); }}),
         el('button',{class:'icon',text:'⏮','aria-label':'คำก่อนหน้า',onclick:()=>apJump(-1)}),
-        el('button',{class:'primary play',text:AP.playing?'⏸ หยุด':'▶ เล่น',onclick:()=>{ AP.playing?apPause():apPlay(); }}),
+        el('button',{class:'primary play',text:AP.playing?'⏸':'▶','aria-label':AP.playing?'หยุด':'เล่น',onclick:()=>{ AP.playing?apPause():apPlay(); }}),
         el('button',{class:'icon',text:'⏭','aria-label':'คำถัดไป',onclick:()=>apJump(1)}),
-        el('span',{class:'pill',id:'apCount',text:''}),
+        el('button',{class:'listbtn',id:'apCount',text:'','aria-label':'รายการคำศัพท์ทั้งหมด',onclick:openWordSheet}),
         el('span',{class:'grow'}),
         el('button',{class:'icon',text:'⚙','aria-label':'ตั้งค่าการเล่น',onclick:openApSettings}));
       apCounter();
@@ -1312,7 +1313,8 @@ function renderSub(){
       el('span',{class:'hint'+(d===n?'':' tip'),text: d===n ? '🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!' : 'แตะสิ่งของ แล้วพิมพ์ว่ามันคืออะไรเป็นภาษาอังกฤษ'}),
       el('span',{class:'grow'}),
       el('span',{class:'pill'}, bar, `${d}/${n}`, el('span',{title:'ตอบถูกโดยไม่ใช้ตัวช่วย',text:`★ ${st}`})),
-      el('button',{text:'↺ เริ่มใหม่',onclick:resetQuiz})
+      listBtn(),
+      el('button',{class:isMobile()?'icon':'',text:isMobile()?'↺':'↺ เริ่มใหม่','aria-label':'เริ่มใหม่',onclick:resetQuiz})
     );
   } else if(S.mode==='find'){
     if(find.target){
@@ -1336,7 +1338,6 @@ function renderSub(){
   }
 }
 function renderChips(){
-  const keepScroll=chips.scrollLeft;
   chips.innerHTML='';
   const hide = !S.editing && S.mode==='find';
   chips.hidden = hide; if(hide) return;
@@ -1355,18 +1356,8 @@ function renderChips(){
     b.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse') setHover(null); });
     chips.append(b);
   });
-  if(isMobile() && ids().length){
-    chips.append(el('button',{class:'chip all',text:`📋 ทั้งหมด (${ids().length})`,onclick:openWordSheet}));
-    chips.scrollLeft=keepScroll;
-    const on=chips.querySelector('.chip.on');
-    // Keep the strip still: only scroll when the chosen word is out of view, and only as far as needed.
-    if(on){
-      const pad=24, l=on.offsetLeft, r=l+on.offsetWidth, vl=chips.scrollLeft, vr=vl+chips.clientWidth;
-      const to = l<vl+pad ? l-pad : r>vr-pad ? r-chips.clientWidth+pad : null;
-      if(to!=null) chips.scrollTo({left:to, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
-    }
-  }
 }
+const listBtn=()=>isMobile() && ids().length ? el('button',{class:'listbtn',text:`📖 คำ (${ids().length})`,'aria-label':'รายการคำศัพท์ทั้งหมด',onclick:openWordSheet}) : null;
 // Phones: the full word list (with Thai meanings in learn mode) in a sheet from the bottom.
 function openWordSheet(){
   openModal(m=>{
