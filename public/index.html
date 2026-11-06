@@ -170,6 +170,56 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .lrow .hit{font-size:13px;color:#c2405c}
 .lrow .chev{color:var(--muted);font-size:18px}
 .libempty{padding:28px;text-align:center;color:var(--muted)}
+#wdFilters button .n{display:inline-block;margin-left:5px;font-size:12px;padding:0 6px;border-radius:999px;background:rgba(0,0,0,.08)}
+#wdFilters button.on .n{background:rgba(255,255,255,.22)}
+#wdTile{margin:0 0 14px}
+.wd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;margin-bottom:16px}
+.wd-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.wd-main{display:flex;flex-direction:column;align-items:stretch;gap:2px;border:none;border-radius:0;background:none;padding:0 0 8px;text-align:left;flex:1}
+.wd-main:hover{background:#faf6f1}
+.wd-pic{position:relative;display:block;aspect-ratio:4/3;background:#eee6dc;margin-bottom:6px}
+.wd-thumb{display:block;width:100%;height:100%}
+.wd-say{position:absolute;right:6px;bottom:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.wd-main b{font-family:'Fredoka','Sarabun',sans-serif;font-size:17px;padding:0 10px;line-height:1.2;overflow-wrap:anywhere}
+.wd-th{color:var(--muted);font-size:13.5px;padding:0 10px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wd-foot{display:flex;align-items:center;gap:6px;padding:0 8px 8px 10px;min-width:0}
+.wd-st{font-size:12px;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap;background:#ece8e1;color:#5d584f}
+.st-done .wd-st{background:#e3f4ea;color:var(--ok)}
+.st-star .wd-st{background:#fff3c4;color:#8a6500}
+.wd-go{margin-left:auto;min-width:0;display:flex;align-items:center;gap:2px;border:none;background:none;padding:4px 2px;font-size:12.5px;color:var(--muted)}
+.wd-go span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+.wd-go:hover{color:#c2405c}
+.wd-more{display:block;margin:0 auto 24px}
+.mbox.rvbox{width:min(460px,100%)}
+.rv-top{display:flex;align-items:center;gap:10px}
+.rv-top h3{margin:0;flex:1}
+.rv-n{color:var(--muted);font-weight:600}
+.rv-top .x{border:none;background:none;font-size:18px;padding:4px 6px;color:var(--muted)}
+.rvbox .bar{display:block;width:100%;height:6px;margin:10px 0 12px}
+.rv-pic{background:#eee6dc;border-radius:14px;overflow:hidden;height:min(240px,32vh)}
+.rv-thumb{display:block;width:100%;height:100%}
+.rv-q{margin:12px 0 6px}
+.rv-q .en{color:var(--muted)}
+.rvbox .clue{background:var(--soft);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:14.5px}
+.rvbox .clue .pat{font-family:'Fredoka',monospace;letter-spacing:2px;font-size:18px;margin-top:2px}
+.rv-row{display:flex;gap:8px}
+.rv-row input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:17px}
+.rv-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rv-tools button{padding:7px 10px;font-size:14px}
+.rv-tools .rv-skip{margin-left:auto}
+.rvbox .msg{min-height:1.4em;margin-top:8px;font-weight:600}
+.rvbox .msg.ok{color:var(--ok)} .rvbox .msg.bad{color:var(--bad)} .rvbox .msg.info{color:var(--ink)}
+.rv-from{color:var(--muted);font-size:13px;margin:6px 0 0}
+.rv-end{text-align:center;padding:10px 0 2px}
+.rv-end .big{font-size:48px}
+.rv-end h3{margin:4px 0}
+.rv-end .row{justify-content:center;margin-top:14px}
+.mbox.shake{animation:shake .35s}
+@media (max-width:640px){
+ .wd-grid{grid-template-columns:1fr 1fr;gap:10px}
+ .wd-main b{font-size:16px}
+ #wordsView .libbar input{min-width:0;flex-basis:100%}
+}
 .tagx.mine{background:rgba(194,64,92,.9)}
 @media (max-width:640px){
  .cont{grid-template-columns:1fr}
@@ -364,6 +414,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
       <div class="seg mainnav" role="tablist" aria-label="เมนูหลัก">
         <button data-view="home">🏠 หน้าแรก</button>
         <button data-view="library">📚 คลังฉาก</button>
+        <button data-view="words">🔖 คำของฉัน</button>
       </div>
       <span class="stat streakpill" id="streakPill" title="วันที่ฝึกติดกัน">🔥 0</span>
       <button class="acct" id="acctBtn" type="button" hidden>👤 เข้าสู่ระบบ</button>
@@ -385,6 +436,8 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     </div>
     <div class="liblist" id="libList"></div>
   </section>
+
+  <section id="wordsView" hidden></section>
 
   <div id="playView">
   <nav class="modes" id="modes">
@@ -439,7 +492,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   <button data-view="home"><span class="bi">🏠</span>หน้าแรก</button>
   <button data-view="library"><span class="bi">📚</span>คลังฉาก</button>
   <button class="fab" id="fabCam" aria-label="สร้างฉากจากรูป"><span class="bi">📷</span>สร้างฉาก</button>
-  <button data-soon="คำของฉัน"><span class="bi">🔖</span>คำของฉัน</button>
+  <button data-view="words"><span class="bi">🔖</span>คำของฉัน</button>
   <button data-soon="ห้องเรียน"><span class="bi">🎓</span>ห้องเรียน</button>
 </nav>
 <div class="modal" id="modal" hidden><div class="mbox" id="mbox" role="dialog" aria-modal="true"></div></div>
@@ -979,7 +1032,7 @@ function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}; const k=Object.
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
-  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#playView').hidden=g;
+  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
   document.body.classList.toggle('gview', g);
@@ -993,7 +1046,7 @@ function goHome(view){
   if(aiCtl) aiCtl.abort();
   closeQuiz(true); pinnedId=hoverId=null; flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
-  S.view=(view==='library')?'library':'home'; refresh(); renderGallery(); window.scrollTo(0,0);
+  S.view=(view==='library'||view==='words')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
   apReset();
@@ -1015,7 +1068,7 @@ function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-
 function sceneTime(sc){ return recent[sc.id] || (sc.builtin?0:(parseInt(sc.id.slice(1),36)||0)); }
 function byRecent(a,b){ return sceneTime(b)-sceneTime(a); }
 function greet(){ const h=new Date().getHours(); return h<11?'อรุณสวัสดิ์':h<16?'สวัสดีตอนบ่าย':'สวัสดีตอนเย็น'; }
-function renderGallery(){ if(S.view==='library') renderLibrary(); else renderHome(); }
+function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else renderHome(); }
 
 function ago(ts){
   if(!ts) return 'ยังไม่เคยเปิด';
@@ -1112,9 +1165,9 @@ function renderHome(){
   const best=pend.filter(x=>x.started).sort((a,b)=>b.left-a.left)[0]||pend.slice().sort((a,b)=>b.left-a.left)[0];
   h.append(el('div',{class:'hsec'}, el('h3',{text:'วันนี้ทำอะไรดี'})));
   h.append(best
-    ? el('button',{class:'tile review',onclick:()=>openScene(best.sc.id,'quiz')},
+    ? el('button',{class:'tile review',onclick:()=>startReview(allWords())},
         el('span',{class:'ic',text:'✍️'}),
-        el('span',{}, el('b',{text:`ทบทวนวันนี้ · ${totalLeft} คำ`}), el('small',{text:`ที่ยังไม่ผ่าน จาก ${nScenes} ฉาก`})),
+        el('span',{}, el('b',{text:`ทบทวนวันนี้ · ${totalLeft} คำ`}), el('small',{text:`ที่ยังไม่ผ่าน จาก ${nScenes} ฉาก · ครั้งละ ${Math.min(10,totalLeft)} คำ`})),
         el('span',{class:'arrow',text:'→'}))
     : el('div',{class:'tile review'}, el('span',{class:'ic',text:'🎉'}), el('span',{}, el('b',{text:'ทบทวนครบทุกคำแล้ว'}), el('small',{text:'ลองสร้างฉากใหม่จากรูปรอบตัว'}))));
   h.append(el('div',{class:'createrow'},
@@ -1164,6 +1217,223 @@ function renderLibrary(){
         hits[sc.id]?el('span',{class:'hit',text:'พบคำ: '+hits[sc.id]}):null),
       el('span',{class:'chev',text:'›'})));
   });
+}
+// ---------- my words: every word from every scene + a mixed review ----------
+// Scene pictures as short blob: URLs, so many small crops can share one decoded image.
+const blobImg=new Map();
+function imgUrl(sc){
+  const src=sceneImg(sc);
+  if(!src.startsWith('data:') || src===IMG_PENDING) return src;
+  const c=blobImg.get(sc.id); if(c && c.src===src) return c.url;
+  if(c) URL.revokeObjectURL(c.url);
+  let url=src;
+  try{
+    const i=src.indexOf(','), head=src.slice(5,i), body=src.slice(i+1), mime=head.split(';')[0]||'image/png';
+    let blob;
+    if(/;base64$/i.test(head)){ const bin=atob(body), a=new Uint8Array(bin.length); for(let k=0;k<bin.length;k++) a[k]=bin.charCodeAt(k); blob=new Blob([a],{type:mime}); }
+    else blob=new Blob([decodeURIComponent(body)],{type:mime});
+    url=URL.createObjectURL(blob);
+  }catch(e){ url=src; }
+  blobImg.set(sc.id,{src,url}); return url;
+}
+// A square around the object (kept inside the picture when it fits).
+function cropBox(sc,it){
+  const M=Math.max(sc.w,sc.h);
+  let cx,cy,s;
+  if(it.w!=null){ cx=it.x+it.w/2; cy=it.y+it.h/2; s=Math.max(it.w,it.h)*1.15; }
+  else { const a=anchorOf(it)||{x:sc.w/2,y:sc.h/2}; cx=a.x; cy=a.y; s=M*0.2; }
+  s=Math.max(s, M*0.05);
+  let x=cx-s/2, y=cy-s/2;
+  if(s<=sc.w) x=Math.min(Math.max(x,0), sc.w-s);
+  if(s<=sc.h) y=Math.min(Math.max(y,0), sc.h-s);
+  return [x,y,s,s];
+}
+function wordThumb(sc,it,cls,outline){
+  const sv=document.createElementNS(NS,'svg'), [x,y,w,h]=cropBox(sc,it);
+  sv.setAttribute('viewBox',`${x} ${y} ${w} ${h}`); sv.setAttribute('preserveAspectRatio','xMidYMid meet');
+  sv.setAttribute('class',cls||'wd-thumb'); sv.setAttribute('aria-hidden','true');
+  const im=document.createElementNS(NS,'image');
+  im.setAttribute('href',imgUrl(sc)); im.setAttribute('width',sc.w); im.setAttribute('height',sc.h); im.setAttribute('preserveAspectRatio','none');
+  sv.append(im);
+  if(outline && it.w!=null){
+    // mark which object is meant (neighbours often share the crop)
+    const p=w*0.02, sw=w*0.012, g={x:it.x-p, y:it.y-p, w:it.w+2*p, h:it.h+2*p}; g.r=Math.min(Math.min(g.w,g.h)*0.2, w*0.06);
+    [['#fff',sw*2.6],['#ef5a78',sw]].forEach(([c,wd])=>{ const r=document.createElementNS(NS,'path'); r.setAttribute('d',rrPath(g)); r.setAttribute('fill','none'); r.setAttribute('stroke',c); r.setAttribute('stroke-width',wd); sv.append(r); });
+  }
+  return sv;
+}
+function allWords(){
+  const out=[];
+  scenes().slice().sort(byRecent).forEach(sc=>{
+    const p=progress[sc.id]||{};
+    Object.entries(sc.items||{}).forEach(([id,it],k)=>{
+      if(!it || !it.word) return;
+      const st=(p.done&&p.done[id]) ? ((p.star&&p.star[id])?'star':'done') : 'todo';
+      out.push({sc,id,it,st,k});
+    });
+  });
+  return out;
+}
+const WD={q:'',f:'all',sort:'scene',limit:120};
+const WD_LABELS={all:'ทั้งหมด',todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
+const WD_ST={todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
+const sayWord=it=>it.say||it.word;
+function wordsFiltered(all){
+  const q=WD.q.trim().toLowerCase();
+  let list=all.filter(w=>WD.f==='all'||w.st===WD.f);
+  if(q) list=list.filter(w=>[w.it.word,w.it.th||''].concat(w.it.alts||[]).some(t=>String(t).toLowerCase().includes(q)));
+  const ord={todo:0,done:1,star:2};
+  if(WD.sort==='az') list=list.slice().sort((a,b)=>a.it.word.localeCompare(b.it.word,'en',{sensitivity:'base'}));
+  else if(WD.sort==='todo') list=list.slice().sort((a,b)=>ord[a.st]-ord[b.st]);
+  return list;
+}
+function renderWords(){
+  const v=$('#wordsView'); v.innerHTML='';
+  const all=allWords();
+  v.append(el('div',{class:'ghead'}, el('h2',{text:'คำของฉัน'}), el('p',{id:'wdCount'})));
+  if(!all.length){
+    $('#wdCount').textContent='ยังไม่มีคำศัพท์';
+    v.append(el('div',{class:'libempty'},'ยังไม่มีคำศัพท์ในฉากไหนเลย ลองถ่ายรูปหรือเลือกรูปเพื่อสร้างฉากแรก'),
+      el('div',{class:'createrow'},
+        el('button',{class:'cbtn',onclick:()=>$('#fileCam').click()},'📷 ถ่ายรูป'),
+        el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()},'🖼️ เลือกรูป')));
+    return;
+  }
+  v.append(el('div',{id:'wdTile'}));
+  const search=el('input',{type:'search',placeholder:'ค้นหาคำ เช่น teapot, กาน้ำชา',value:WD.q,'aria-label':'ค้นหาคำศัพท์'});
+  search.addEventListener('input',()=>{ WD.q=search.value; WD.limit=120; updateWords(); });
+  const seg=el('div',{class:'seg',id:'wdFilters',role:'group','aria-label':'กรองคำ'});
+  Object.keys(WD_LABELS).forEach(f=>seg.append(el('button',{'data-f':f,onclick:()=>{ WD.f=f; WD.limit=120; updateWords(); }})));
+  const sort=el('select',{'aria-label':'เรียงลำดับ'},
+    el('option',{value:'scene',text:'เรียง: ตามฉาก'}), el('option',{value:'az',text:'เรียง: A→Z'}), el('option',{value:'todo',text:'เรียง: ยังไม่ผ่านก่อน'}));
+  sort.value=WD.sort; sort.addEventListener('change',()=>{ WD.sort=sort.value; updateWords(); });
+  v.append(el('div',{class:'libbar'}, search, seg, sort), el('div',{class:'wd-grid',id:'wdGrid'}), el('div',{id:'wdMore'}));
+  updateWords(all);
+}
+function updateWords(all){
+  if(!$('#wdGrid')) return;
+  all=all||allWords();
+  const cnt={all:all.length,todo:0,done:0,star:0}; all.forEach(w=>cnt[w.st]++);
+  const nSc=new Set(all.map(w=>w.sc.id)).size;
+  $('#wdCount').textContent=`${all.length} คำ จาก ${nSc} ฉาก · ★ จำได้ ${cnt.star} · ✓ ผ่าน ${cnt.done} · ยังไม่ผ่าน ${cnt.todo}`;
+  document.querySelectorAll('#wdFilters button').forEach(b=>{ const f=b.dataset.f; b.textContent=WD_LABELS[f]; b.append(el('span',{class:'n',text:String(cnt[f])})); b.classList.toggle('on',f===WD.f); });
+  const list=wordsFiltered(all), narrowed=WD.f!=='all'||!!WD.q.trim();
+  const t=$('#wdTile'); t.innerHTML='';
+  if(list.length){
+    const n=Math.min(10,list.length), left=list.filter(w=>w.st==='todo').length;
+    t.append(el('button',{class:'tile review wd-review',onclick:()=>startReview(list)},
+      el('span',{class:'ic',text:'✍️'}),
+      el('span',{}, el('b',{text:`ทบทวน ${n} คำ`}),
+        el('small',{text:(narrowed?'จากคำที่กรองไว้ · ':'')+(left?'เริ่มจากคำที่ยังไม่ผ่าน':'สุ่มคำมาทายอีกรอบ')})),
+      el('span',{class:'arrow',text:'→'})));
+  }
+  const g=$('#wdGrid'); g.innerHTML='';
+  if(!list.length) g.append(el('div',{class:'libempty',text: WD.q.trim()?`ไม่พบคำที่ตรงกับ “${WD.q.trim()}”`:'ยังไม่มีคำในหมวดนี้'}));
+  list.slice(0,WD.limit).forEach(w=>g.append(wordCard(w)));
+  const more=$('#wdMore'); more.innerHTML='';
+  if(list.length>WD.limit) more.append(el('button',{class:'wd-more',text:`แสดงเพิ่ม (${list.length-WD.limit} คำ)`,onclick:()=>{ WD.limit+=240; updateWords(); }}));
+}
+function wordCard(w){
+  const {sc,id,it,st}=w;
+  return el('div',{class:'wd-card st-'+st},
+    el('button',{class:'wd-main',title:'ฟังเสียง','aria-label':'ฟังเสียง '+it.word,onclick:()=>speak(sayWord(it))},
+      el('span',{class:'wd-pic'}, wordThumb(sc,it), el('span',{class:'wd-say',text:'🔊'})),
+      el('b',{text:it.word}),
+      it.th ? el('span',{class:'wd-th',text:it.th}) : null),
+    el('div',{class:'wd-foot'},
+      el('span',{class:'wd-st',text:WD_ST[st]}),
+      el('button',{class:'wd-go',title:'ดูในฉาก “'+sc.name+'”',onclick:()=>{ openScene(sc.id,'learn'); select(id); }},'📍 ',el('span',{text:sc.name}))));
+}
+// Mixed review: up to 10 words, words not yet passed first. Same rules as the scene quiz:
+// typing it right marks ✓, and ★ if no hint / listen / answer was used.
+let RV=null;
+function startReview(list){
+  const by=st=>shuffle(list.filter(w=>w.st===st));
+  const pick=shuffle(by('todo').concat(by('done'),by('star')).slice(0,10));
+  if(!pick.length){ toast('ไม่มีคำให้ทบทวน'); return; }
+  RV={list:pick, src:list.map(w=>w.sc.id+'\u0000'+w.id), i:0, ok:0, star:0};
+  markActive(0);
+  rvQuestion();
+}
+function rvWord(){ return RV && RV.list[RV.i]; }
+function rvQuestion(){
+  const w=rvWord(); if(!w){ rvDone(); return; }
+  RV.lvl=0; RV.used=false; RV.answered=false;
+  openModal(m=>{
+    m.classList.add('rvbox');
+    const n=RV.list.length;
+    const bar=el('span',{class:'bar'},el('i')); bar.firstChild.style.width=(RV.i/n*100)+'%';
+    const inp=el('input',{id:'rvIn',autocomplete:'off',autocapitalize:'none',autocorrect:'off',spellcheck:'false',enterkeyhint:'done',placeholder:'พิมพ์เป็นภาษาอังกฤษ…','aria-label':'คำตอบ'});
+    const form=el('form',{class:'rv-row',autocomplete:'off'}, inp, el('button',{class:'primary',type:'submit',text:'ตรวจ'}));
+    form.addEventListener('submit',e=>{ e.preventDefault(); rvCheck(inp.value); });
+    m.append(
+      el('div',{class:'rv-top'}, el('h3',{text:'ทบทวนคำศัพท์'}), el('span',{class:'rv-n',text:`${RV.i+1}/${n}`}),
+        el('button',{class:'x',type:'button','aria-label':'ปิด',text:'✕',onclick:closeModal})),
+      bar,
+      el('div',{class:'rv-pic'}, wordThumb(w.sc,w.it,'rv-thumb',true)),
+      el('p',{class:'rv-q'}, el('b',{text:'นี่คืออะไร?'}),' ',el('span',{class:'en',text:'What is this?'})),
+      el('div',{class:'clue',id:'rvClue',hidden:''}),
+      form,
+      el('div',{class:'rv-tools'},
+        el('button',{type:'button',text:'💡 คำใบ้',onclick:rvHint}),
+        el('button',{type:'button',text:'🔊 ฟัง',onclick:()=>{ RV.used=true; speak(sayWord(w.it)); $('#rvIn').focus(); }}),
+        el('button',{type:'button',text:'ดูเฉลย',onclick:rvShow}),
+        el('button',{type:'button',class:'rv-skip',text:'ข้าม ›',onclick:rvNext})),
+      el('div',{class:'msg',id:'rvMsg'}),
+      el('p',{class:'rv-from',text:'จากฉาก: '+w.sc.name}));
+  });
+  modalClose=()=>{ RV=null; try{ speechSynthesis.cancel(); }catch(e){} if(S.view==='words') updateWords(); else if(S.view==='home') renderHome(); };
+}
+function rvMsg(kind,text){ const m=$('#rvMsg'); if(!m) return; m.className='msg'+(kind?' '+kind:''); m.textContent=text; }
+function rvHint(){
+  const w=rvWord(); if(!w || RV.answered) return;
+  const max=norm(w.it.word).length;
+  if(RV.lvl>=max){ rvMsg('info','เปิดคำใบ้หมดแล้ว ลองพิมพ์ดูนะ'); return; }
+  RV.lvl++; RV.used=true;
+  const c=$('#rvClue'); c.innerHTML=''; c.hidden=false;
+  if(w.it.th) c.append(el('div',{class:'th',text:'ความหมาย: '+w.it.th}));
+  c.append(el('div',{class:'pat',text:pattern(w.it.word, RV.lvl-1)}));
+  rvMsg('',''); $('#rvIn').focus();
+}
+function rvShow(){
+  const w=rvWord(); if(!w || RV.answered) return;
+  RV.used=true; rvMsg('info','เฉลย: '+w.it.word+' — ลองพิมพ์ตามเพื่อจำนะ'); speak(sayWord(w.it));
+  const i=$('#rvIn'); i.value=''; i.focus();
+}
+function rvCheck(v){
+  const w=rvWord(); if(!w || RV.answered || !String(v).trim()) return;
+  if(matches(v,w.it)){
+    RV.answered=true;
+    if(!progress[w.sc.id]) progress[w.sc.id]={done:{},star:{}};
+    const p=progress[w.sc.id]; p.done=p.done||{}; p.star=p.star||{};
+    p.done[w.id]=true; if(!RV.used) p.star[w.id]=true; saveProg(); markActive(1);
+    RV.ok++; if(!RV.used) RV.star++;
+    rvMsg('ok',(RV.used?'ถูกต้อง! ✓ ':'ถูกต้อง! เก่งมาก ★ ')+w.it.word);
+    speak(sayWord(w.it));
+    const at=RV.i, run=RV; setTimeout(()=>{ if(RV===run && RV.i===at) rvNext(); }, 1300);
+    return;
+  }
+  const d=lev(norm(v), norm(w.it.word));
+  rvMsg('bad', d<=2 && norm(w.it.word).length>3 ? 'เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด' : 'ยังไม่ใช่ ลองอีกครั้ง หรือกด 💡 คำใบ้');
+  const box=$('#mbox'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+}
+function rvNext(){ if(!RV) return; RV.i++; rvQuestion(); }
+function rvDone(){
+  const r=RV, n=r.list.length;
+  openModal(m=>{
+    m.classList.add('rvbox');
+    m.append(el('div',{class:'rv-end'},
+      el('div',{class:'big',text: r.ok===n ? '🎉' : r.ok ? '👍' : '💪'}),
+      el('h3',{text:'ทบทวนเสร็จแล้ว'}),
+      el('p',{text:`ตอบถูก ${r.ok}/${n} คำ`+(r.star?` · ★ ${r.star} คำไม่ใช้ตัวช่วย`:'')}),
+      el('div',{class:'row'},
+        el('button',{text:'ปิด',onclick:closeModal}),
+        el('button',{class:'primary',text:'✍️ ทบทวนอีกชุด',onclick:()=>{
+          const keys=new Set(r.src), list=allWords().filter(w=>keys.has(w.sc.id+'\u0000'+w.id));
+          if(list.length) startReview(list); else closeModal();
+        }}))));
+  });
+  modalClose=()=>{ RV=null; if(S.view==='words') updateWords(); else if(S.view==='home') renderHome(); };
 }
 function previewSvg(sc, showLabels){
   const s=document.createElementNS(NS,'svg');
