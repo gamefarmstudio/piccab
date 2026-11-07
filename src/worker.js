@@ -24,6 +24,7 @@
 //   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
 //                      out of quota / busy; default gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite
 //   CLAUDE_MODEL       (text, optional)  defaults to claude-haiku-5-5 (cheapest); claude-sonnet-5-5 for harder pictures
+//   CLAUDE_EFFORT      (text, optional)  low | medium | high | xhigh | max; unset = the model's default (medium on Haiku 5.5)
 //   SCAN_CODE          (secret, optional) access code for using AI without signing in (testers)
 //   SUPABASE_SECRET_KEY (secret, optional) Supabase secret key → signed-in users get monthly AI credits
 //   AI_MONTHLY_CREDITS (text, optional)  credits per user per month (default 30)
@@ -317,6 +318,10 @@ async function withField(res, k, v) {
   return json(body, res.status);
 }
 
+// CLAUDE_EFFORT: low | medium | high | xhigh | max — how much the model may think (more = slower and dearer).
+// Unset: the model's own default (medium for Claude Haiku 5.5).
+const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
+export const claudeEffort = env => { const e = String(env.CLAUDE_EFFORT || '').trim().toLowerCase(); return EFFORTS.has(e) ? e : null; };
 async function scanClaude(env, mime, data64, prompt, parse = parseItems, log = null) {
   const t0 = Date.now(), model = env.CLAUDE_MODEL || DEFAULT_MODEL;
   const out = await claudeOnce(env, model, mime, data64, prompt, parse);
@@ -335,7 +340,9 @@ async function claudeOnce(env, model, mime, data64, prompt, parse) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        // Room for thinking as well as the answer (newer models think before answering; billed as used, not as set)
+        max_tokens: 16000,
+        ...(claudeEffort(env) ? { output_config: { effort: claudeEffort(env) } } : {}),
         messages: [{
           role: 'user',
           content: [
@@ -361,6 +368,7 @@ async function claudeOnce(env, model, mime, data64, prompt, parse) {
 
   const data = await res.json();
   if (data.stop_reason === 'refusal') return error('refused', 422);
+  if (data.stop_reason === 'max_tokens') console.log('Claude hit max_tokens', JSON.stringify(data.usage || {}));
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
   const items = parse(text);
   if (!items) return error('invalid_json', 502);
