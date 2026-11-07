@@ -3,6 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* "My language": the menus and the meanings shown under words (th = Thai, en = English).
+   Existing users keep Thai. New visitors get Thai if their browser speaks Thai, otherwise English. */
+(function(){
+  var u=null, ls=null; try{ ls=window.localStorage; u=JSON.parse(ls.getItem('pv-ui')); }catch(e){}
+  if(u!=='th' && u!=='en'){
+    var had=false; try{ for(var i=0;i<ls.length;i++){ var k=ls.key(i); if(/^(pv-|sb-)/.test(k)){ had=true; break; } } }catch(e){}
+    var langs=(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language||'']).join(',').toLowerCase();
+    u = had || /(^|,)th/.test(langs) ? 'th' : 'en';
+    window.PV_UI_NEW = !had && u==='en';   // ask once: menus + language to practise
+    try{ ls.setItem('pv-ui', JSON.stringify(u)); }catch(e){}
+  }
+  window.PV_UI=u; document.documentElement.lang=u;
+  if(u==='en') document.write('<script src="/i18n/en.js"><\/script>');
+})();
+</script>
 <title>Piccab — Picture Vocab · ศัพท์อังกฤษจากภาพ</title>
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -293,6 +309,13 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .langopt .fl{font-size:28px;line-height:1}
 .langopt b{display:block}.langopt small{display:block;color:var(--muted)}
 .langopt.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+html[lang=en] .qtop .en,html[lang=en] .rv-q .en{display:none}   /* the Thai prompt already reads "What is this?" in English */
+.uirow{display:flex;gap:8px;margin:8px 0 14px;flex-wrap:wrap}
+.uiopt{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:14px;flex:1 1 120px}
+.uiopt .fl{font-size:22px;line-height:1}
+.uiopt.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.mbox .h3b{margin-top:6px}
+.mbox .lbl{font-weight:600;margin-top:10px}
 .langopt .ok{margin-left:auto;font-weight:700}
 .artrow{display:flex;align-items:center;gap:10px;margin:2px 0 10px;flex-wrap:wrap}
 .artrow .lbl{font-size:14px;color:var(--muted)}
@@ -998,6 +1021,10 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
+// "My language" (set by the first <script>): menus + meanings. The app is written in Thai; /i18n/en.js swaps it on screen.
+const UI = window.PV_UI==='en' ? 'en' : 'th';
+const tx = s => window.PV_T ? window.PV_T(s) : s;   // for text that never reaches the screen: files, share text
+const LOC = UI==='en' ? 'en-GB' : 'th-TH';
 function el(tagName, props, ...kids){
   const e=document.createElement(tagName);
   if(props) for(const k in props){
@@ -1038,7 +1065,7 @@ function itemIn(it, lang){
         case 'alts': { const e=tr(); return (e&&Array.isArray(e.alts)&&e.alts)||[]; }
         case 'say': { const e=tr(); return (e&&e.say) || (e&&e.w ? (e.a ? e.a+' '+e.w : e.w) : ''); }
         case 'en': return t.word||'';
-        case 'th': return [t.th, t.word].filter(Boolean).join(' · ');      // Thai + English meaning
+        case 'th': return UI==='en' ? (t.word||'') : [t.th, t.word].filter(Boolean).join(' · ');      // meaning: Thai + English, or English for English speakers
         case 'lang': return lang;
         default: return t[k];
       }
@@ -1047,6 +1074,8 @@ function itemIn(it, lang){
   });
   m[lang]=p; return p;
 }
+// The meaning shown under a word, in the user's own language (none when an English speaker practises English)
+const mean=it=> !it ? '' : UI==='en' ? (it.lang ? (it.en||'') : '') : (it.th||'');
 function itemsOf(sc, lang){
   lang=lang||S.lang; const src=(sc&&sc.items)||{};
   if(lang==='en') return src;
@@ -1412,7 +1441,7 @@ function ago(ts){
   if(d<7) return d+' วันก่อน';
   if(d<14) return 'สัปดาห์ที่แล้ว';
   if(d<60) return Math.floor(d/7)+' สัปดาห์ก่อน';
-  return new Date(ts).toLocaleDateString('th-TH',{day:'numeric',month:'short'});
+  return new Date(ts).toLocaleDateString(LOC,{day:'numeric',month:'short'});
 }
 function progBar(n,d,cls){ const b=el('span',{class:'bar'+(n&&d===n?' full':'')+(cls?' '+cls:'')},el('i')); b.firstChild.style.width=(n?d/n*100:0)+'%'; return b; }
 function anchorOf(it){ return it.at ? {x:it.at[0], y:it.at[1]} : (it.w!=null ? {x:it.x+it.w/2, y:it.y+it.h*0.2} : null); }
@@ -1433,7 +1462,7 @@ function labeledImg(sc, ar){
     picks.push({x:a.x,y:a.y,it}); if(picks.length>=4) break;
   }
   for(const {x,y,it} of picks){   // it: in the language being practised
-    const th=(it.th||'').split(' (')[0].slice(0,18);
+    const th=mean(it).split(' (')[0].slice(0,18);
     const w=Math.max(it.word.length*0.56*fs, th.length*0.36*fs)+fs*1.3, hh=th?fs*2.45:fs*1.6;
     const x0=Math.max(vx0+fs*0.3,Math.min(vx1-w-fs*0.3,x-w/2)), y0=Math.max(vy0+fs*0.3,Math.min(vy1-hh-fs*0.3,y-hh/2));
     const g=document.createElementNS(NS,'g');
@@ -1765,12 +1794,12 @@ function wordCard(w, kept){
     el('button',{class:'wd-main',title:'ฟังเสียง','aria-label':'ฟังเสียง '+it.word,onclick:()=>speak(sayWord(it))},
       el('span',{class:'wd-pic'}, wordThumb(sc,it), el('span',{class:'wd-say',text:'🔊'})),
       wordEl(it),
-      it.th ? el('span',{class:'wd-th',text:it.th}) : null),
+      mean(it) ? el('span',{class:'wd-th',text:mean(it)}) : null),
     el('div',{class:'wd-foot'},
       el('span',{class:'wd-st',text:WD_ST[st]}, st!=='todo' ? el('small',{class:'wd-next'+(srsDue(sc.id,w.pid)?' due':''),text:nextReviewText(sc.id,w.pid)}) : null),
       el('button',{class:'wd-go',title:'ดูในฉาก “'+sc.name+'”',onclick:()=>{ openScene(sc.id,'learn'); select(id); }},'📍 ',el('span',{text:sc.name}))));
 }
-function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)); }
+function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), mean(w.it)?el('small',{text:mean(w.it)}):null)); }
 // ＋ on a word card: tick the decks it belongs to, or make a new one.
 function openDeckPicker(w, after){
   const k=wkey(w.sc.id,w.id);
@@ -1811,7 +1840,7 @@ function openDeckAdder(d){
         const k=wkey(w.sc.id,w.id), cb=el('input',{type:'checkbox'}); cb.checked=d.words.includes(k);
         cb.addEventListener('change',()=>{ d=toggleWord(d,k,cb.checked); count(); });
         list.append(el('label',{class:'dk-row w'}, cb, wordThumb(w.sc,w.it,'dk-thumb sm'),
-          el('span',{class:'dk-name'}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)));
+          el('span',{class:'dk-name'}, el('b',{text:w.it.word}), mean(w.it)?el('small',{text:mean(w.it)}):null)));
       });
       if(!rows.length) list.append(el('div',{class:'libempty',text:'ไม่พบคำ'}));
       else if(rows.length>200) list.append(el('div',{class:'note',style:'padding:8px',text:`แสดง 200 จาก ${rows.length} คำ — พิมพ์ค้นหาเพื่อหาคำอื่น`}));
@@ -1895,7 +1924,7 @@ function rvHint(){
   if(RV.lvl>=max){ rvMsg('info','เปิดคำใบ้หมดแล้ว ลองพิมพ์ดูนะ'); return; }
   RV.lvl++; RV.used=true;
   const c=$('#rvClue'); c.innerHTML=''; c.hidden=false;
-  if(w.it.th) c.append(el('div',{class:'th',text:'ความหมาย: '+w.it.th}));
+  if(mean(w.it)) c.append(el('div',{class:'th',text:'ความหมาย: '+mean(w.it)}));
   c.append(el('div',{class:'pat',text:pattern(w.it.word, RV.lvl-1)}));
   rvMsg('',''); $('#rvIn').focus();
 }
@@ -2052,15 +2081,27 @@ function setLang(l){
   toast(`${LANGS[l].flag} ตอนนี้ฝึกภาษา${LANGS[l].name} — ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา`, 3500);
   if(l!=='en') translateAll(l);
 }
+// "My language": Thai or English menus (and meanings). Changing it reloads the page.
+const langLabel=L=> tx(L.name)===L.native ? L.native : L.name+' · '+L.native;   // no "English · English"
+const UI_LANGS=[['th','🇹🇭','ไทย'],['en','🇬🇧','English']];
+function setUi(u){ if(u===UI) return; store.set('pv-ui',u); location.reload(); }
+function uiRow(onPick){
+  const row=el('div',{class:'uirow'});
+  UI_LANGS.forEach(([k,fl,nm])=>row.append(el('button',{type:'button',class:'uiopt'+(k===UI?' on':''),'data-noi18n':'',onclick:()=>onPick(k)}, el('span',{class:'fl',text:fl}), el('b',{text:nm}))));
+  return row;
+}
 function openLangPicker(){
   openModal(m=>{
-    m.append(el('h3',{text:'🌍 ภาษาที่ฝึก'}),
+    m.append(el('h3',{text:'🗣 ภาษาของฉัน'}),
+      el('p',{class:'note',text:'เมนูและความหมายของคำจะแสดงเป็นภาษานี้'}),
+      uiRow(k=>{ closeModal(); setUi(k); }),
+      el('h3',{class:'h3b',text:'🌍 ภาษาที่ฝึก'}),
       el('p',{class:'note',text:'ฉากเดิมใช้ได้ทุกภาษา — กรอบในรูปเหมือนเดิม เปลี่ยนแค่คำศัพท์ ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา'}));
     const list=el('div',{class:'langlist'});
     Object.entries(LANGS).forEach(([k,L])=>{
       const n=allWords(k).length;
       list.append(el('button',{class:'langopt'+(k===S.lang?' on':''),onclick:()=>{ closeModal(); setLang(k); }},
-        el('span',{class:'fl',text:L.flag}), el('span',{}, el('b',{text:L.name+' · '+L.native}), el('small',{text: n ? `มี ${n} คำในฉากของคุณ` : 'ยังไม่มีคำในภาษานี้'})),
+        el('span',{class:'fl',text:L.flag}), el('span',{}, el('b',{text:langLabel(L)}), el('small',{text: n ? `มี ${n} คำในฉากของคุณ` : 'ยังไม่มีคำในภาษานี้'})),
         k===S.lang ? el('span',{class:'ok',text:'✓'}) : null));
     });
     m.append(list, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
@@ -2103,7 +2144,7 @@ function updateTag(){
   const txt=el('div');
   if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
   txt.append(wordEl(it));
-  if(it.th) txt.append(el('small',{text:it.th}));
+  if(mean(it)) txt.append(el('small',{text:mean(it)}));
   const kept=isKept(scene().id,id);
   tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
     el('button',{class:'say keep'+(kept?' on':''),'aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ',text:'🔖',
@@ -2322,8 +2363,8 @@ function openWordSheet(){
     const list=el('div',{class:'wlist'});
     ids().forEach((id,i)=>{
       const it=its[id]; let main, sub2=null, cls='wrow';
-      if(learn){ main=S.editing?labelOf(it):it.word; sub2=it.th||null; }
-      else if(p.done[id]){ main=(p.star[id]?'★ ':'✓ ')+it.word; sub2=it.th||null; cls+=' done'; }
+      if(learn){ main=S.editing?labelOf(it):it.word; sub2=mean(it)||null; }
+      else if(p.done[id]){ main=(p.star[id]?'★ ':'✓ ')+it.word; sub2=mean(it)||null; cls+=' done'; }
       else { main='คำที่ '+(i+1); cls+=' unk'; }
       list.append(el('button',{class:cls+(id===cur?' on':''),onclick:()=>{ closeModal(); select(id); }},
         el('b',{text:main}), sub2?el('small',{text:sub2}):null));
@@ -2410,7 +2451,7 @@ function renderClue(){
   const it=items()[quizId], lvl=help[quizId]||0;
   if(lvl<1){ c.hidden=true; return; }
   c.hidden=false;
-  if(it.th) c.append(el('div',{class:'th',text:'ความหมาย: '+it.th}));
+  if(mean(it)) c.append(el('div',{class:'th',text:'ความหมาย: '+mean(it)}));
   c.append(el('div',{class:'pat',text:pattern(it.word, lvl-1)}));
 }
 function setMsg(kind,text){ const m=$('#qmsg'); m.className='msg'+(kind?' '+kind:''); m.textContent=text; }
@@ -2885,7 +2926,7 @@ function openItemForm(id, rect, draftEl){
     m.append(
       el('h3',{text:it?'แก้ไขคำศัพท์':'เพิ่มคำศัพท์'}),
       el('label',{},'คำภาษาอังกฤษ', w),
-      el('label',{},'ความหมายภาษาไทย (ไม่บังคับ)', th),
+      ...(UI==='th' ? [el('label',{},'ความหมายภาษาไทย (ไม่บังคับ)', th)] : []),   // English speakers: the Thai meaning stays as it is
       el('label',{},'คำตอบอื่นที่ให้ถือว่าถูก (ไม่บังคับ)', al),
       el('div',{class:'row'},
         el('button',{text:'🔊 ลองฟัง',onclick:()=>speak(w.value.trim())}),
@@ -2924,8 +2965,8 @@ function openItemFormLang(id, rect, draftEl, lang){
       el('h3',{text:(it && cur.w ? 'แก้ไขคำศัพท์' : 'เพิ่มคำศัพท์')+' · '+L.flag+' '+L.name}),
       el('label',{},`คำภาษา${L.name}`, w),
       arts ? el('div',{class:'artrow'}, el('span',{class:'lbl',text:'คำนำหน้านาม'}), arts) : null,
-      el('label',{},'ความหมายภาษาไทย (ไม่บังคับ)', th),
-      el('label',{},'คำภาษาอังกฤษ (ไม่บังคับ)', en),
+      ...(UI==='th' ? [el('label',{},'ความหมายภาษาไทย (ไม่บังคับ)', th)] : []),
+      el('label',{},UI==='en' ? 'ความหมาย / คำภาษาอังกฤษ (ไม่บังคับ)' : 'คำภาษาอังกฤษ (ไม่บังคับ)', en),
       el('label',{},'คำตอบอื่นที่ให้ถือว่าถูก (ไม่บังคับ)', al),
       el('div',{class:'row'},
         el('button',{text:'🔊 ลองฟัง',onclick:()=>speak((art?art+' ':'')+w.value.trim())}),
@@ -2960,7 +3001,7 @@ async function onPickImage(e){
 async function createSceneFromFile(f){
   try{
     const im=await loadImageFile(f);
-    const nm=f.name.replace(/\.[^.]+$/,''); const sc={id:'s'+Date.now().toString(36), name:(/^(image|img|photo|IMG|DSC|PXL)[-_ ]?\d*/i.test(nm)||!nm ? 'ฉากใหม่ '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : nm).slice(0,40), img:im.src, w:im.w, h:im.h, items:{}};
+    const nm=f.name.replace(/\.[^.]+$/,''); const sc={id:'s'+Date.now().toString(36), name:(/^(image|img|photo|IMG|DSC|PXL)[-_ ]?\d*/i.test(nm)||!nm ? tx('ฉากใหม่ ')+new Date().toLocaleDateString(LOC,{day:'numeric',month:'short'}) : nm).slice(0,40), img:im.src, w:im.w, h:im.h, items:{}};
     customs.push(sc); saveScenes();
     S.sceneId=sc.id; store.set('pv-scene',sc.id); S.editing=true; S.view='play'; help={}; used={}; recent[sc.id]=Date.now(); store.set('pv-recent',recent); markActive(0);
     fullRender(); window.scrollTo(0,0);
@@ -2985,7 +3026,7 @@ function deleteScene(){
 // Phones open the share menu (LINE, Messenger…) when the browser allows it; otherwise the file downloads.
 function sceneFile(sc){
   const data=JSON.stringify({app:'piccab',v:1,name:sc.name,img:sc.img,w:sc.w,h:sc.h,items:sc.items});
-  const base=String(sc.name||'').replace(/[\\/:*?"<>|\u0000-\u001f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,50)||'ฉาก';
+  const base=String(sc.name||'').replace(/[\\/:*?"<>|\u0000-\u001f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,50)||tx('ฉาก');
   return new File([data], base+'.piccab', {type:'application/json'});
 }
 async function shareScene(){
@@ -3011,7 +3052,7 @@ function importData(text){
     its[nk]={word:v.word.slice(0,80), th:String(v.th||'').slice(0,120), alts:Array.isArray(v.alts)?v.alts.filter(a=>typeof a==='string').slice(0,4).map(a=>a.slice(0,60)):[], x:n(v.x), y:n(v.y), w:n(v.w), h:n(v.h)};
     const lw=cleanLang(v.l); if(lw) its[nk].l=lw;
   }
-  const sc={id:'s'+Date.now().toString(36), name:String(o.name||'ฉากที่นำเข้า').slice(0,50), img:o.img, w:+o.w, h:+o.h, items:its};
+  const sc={id:'s'+Date.now().toString(36), name:String(o.name||tx('ฉากที่นำเข้า')).slice(0,50), img:o.img, w:+o.w, h:+o.h, items:its};
   customs.push(sc); saveScenes(); S.sceneId=sc.id; store.set('pv-scene',sc.id); help={}; used={};
   S.view='library'; fullRender(); toast('นำเข้าฉาก “'+sc.name+'” แล้ว ✓'); return true;
 }
@@ -3288,7 +3329,7 @@ function openDeleteAccount(){
     const inp=el('input',{placeholder:'พิมพ์คำว่า ลบ','aria-label':'พิมพ์คำว่า ลบ เพื่อยืนยัน',autocomplete:'off'});
     const err=el('p',{class:'err'});
     const go=el('button',{class:'danger',text:'ลบบัญชีถาวร',disabled:''});
-    inp.addEventListener('input',()=>{ go.disabled=inp.value.trim()!=='ลบ'; });
+    inp.addEventListener('input',()=>{ const v=inp.value.trim(); go.disabled=!(v==='ลบ' || (UI==='en' && v.toUpperCase()==='DELETE')); });
     go.addEventListener('click',async()=>{
       go.disabled=true; go.textContent='กำลังลบ…'; err.textContent='';
       SYNC.ready=false; clearTimeout(SYNC.timer);                      // nothing more may be uploaded
@@ -3541,7 +3582,7 @@ function renderTeacher(v,d){
         const p=pr.get(mb.user_id+'/'+it.share_id);
         if(!p){ tr.append(el('td',{class:'muted',text:'—'})); return; }
         const pct=p.total?Math.round(p.done/p.total*100):0;
-        tr.append(el('td',{class:'cell'+(pct===100?' full':pct>=50?' half':''),title:'อัปเดต '+new Date(p.updated_at).toLocaleString('th-TH')},
+        tr.append(el('td',{class:'cell'+(pct===100?' full':pct>=50?' half':''),title:'อัปเดต '+new Date(p.updated_at).toLocaleString(LOC)},
           el('b',{text:`${p.done}/${p.total}`}), p.star?el('small',{text:` ★${p.star}`}):null));
       });
       tr.append(el('td',{}, el('button',{class:'x',title:'นำออกจากห้อง','aria-label':'นำ '+mb.nickname+' ออกจากห้อง',text:'✕',onclick:async()=>{
@@ -3571,22 +3612,22 @@ function renderTeacher(v,d){
 function classExportData(d){
   const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
   const students=d.members.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname,'th'));
-  const items=d.items.map(it=>({...it, title:(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name}));
+  const items=d.items.map(it=>({...it, title:tx(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name}));
   const rows=students.map((mb,i)=>{
     let done=0, star=0, total=0, last=0; const cells=[], long=[];
     items.forEach(it=>{
       const p=pr.get(mb.user_id+'/'+it.share_id), t=(p&&p.total)||it.total||0, dn=p?Math.min(p.done||0,t||p.done||0):0, st=p?(p.star||0):0;
       const at=p && p.updated_at ? Date.parse(p.updated_at) : 0; if(at>last) last=at;
       done+=dn; star+=st; total+=t; cells.push(dn, st);
-      long.push([mb.nickname, it.title, t, dn, st, t?dn/t:0, !p?'ยังไม่เริ่ม':(t&&dn>=t)?'ครบแล้ว':'กำลังทำ', at?new Date(at):null]);
+      long.push([mb.nickname, it.title, t, dn, st, t?dn/t:0, tx(!p?'ยังไม่เริ่ม':(t&&dn>=t)?'ครบแล้ว':'กำลังทำ'), at?new Date(at):null]);
     });
     return { no:i+1, nick:mb.nickname, joined:mb.joined_at?new Date(mb.joined_at):null, cells, done, star, total, pct:total?done/total:0, last:last?new Date(last):null, long };
   });
-  const head=['ลำดับ','ชื่อเล่น','เข้าห้องเมื่อ'];
-  items.forEach(it=>head.push(`${it.title} — ผ่าน (จาก ${it.total} คำ)`, `${it.title} — ★`));
-  head.push('ผ่านรวม (คำ)','★ รวม','คำทั้งหมด','ผ่าน (%)','อัปเดตล่าสุด');
+  const head=['ลำดับ','ชื่อเล่น','เข้าห้องเมื่อ'].map(tx);
+  items.forEach(it=>head.push(UI==='en' ? `${it.title} — passed (of ${it.total} words)` : `${it.title} — ผ่าน (จาก ${it.total} คำ)`, `${it.title} — ★`));
+  head.push(...['ผ่านรวม (คำ)','★ รวม','คำทั้งหมด','ผ่าน (%)','อัปเดตล่าสุด'].map(tx));
   return { items, rows, head,
-    longHead:['ชื่อเล่น','งาน','คำทั้งหมด','ผ่าน (คำ)','★','ผ่าน (%)','สถานะ','อัปเดตล่าสุด'] };
+    longHead:['ชื่อเล่น','งาน','คำทั้งหมด','ผ่าน (คำ)','★','ผ่าน (%)','สถานะ','อัปเดตล่าสุด'].map(tx) };
 }
 const exportName=(d,ext)=>{ const t=new Date(), z=n=>String(n).padStart(2,'0');
   return `Piccab-${String(d.name).replace(/[\\/:*?"<>|\s]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'class'}-${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())}.${ext}`; };
@@ -3648,12 +3689,12 @@ function exportClassXlsx(d){
   const widths=[7,18,17, ...X.items.flatMap(()=>[16,8]), 13,9,11,10,17];
   const sum=xlSheet(X.head, X.rows.map(r=>[r.no, r.nick, r.joined, ...r.cells, r.done, r.star, r.total, r.pct, r.last]), kinds, widths);
   const long=xlSheet(X.longHead, X.rows.flatMap(r=>r.long), ['s','s','n','n','n','p','s','d'], [18,34,11,10,7,10,12,17]);
-  const info=xlSheet(['หัวข้อ','รายละเอียด'], [
-    ['ห้องเรียน', d.name], ['รหัสห้อง', d.code], ['นักเรียน', d.members.length+' คน'], ['งานที่มอบหมาย', n+' รายการ'], ['ส่งออกเมื่อ', fmtDate(new Date())],
+  const info=xlSheet(['หัวข้อ','รายละเอียด'].map(tx), [
+    [UI==='en'?'Class':'ห้องเรียน', d.name], [tx('รหัสห้อง'), d.code], ...[['นักเรียน', d.members.length+' คน'], ['งานที่มอบหมาย', n+' รายการ'], ['ส่งออกเมื่อ', fmtDate(new Date())],
     ['ผ่าน', 'จำนวนคำที่นักเรียนพิมพ์ตอบถูกแล้ว (ในโหมดทบทวน)'], ['★', 'คำที่ตอบถูกเองโดยไม่ใช้คำใบ้ ฟังเสียง หรือดูเฉลย'],
     ['ผ่าน (%)', 'ผ่านรวม ÷ คำทั้งหมดของทุกงาน'], ['อัปเดตล่าสุด', 'ครั้งล่าสุดที่แอปของนักเรียนส่งความคืบหน้า (เมื่อเปิดแอปและออนไลน์)'],
-    ['หมายเหตุ', 'ข้อมูลนี้มีชื่อเล่นของนักเรียน โปรดเก็บรักษาตามนโยบายของโรงเรียน']], ['s','s'], [16,70]);
-  const sheets=[['สรุปรายคน',sum],['รายงาน-รายคน',long],['คำอธิบาย',info]];
+    ['หมายเหตุ', 'ข้อมูลนี้มีชื่อเล่นของนักเรียน โปรดเก็บรักษาตามนโยบายของโรงเรียน']].map(r=>r.map(tx))], ['s','s'], [16,70]);
+  const sheets=[[tx('สรุปรายคน'),sum],[tx('รายงาน-รายคน'),long],[tx('คำอธิบาย'),info]];
   const files=[
     {name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'},
     {name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
@@ -4074,7 +4115,7 @@ function sharePayload(t){
   if(t.kind==='scene') return { kind:'scene', name:t.sc.name, scenes:[sceneForShare(t.sc)] };
   const live=liveKeys(), words=t.deck.words.filter(k=>live.has(k));
   const ids=[...new Set(words.map(k=>k.slice(0,k.indexOf('|'))))];
-  return { kind:'deck', name:t.deck.id===SAVED_DECK?'คำที่เก็บไว้':t.deck.name, words, scenes:ids.map(id=>scenes().find(x=>x.id===id)).filter(Boolean).map(sceneForShare) };
+  return { kind:'deck', name:t.deck.id===SAVED_DECK?tx('คำที่เก็บไว้'):t.deck.name, words, scenes:ids.map(id=>scenes().find(x=>x.id===id)).filter(Boolean).map(sceneForShare) };
 }
 // Pictures must be in the account (R2) before the server can copy them.
 async function picturesUploaded(payload){
@@ -4098,7 +4139,7 @@ async function copyLink(url){
   catch(e){ prompt('คัดลอกลิงก์นี้', url); }
 }
 async function shareLinkNative(url, title){
-  if(navigator.share){ try{ await navigator.share({ title, text:title+' — ฝึกคำศัพท์อังกฤษบน Piccab', url }); return; }catch(e){ if(e && e.name==='AbortError') return; } }
+  if(navigator.share){ try{ title=tx(title); await navigator.share({ title, text:title+tx(' — ฝึกคำศัพท์อังกฤษบน Piccab'), url }); return; }catch(e){ if(e && e.name==='AbortError') return; } }
   copyLink(url);
 }
 function openShare(t){
@@ -4163,7 +4204,7 @@ async function openMyShares(){
     else {
       const box=el('div',{class:'dk-list'});
       list.forEach(x=>box.append(el('div',{class:'dk-row shrow'},
-        el('span',{class:'dk-name'}, el('b',{text:(x.kind==='deck'?'📚 ':'🖼️ ')+x.name}), el('small',{text:'อัปเดต '+new Date(x.updated_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})})),
+        el('span',{class:'dk-name'}, el('b',{text:(x.kind==='deck'?'📚 ':'🖼️ ')+x.name}), el('small',{text:'อัปเดต '+new Date(x.updated_at).toLocaleDateString(LOC,{day:'numeric',month:'short',year:'numeric'})})),
         el('button',{class:'linkbtn small',text:'คัดลอก',onclick:()=>copyLink(shareUrl(x.id))}),
         el('button',{class:'linkbtn small danger-link',text:'ยกเลิก',onclick:async()=>{ if(await revokeShare(null,x.id)) openMyShares(); else openMyShares(); }}))));
       m.append(box);
@@ -4296,7 +4337,7 @@ function syncText(){
   if(SYNC.state==='busy') return '☁️ กำลังซิงค์…';
   if(SYNC.state==='error') return '⚠️ ซิงค์ไม่สำเร็จ (จะลองใหม่อัตโนมัติ) — ข้อมูลยังอยู่ในเครื่องนี้';
   if(!SYNC.at) return '☁️ ฉาก รูป และความคืบหน้าจะซิงค์กับบัญชีนี้อัตโนมัติ';
-  return `☁️ ซิงค์แล้ว ${n} ฉาก · ล่าสุด ${new Date(SYNC.at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.`;
+  return `☁️ ซิงค์แล้ว ${n} ฉาก · ล่าสุด ${new Date(SYNC.at).toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'})} น.`;
 }
 async function accessToken(){ const { data } = await sb.auth.getSession(); return data && data.session && data.session.access_token || null; }
 function syncSoon(){ if(!sb || !user || !SYNC.ready) return; clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(false), 1500); }
@@ -4579,12 +4620,34 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
 
 // ---------- start ----------
 store.set('pv-seen', 1);   // the landing page (/) sends people who have opened the app straight here
+function openWelcome(){
+  const first=String((navigator.languages&&navigator.languages[0])||navigator.language||'').toLowerCase();
+  let ui=UI, target=/^en/.test(first) && LANGS.de ? 'de' : 'en';   // English speakers → German; everyone else → English
+  openModal(m=>{
+    const tl=el('div',{class:'langlist'});
+    const drawT=()=>{ tl.innerHTML=''; Object.entries(LANGS).forEach(([k,L])=>tl.append(el('button',{type:'button',class:'langopt'+(k===target?' on':''),onclick:()=>{ target=k; drawT(); }},
+      el('span',{class:'fl',text:L.flag}), el('span',{}, el('b',{text:langLabel(L)})), k===target ? el('span',{class:'ok',text:'✓'}) : null))); };
+    drawT();
+    const urw=uiRow(k=>{ ui=k; urw.querySelectorAll('.uiopt').forEach((b,i)=>b.classList.toggle('on', UI_LANGS[i][0]===ui)); });
+    m.append(el('h3',{text:'👋 ยินดีต้อนรับสู่ Piccab'}),
+      el('p',{class:'note',text:'ฝึกคำศัพท์จากภาพ: แตะสิ่งของในรูปเพื่อฟังและจำคำ'}),
+      el('div',{class:'lbl',text:'ภาษาของฉัน'}), urw,
+      el('div',{class:'lbl',text:'อยากฝึกภาษา'}), tl,
+      el('p',{class:'note small',text:'เปลี่ยนได้ทุกเมื่อที่ปุ่มภาษาด้านบน'}),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'เริ่มเลย ›',onclick:()=>{
+        closeModal(); store.set('pv-lang', target);
+        if(ui!==UI){ store.set('pv-ui',ui); location.reload(); return; }
+        setLang(target);
+      }})));
+  });
+}
 MQ.addEventListener('change',()=>{ if(S.view==='play'){ renderScene(); refresh(); } });
 boot().finally(()=>{
   if(!scenes().some(s=>s.id===S.sceneId)) S.sceneId='tea';
   fullRender();
   if(typeof syncStart==='function') syncStart();
   if(sharedLinkId) setTimeout(()=>openSharedLink(sharedLinkId), 150);
+  else if(window.PV_UI_NEW && !location.search && !location.hash && !classLinkCode) setTimeout(openWelcome, 200);
   if(classLinkCode){ try{ history.replaceState(null,'','/app'); }catch(e){} setTimeout(()=>{ FR.tab='class'; goHome('class'); openJoinClass(classLinkCode); }, 400); }
   if(friendLinkCode) setTimeout(()=>openFriendLink(friendLinkCode), 1500);
   // Links from the landing page: /app?login, /app?install
