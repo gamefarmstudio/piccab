@@ -70,6 +70,11 @@ body.fsside #sub>*{max-width:100%}
 body.fsside .chips{display:none}
 #scene{display:block;width:100%;height:auto;border-radius:18px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 body.editing #scene{touch-action:none;cursor:crosshair}
+body.drawmode #scene .hs{opacity:.3}
+.drawhint{position:absolute;z-index:7;left:0;right:0;top:10px;margin:0 auto;width:max-content;max-width:calc(100% - 20px);box-sizing:border-box;display:flex;gap:8px;align-items:center;background:var(--ink,#2b2350);color:#fff;border-radius:12px;padding:6px 6px 6px 11px;font-size:14.5px;white-space:nowrap;box-shadow:0 6px 18px rgba(30,25,60,.3);pointer-events:none}
+.drawhint button{pointer-events:auto;background:#fff;color:#2b2350;border:0;border-radius:9px;padding:5px 10px;font:inherit;font-weight:600;cursor:pointer}
+.sub button.drawbtn{background:#e8f6ee;border-color:#9fd8b6;color:#17653a;font-weight:700}
+.sub button.drawbtn.on{background:#17653a;border-color:#17653a;color:#fff}
 .item{cursor:pointer}
 .item.hl{filter:url(#glow)}
 .item.good{filter:url(#glowGreen)}
@@ -1785,7 +1790,9 @@ function applySel(){
 }
 function selectBox(id){ selId=id; applySel(); setHL(); updateOverlay(); renderChips(); }
 function refresh(){
+  if(!S.editing) drawMode=false;
   document.body.classList.toggle('editing', S.editing);
+  document.body.classList.toggle('drawmode', S.editing && drawMode);
   applySel();
   document.querySelectorAll('#modes button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
   $('#editBtn').hidden = $('#renameBtn').hidden = scene().builtin || S.editing;
@@ -1845,6 +1852,11 @@ function updateOverlay(){
   const W=wrap.getBoundingClientRect().width;
   if(S.editing){
     const sc=scene(), ctm=svg.getScreenCTM(); if(sc.builtin||!ctm) return;
+    if(drawMode){
+      overlay.append(el('div',{class:'drawhint'}, el('span',{text:'✏️ ลากล้อมรอบสิ่งของ'}),
+        el('button',{text:'ยกเลิก',onclick:e=>{ e.stopPropagation(); setDrawMode(false); }})));
+      return;
+    }
     const wr=wrap.getBoundingClientRect();
     const at=(x,y)=>{ const p=svg.createSVGPoint(); p.x=x; p.y=y; const q=p.matrixTransform(ctm); return {x:q.x-wr.left, y:q.y-wr.top}; };
     if(selId && sc.items[selId]){
@@ -1905,6 +1917,8 @@ function renderSub(){
     name.addEventListener('change',commitName);
     name.addEventListener('keydown',e=>{ if(e.key==='Enter'){ name.blur(); } });
     put(
+      el('button',{class:'drawbtn'+(drawMode?' on':''),text:drawMode?'✕ ยกเลิกการตีกรอบ':'➕ ตีกรอบคำใหม่',
+        title:'ลากกรอบรอบสิ่งของในรูป แล้วพิมพ์คำศัพท์ — ตีทับกรอบเดิมได้',onclick:()=>setDrawMode(!drawMode)}),
       aiReady ? el('button',{class:'ai',text:'✨ ให้ AI หาคำศัพท์',onclick:()=>openAI()}) : null,
       el('button',{class:'toggle'+(S.allBoxes?' on':''),title:'แสดงกรอบและชื่อของทุกชิ้น แม้ตอนเลือกกรอบอยู่',
         text:S.allBoxes?'👁 แสดงกรอบทั้งหมด: เปิด':'👁 แสดงกรอบทั้งหมด: ปิด',
@@ -1915,7 +1929,7 @@ function renderSub(){
       el('button',{text:'🔗 แชร์ฉาก',title:'สร้างลิงก์ หรือส่งเป็นไฟล์ .piccab ให้เพื่อน',onclick:()=>openShare({kind:'scene',sc})}),
       el('button',{class:'danger',text:'🗑 ลบฉาก',onclick:deleteScene}),
       el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; selId=null; saveScenes(); if(S.mode==='find' && ids().length) startFind(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
-      el('div',{class:'hint',style:'flex-basis:100%',text:'แตะกรอบเพื่อเลือก แล้วกด ✏️ แก้ไขคำ (หรือแตะซ้ำ) • ลากกรอบเพื่อย้าย • ลาก □ เพื่อปรับขนาด • จุดที่กรอบซ้อนกัน แตะซ้ำเพื่อสลับกรอบ • ลากบนที่ว่างเพื่อเพิ่มกรอบใหม่ • แตะที่ว่างหรือกด Esc เพื่อกลับไปดูทุกกรอบ'})
+      el('div',{class:'hint',style:'flex-basis:100%',text:'➕ ตีกรอบคำใหม่: ลากรอบสิ่งของได้ทุกที่ แม้ทับกรอบเดิม • แตะกรอบเพื่อเลือก แล้วกด ✏️ แก้ไขคำ หรือ 🗑 ลบ • ลากกรอบเพื่อย้าย • ลาก □ เพื่อปรับขนาด • จุดที่กรอบซ้อนกัน แตะซ้ำเพื่อสลับกรอบ • ลากบนที่ว่างก็เพิ่มกรอบใหม่ได้ • แตะที่ว่างหรือกด Esc เพื่อกลับไปดูทุกกรอบ'})
     );
     return;
   }
@@ -2218,7 +2232,7 @@ $('#accent').value=store.get('pv-accent','en-GB');
 $('#slow').checked=!!store.get('pv-slow',false);
 $('#accent').addEventListener('change',e=>{ store.set('pv-accent',e.target.value); speak('Hello! Shall we have some tea?'); });
 $('#slow').addEventListener('change',e=>store.set('pv-slow',e.target.checked));
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) apPause(); else if(!$('#modal').hidden) closeModal(); else if(S.editing && selId) selectBox(null); else if(quizId) closeQuiz(); else if(isFs()) exitFs(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) apPause(); else if(!$('#modal').hidden) closeModal(); else if(drawMode) setDrawMode(false); else if(S.editing && selId) selectBox(null); else if(quizId) closeQuiz(); else if(isFs()) exitFs(); } });
 
 // ---------- modal ----------
 let modalClose=null;
@@ -2237,6 +2251,13 @@ function ask(msg, okText){
 
 // ---------- editor ----------
 let drawing=null, drag=null, drewAt=0;
+// ➕ ตีกรอบคำใหม่: the next drag draws a new box anywhere, even on top of other boxes (they can't be moved meanwhile).
+var drawMode=false;
+function setDrawMode(on){
+  drawMode=!!on && S.editing && !scene().builtin; if(drawMode) selId=null; refresh();
+  // The button sits under the picture: on phones bring the picture (and the hint on it) back into view.
+  if(drawMode && wrap.getBoundingClientRect().top<0) wrap.scrollIntoView({behavior:'smooth', block:'start'});
+}
 function dragMove(e){
   if(!drag.moved && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy)<5) return;
   drag.moved=true;
@@ -2264,9 +2285,10 @@ svg.addEventListener('pointerdown', e=>{
   // Hit-test ourselves instead of trusting the topmost element, so overlapping boxes behave:
   //  1) the resize handle of the selected box wins, 2) the selected box wins for dragging,
   //  3) otherwise the smallest box under the pointer is picked.
-  const under=boxesAt(p);
+  const under=drawMode ? [] : boxesAt(p);
   let id=null, mode='move';
-  if(e.target.classList && e.target.classList.contains('handle') && selId){ id=selId; mode='resize'; }
+  if(drawMode){}
+  else if(e.target.classList && e.target.classList.contains('handle') && selId){ id=selId; mode='resize'; }
   else if(selId && under.includes(selId)) id=selId;
   else if(under.length) id=under[0];
   if(id){
@@ -2300,7 +2322,8 @@ function endDraw(){
   if(!drawing) return;
   const d=drawing; drawing=null; drewAt=Date.now();
   const sc=scene(), min=Math.max(sc.w,sc.h)*0.015;
-  if(d.w<min || d.h<min){ d.r.remove(); if(selId) selectBox(null); else toast('ลากให้เป็นกรอบล้อมรอบสิ่งของนะ'); return; }
+  if(d.w<min || d.h<min){ d.r.remove(); if(selId) selectBox(null); else toast(drawMode?'กดค้างแล้วลากให้เป็นกรอบล้อมรอบสิ่งของ':'ลากให้เป็นกรอบล้อมรอบสิ่งของนะ'); return; }
+  if(drawMode){ drawMode=false; refresh(); }
   openItemForm(null, {x:Math.round(d.x),y:Math.round(d.y),w:Math.round(d.w),h:Math.round(d.h)}, d.r);
 }
 svg.addEventListener('pointerup', ()=>{
