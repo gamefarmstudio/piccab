@@ -4,7 +4,7 @@
    so no app code has to change when a menu changes. To add or fix a translation, edit D below:
    - plain text:   "Thai": "English"
    - with values:  "ทบทวนอีก {0} วัน": "Review in {0} days"   ({0}, {1}… are numbers or names)
-   A piece of Thai with no entry stays Thai — node tools/i18n-check.mjs lists any that are missing. */
+   A piece of Thai with no entry stays Thai — node tests/i18n-check.mjs lists any that are missing (it runs on every pull request). */
 (function(){
 'use strict';
 const D={

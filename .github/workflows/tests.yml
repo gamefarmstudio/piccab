@@ -1,0 +1,58 @@
+# Runs Piccab's tests on every pull request (and on main after a merge).
+# Unit: the Worker (src/worker.js) and the English menus. Browser: the app, website and Worker in Chrome.
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit:
+    name: Worker + translations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - run: npm ci --prefix tests
+      - name: Worker tests
+        run: node tests/worker.test.mjs
+      - name: Every Thai text has English
+        run: node tests/i18n-check.mjs
+
+  browser:
+    name: Browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - run: npm ci --prefix tests
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright==1.63.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Browser tests
+        run: bash tests/browser/run.sh
+        env:
+          SHOTS: ${{ runner.temp }}/shots
+      - name: Screenshots and logs (when something failed)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-screenshots
+          path: ${{ runner.temp }}/shots
+          retention-days: 7

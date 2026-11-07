@@ -21,3 +21,6 @@ supabase/.branches/
 # Cloudflare / wrangler
 .dev.vars
 .wrangler/
+
+# Tests
+__pycache__/

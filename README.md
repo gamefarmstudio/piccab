@@ -17,7 +17,7 @@ public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้
 public/fonts/      ฟอนต์ Sarabun + Fredoka (OFL) เก็บในเว็บเอง ไม่โหลดจาก Google Fonts
 public/sw.js       service worker: เปิดแอปได้แม้ออฟไลน์ (หน้าเว็บ network-first, ไฟล์ static จาก cache, ไม่ cache /api/*) — แก้รายการไฟล์แล้วเปลี่ยน VERSION
 public/privacy.html, public/terms.html, public/legal.css  นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน (/privacy, /terms)
-public/index.html  หน้าแนะนำ (landing page) ที่ piccab.com/ — คนที่เคยเปิดแอปแล้วจะถูกพาไป /app อัตโนมัติ (ดูหน้าแนะนำได้ที่ /?home)
+public/index.html, public/en/  หน้าแนะนำ (landing page) ไทยที่ piccab.com/ และอังกฤษที่ /en/ (สร้างจาก tools/landing*.tpl.html) — คนที่เคยเปิดแอปแล้วจะถูกพาไป /app อัตโนมัติ (ดูหน้าแนะนำได้ที่ /?home)
 public/app.html    แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG — เปิดที่ /app
 public/landing/    รูปหน้าจอแอปที่ใช้ในหน้าแนะนำ
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
@@ -35,6 +35,8 @@ supabase/2026-11-ai-usage.sql  ตัวนับการใช้ AI (ตา�
 supabase/2026-11-class-lang.sql  ภาษาของงานในห้องเรียน (class_items.lang: en / de) — ครูเลือกภาษาตอนมอบหมาย · ยังไม่รันก็มอบหมายภาษาอังกฤษได้ตามเดิม
 public/vendor/qrcode-generator-2.0.4.js  QR (MIT) โหลดเฉพาะตอนเปิดหน้าเพื่อน
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
+tests/             เทสต์ (ดูหัวข้อ "เทสต์") — แยก package.json ไว้ในนี้ Cloudflare จะได้ไม่ติดตั้งตอน build
+.github/workflows/tests.yml  รันเทสต์ทุก PR
 README.md          ไฟล์นี้
 ```
 
@@ -47,6 +49,24 @@ npx wrangler dev
 
 ถ้าจะทดสอบ AI บนเครื่อง ให้สร้างไฟล์ `.dev.vars` (อยู่ใน .gitignore แล้ว) ใส่ `ANTHROPIC_API_KEY=...`
 หรือเปิด `public/app.html` ตรงๆ ในเบราว์เซอร์ก็ได้ (ปุ่ม AI จะซ่อน)
+
+## เทสต์ (รันเองทุก PR)
+
+GitHub Actions (`.github/workflows/tests.yml`) รันทุกครั้งที่เปิดหรืออัปเดต PR และหลัง merge เข้า main — ถ้ามีอะไรพัง PR จะขึ้น ✗ ที่ช่อง **Tests**
+
+| ชุด | ไฟล์ | ตรวจอะไร |
+|---|---|---|
+| Worker + translations | `tests/worker.test.mjs`, `tests/i18n-check.mjs` | API ทั้งหมดของ Worker (AI, เครดิต, แชร์, ห้องเรียน, เพื่อน, แอดมิน, อีเมล, ตัวนับ AI) และข้อความไทยทุกข้อความมีคำแปลอังกฤษ |
+| Browser | `tests/browser/test_*.py` | เปิดแอปใน Chrome จริง: เยอรมัน, เมนูอังกฤษ, ฝึกพูด, ทบทวนตามรอบ, วาดกรอบ, CAPTCHA, หน้าแรก, ลบบัญชี/นโยบาย และกับ Worker จริง (`wrangler dev`) + Supabase จำลอง (`tests/fake_supabase.py`): ห้องเรียน (อังกฤษ/เยอรมัน), แอดมิน, ตัวนับ AI, เว็บภาษาอังกฤษ, ติดตั้งแอป/ออฟไลน์ |
+
+รันบนเครื่อง:
+```
+npm ci --prefix tests
+node tests/worker.test.mjs && node tests/i18n-check.mjs
+pip install playwright && python -m playwright install chromium
+bash tests/browser/run.sh                 # ทั้งหมด (~5 นาที) หรือระบุไฟล์ เช่น bash tests/browser/run.sh test_speak.py
+```
+ภาพหน้าจอจากเทสต์อยู่ใน `/tmp/piccab-shots` (บน GitHub ถ้าเทสต์ไม่ผ่าน ดาวน์โหลดได้จาก Artifacts ของรอบนั้น)
 
 ## การนำขึ้นเว็บ (Cloudflare Workers)
 
@@ -119,7 +139,7 @@ npx wrangler dev
 - `pv-ui` = `th` หรือ `en` คุมเมนูและความหมายใต้คำ — สคริปต์แรกใน `app.html` เลือกให้: คนที่เคยใช้แอปแล้ว (มีคีย์ `pv-*`/`sb-*`) = ไทยเหมือนเดิม, คนใหม่ที่เบราว์เซอร์มีภาษาไทย = ไทย, นอกนั้น = อังกฤษ และเห็นหน้าต้อนรับให้เลือกภาษาของฉัน + ภาษาที่ฝึก (ภาษาอังกฤษเป็นเบราว์เซอร์หลัก → แนะนำเยอรมัน, ภาษาอื่น → แนะนำอังกฤษ)
 - เปลี่ยนได้ที่ปุ่มธงหัวแอป → “🗣 ภาษาของฉัน” (โหลดหน้าใหม่)
 - แอปเขียนข้อความเป็นภาษาไทย; เมื่อเป็น `en` จะโหลด `public/i18n/en.js` (พจนานุกรม ไทย → อังกฤษ + ตัวแปลข้อความบนจอ) — คนไทยไม่ได้โหลดไฟล์นี้
-- เพิ่มหรือแก้ข้อความในแอป: เพิ่มคู่คำใน `D` ของ `en.js` แล้วตรวจด้วย `npm i --no-save acorn acorn-walk && node tools/i18n-check.mjs` (บอกข้อความที่ยังไม่มีคำแปล)
+- เพิ่มหรือแก้ข้อความในแอป: เพิ่มคู่คำใน `D` ของ `en.js` แล้วตรวจด้วย `npm ci --prefix tests && node tests/i18n-check.mjs` (บอกข้อความที่ยังไม่มีคำแปล · รันเองทุก PR ด้วย)
 - ความหมายใต้คำ: ไทย → ความหมายไทย (ฝึกภาษาอื่น = ไทย · อังกฤษ) · อังกฤษ → คำอังกฤษเมื่อฝึกภาษาอื่น, ไม่แสดงเมื่อฝึกอังกฤษ
 - หน้าเว็บภาษาอังกฤษ: `/en/` (landing, สร้างจาก `tools/landing.en.tpl.html` ด้วย `python3 tools/build-landing.py` — ใช้ CSS ร่วมกับหน้าไทย), `/en/privacy`, `/en/terms` (ฉบับแปล ถ้าต่างกันให้ถือฉบับไทย)
   - หน้าแรก `/` ส่งเบราว์เซอร์ที่ไม่มีภาษาไทย (หรือคนที่ตั้ง `pv-ui` = en) ไป `/en/` · ปุ่ม EN / ไทย สลับหน้า (`/?hl=th` อยู่หน้าไทย)
