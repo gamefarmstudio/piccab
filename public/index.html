@@ -54,6 +54,7 @@ main{margin-top:10px}
 .wrap{position:relative;margin:0 auto;width:100%;border-radius:18px;box-shadow:0 8px 28px rgba(45,42,90,.14);background:#fff}
 .fsbtn{position:absolute;top:10px;right:10px;z-index:7;width:38px;height:38px;padding:0;border-radius:11px;border:none;background:rgba(45,42,90,.62);color:#fff;display:grid;place-items:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .fsbtn:hover{background:rgba(45,42,90,.82);border:none}
+.fsexit{display:none;flex:0 0 auto !important;align-items:center;justify-content:center;min-width:48px;font-size:20px;font-weight:700}
 .fsbtn svg{width:20px;height:20px}
 body.editing .fsbtn{top:auto;bottom:10px}
 body.fs{overflow:hidden}
@@ -519,7 +520,12 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  /* tidy play screen: picture → word card → word strip → controls */
  #playView:not([hidden]){display:flex;flex-direction:column}
  #modes{order:1} #playView>main{order:2} #sub{order:3;margin-top:6px}
- body.fs:not(.fsside) #modes{margin-top:auto} body.fs:not(.fsside) #sub{margin-bottom:auto}   /* full screen, upright phone: centre vertically when there is room */
+ /* full screen, upright phone: picture in the middle of the free space; controls and mode tabs at the bottom, where the thumb is */
+ body.fs:not(.fsside) #playView>main{order:1;margin:auto 0}
+ body.fs:not(.fsside) #sub{order:2;margin-top:8px}
+ body.fs:not(.fsside) #modes{order:3;margin-top:8px}
+ body.fs:not(.fsside) .fsexit{display:inline-flex}
+ body.fs:not(.fsside) .toast{bottom:auto;top:max(14px,env(safe-area-inset-top))}   /* keep messages off the bottom controls */
  .sub .tip{display:none}
  .sub{gap:6px}
  .sub .seg button{padding:8px 9px;font-size:14.5px}
@@ -592,6 +598,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 
   <div id="playView">
   <nav class="modes" id="modes">
+    <button class="fsexit" id="fsExit" type="button" aria-label="ออกจากเต็มจอ" title="ออกจากเต็มจอ">←</button>
     <button data-mode="learn">👀 ดูคำศัพท์</button>
     <button data-mode="quiz">✍️ ทบทวน (พิมพ์)</button>
     <button data-mode="find">👂 ฟังแล้วหา</button>
@@ -1795,7 +1802,7 @@ function refresh(){
   document.body.classList.toggle('editing', S.editing);
   document.body.classList.toggle('drawmode', S.editing && drawMode);
   applySel();
-  document.querySelectorAll('#modes button').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
+  document.querySelectorAll('#modes button[data-mode]').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
   $('#editBtn').hidden = $('#renameBtn').hidden = scene().builtin || S.editing;
   renderView();
   renderSub(); renderChips(); if(isFs()) fitWrap(); setHL(); updateTag(); updateOverlay();
@@ -2201,7 +2208,7 @@ function findTap(id){
 }
 
 // ---------- modes / buttons ----------
-document.querySelectorAll('#modes button').forEach(b=>b.addEventListener('click',()=>{
+document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListener('click',()=>{
   apReset(); S.mode=b.dataset.mode; pinnedId=hoverId=null; flash=null; closeQuiz(true);
   try{ speechSynthesis.cancel(); }catch(e){}
   if(S.mode==='find' && ids().length) startFind();
@@ -3995,16 +4002,22 @@ function fitWrap(){
   } else {
     // Height of everything except the picture (tabs, controls, word chips), measured from the boxes themselves:
     // #playView fills the screen, so its scrollHeight would include the picture's current size and it could never grow.
-    const cs=getComputedStyle(pv); let top=Infinity, bot=-Infinity;
-    for(const c of pv.children){ const b=c.getBoundingClientRect(); if(!b.height) continue; top=Math.min(top,b.top); bot=Math.max(bot,b.bottom); }
-    const other=Math.max(0, (bot-top) - wrap.getBoundingClientRect().height);
+    const cs=getComputedStyle(pv); let other=0;
+    for(const c of pv.children){
+      const b=c.getBoundingClientRect(); if(!b.height) continue;
+      if(c.contains(wrap)){ other+=b.height-wrap.getBoundingClientRect().height+8; continue; }   // e.g. word chips under the picture
+      const m=getComputedStyle(c); other+=b.height+parseFloat(m.marginTop)+parseFloat(m.marginBottom);
+    }
     availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-other-6;
     availW=pv.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
   }
   wrap.style.maxWidth=Math.max(200, Math.min(availW, Math.max(160,availH)*r))+'px';
 }
+// In full screen, also draw into the camera-notch strip (otherwise Android leaves a black bar); the padding keeps controls clear of it.
+const vpMeta=document.querySelector('meta[name=viewport]'), vpBase=vpMeta ? vpMeta.content : '';
 function setFsUi(on){
   document.body.classList.toggle('fs', on); if(!on) document.body.classList.remove('fsside');
+  if(vpMeta) vpMeta.content = on ? vpBase+', viewport-fit=cover' : vpBase;
   const b=$('#fsBtn'); b.innerHTML=on?FS_OUT:FS_IN; b.setAttribute('aria-label', on?'ออกจากเต็มจอ':'เต็มจอ'); b.title=b.getAttribute('aria-label');
   fitWrap(); requestAnimationFrame(()=>{ fitWrap(); relayout(); });
 }
@@ -4014,10 +4027,11 @@ async function enterFs(){
   const de=document.documentElement, req=de.requestFullscreen||de.webkitRequestFullscreen;
   if(req && !(document.fullscreenElement||document.webkitFullscreenElement)){
     try{ await req.call(de,{navigationUI:'hide'}); }catch(e){}
-    // Landscape scenes on phones: turn to landscape when the browser supports it.
-    const sc=scene();
-    if(isMobile() && sc.w>sc.h && screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); }
+    // Phones: follow the phone when it is turned, even if auto-rotate is off in the phone's settings (Android Chrome).
+    if(isMobile() && screen.orientation && screen.orientation.lock){ screen.orientation.lock('any').catch(()=>{}); }
   }
+  const sc=scene();
+  if(isMobile() && sc.w>sc.h*1.15 && window.innerHeight>window.innerWidth) toast('📱↻ หมุนโทรศัพท์เป็นแนวนอน ภาพจะใหญ่ขึ้น', 3000);
 }
 function exitFs(){
   if(document.fullscreenElement||document.webkitFullscreenElement){
@@ -4027,6 +4041,7 @@ function exitFs(){
   setFsUi(false);
 }
 $('#fsBtn').addEventListener('click', e=>{ e.stopPropagation(); isFs()?exitFs():enterFs(); });
+$('#fsExit').addEventListener('click', e=>{ e.stopPropagation(); exitFs(); });
 ['fullscreenchange','webkitfullscreenchange'].forEach(t=>document.addEventListener(t,()=>{
   // Leaving the browser's full screen (Esc, back gesture) also leaves our layout.
   if(!(document.fullscreenElement||document.webkitFullscreenElement) && isFs()) setFsUi(false);
