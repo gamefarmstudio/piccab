@@ -346,6 +346,9 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .clitem button{flex:none}
 .clback{margin:14px 0 0}
 .clfoot{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 28px}
+.clexport{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 4px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.clexport .lbl{font-weight:600;margin-right:4px}
+.clexport .note{flex-basis:100%;margin:0}
 .clinvite{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;margin:0 0 6px}
 .clinvite small{color:var(--muted)}
 .clcode{font-family:'Fredoka',ui-monospace,monospace;font-size:34px;letter-spacing:6px;font-weight:600;line-height:1.1}
@@ -3257,6 +3260,11 @@ function renderTeacher(v,d){
     });
     wrap.append(tb); v.append(wrap);
     v.append(el('p',{class:'note small',text:'ตัวเลข = คำที่นักเรียนพิมพ์ตอบถูกแล้ว / คำทั้งหมด · ★ = ตอบถูกเองโดยไม่ใช้ตัวช่วย · อัปเดตเมื่อนักเรียนเปิดแอปและออนไลน์'}));
+    if(d.members.length) v.append(el('div',{class:'clexport'},
+      el('span',{class:'lbl',text:'⬇️ ส่งออกความคืบหน้า'}),
+      el('button',{class:'primary',text:'📊 Excel (.xlsx)',onclick:()=>{ try{ exportClassXlsx(d); toast('ดาวน์โหลดไฟล์ Excel แล้ว'); }catch(e){ console.warn(e); toast('ส่งออกไม่สำเร็จ ลองใหม่อีกครั้ง'); } }}),
+      el('button',{text:'📄 CSV',onclick:()=>{ try{ exportClassCsv(d); toast('ดาวน์โหลดไฟล์ CSV แล้ว'); }catch(e){ console.warn(e); toast('ส่งออกไม่สำเร็จ ลองใหม่อีกครั้ง'); } }}),
+      el('span',{class:'note small',text:'ใช้กับ Excel, Google Sheets หรือ Numbers ได้ · กด 🔄 ก่อนเพื่อให้ได้ข้อมูลล่าสุด'})));
   } else if(d.members.length){
     v.append(el('p',{class:'note',text:'นักเรียนในห้อง: '+d.members.map(m=>m.nickname).join(', ')}));
   }
@@ -3265,6 +3273,105 @@ function renderTeacher(v,d){
     el('button',{class:'linkbtn small danger-link',text:'🗑 ลบห้องเรียน',onclick:async()=>{
       if(!(await ask(`ลบห้อง “${d.name}”? นักเรียนจะออกจากห้องทั้งหมด และความคืบหน้าในห้องนี้จะถูกลบ`,'ลบห้องเรียน'))) return;
       const r=await classApi('DELETE','/'+d.id); if(!r.ok){ toast(classErr(r)); return; } toast('ลบห้องเรียนแล้ว'); backToClasses(); }})));
+}
+// ---------- teacher: export progress (Excel .xlsx built here, or CSV) ----------
+// Rows: one per student; per assignment the words passed and ★; then totals. A second sheet has one row per
+// student × assignment (easy to filter or pivot), a third explains the columns.
+function classExportData(d){
+  const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
+  const students=d.members.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname,'th'));
+  const items=d.items.map(it=>({...it, title:(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name}));
+  const rows=students.map((mb,i)=>{
+    let done=0, star=0, total=0, last=0; const cells=[], long=[];
+    items.forEach(it=>{
+      const p=pr.get(mb.user_id+'/'+it.share_id), t=(p&&p.total)||it.total||0, dn=p?Math.min(p.done||0,t||p.done||0):0, st=p?(p.star||0):0;
+      const at=p && p.updated_at ? Date.parse(p.updated_at) : 0; if(at>last) last=at;
+      done+=dn; star+=st; total+=t; cells.push(dn, st);
+      long.push([mb.nickname, it.title, t, dn, st, t?dn/t:0, !p?'ยังไม่เริ่ม':(t&&dn>=t)?'ครบแล้ว':'กำลังทำ', at?new Date(at):null]);
+    });
+    return { no:i+1, nick:mb.nickname, joined:mb.joined_at?new Date(mb.joined_at):null, cells, done, star, total, pct:total?done/total:0, last:last?new Date(last):null, long };
+  });
+  const head=['ลำดับ','ชื่อเล่น','เข้าห้องเมื่อ'];
+  items.forEach(it=>head.push(`${it.title} — ผ่าน (จาก ${it.total} คำ)`, `${it.title} — ★`));
+  head.push('ผ่านรวม (คำ)','★ รวม','คำทั้งหมด','ผ่าน (%)','อัปเดตล่าสุด');
+  return { items, rows, head,
+    longHead:['ชื่อเล่น','งาน','คำทั้งหมด','ผ่าน (คำ)','★','ผ่าน (%)','สถานะ','อัปเดตล่าสุด'] };
+}
+const exportName=(d,ext)=>{ const t=new Date(), z=n=>String(n).padStart(2,'0');
+  return `Piccab-${String(d.name).replace(/[\\/:*?"<>|\s]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'class'}-${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())}.${ext}`; };
+function downloadBlob(blob, name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+const fmtDate=dt=>dt?dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0'):'';
+function exportClassCsv(d){
+  const X=classExportData(d);
+  // nicknames are typed by students: never let a cell start like a formula
+  const cell=v=>{ if(v==null) return ''; if(typeof v==='number') return String(Math.round(v*100)/100);
+    let t=String(v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  const lines=[X.head.map(cell).join(',')];
+  X.rows.forEach(r=>lines.push([r.no, r.nick, fmtDate(r.joined), ...r.cells, r.done, r.star, r.total, Math.round(r.pct*100), fmtDate(r.last)].map(cell).join(',')));
+  downloadBlob(new Blob(['﻿'+lines.join('\r\n')+'\r\n'],{type:'text/csv;charset=utf-8'}), exportName(d,'csv'));   // BOM: Excel reads Thai correctly
+}
+// --- minimal .xlsx writer: inline strings, 3 styles, stored (uncompressed) zip ---
+const CRC_T=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(b){ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=CRC_T[(c^b[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipStore(files){
+  const enc=new TextEncoder(), parts=[], central=[]; let off=0;
+  const now=new Date(), dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1)), dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate());
+  for(const f of files){
+    const name=enc.encode(f.name), data=typeof f.data==='string'?enc.encode(f.data):f.data, crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30)); h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+    h.setUint16(10,dt,true); h.setUint16(12,dd,true); h.setUint32(14,crc,true); h.setUint32(18,data.length,true); h.setUint32(22,data.length,true); h.setUint16(26,name.length,true); h.setUint16(28,0,true);
+    parts.push(h.buffer,name,data);
+    const c=new DataView(new ArrayBuffer(46)); c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true);
+    c.setUint16(12,dt,true); c.setUint16(14,dd,true); c.setUint32(16,crc,true); c.setUint32(20,data.length,true); c.setUint32(24,data.length,true); c.setUint16(28,name.length,true);
+    c.setUint32(42,off,true); central.push(c.buffer,name);
+    off+=30+name.length+data.length;
+  }
+  const csize=central.reduce((a,b)=>a+(b.byteLength!=null?b.byteLength:b.length),0);
+  const e=new DataView(new ArrayBuffer(22)); e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,csize,true); e.setUint32(16,off,true);
+  return new Blob([...parts,...central,e.buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+const xesc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');
+function xlCol(n){ let s=''; n++; while(n){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+const xlSerial=dt=>(dt.getTime()-dt.getTimezoneOffset()*60000)/86400000+25569;       // Excel date number (local time)
+// rows: arrays of values; kinds per column: 's' text, 'n' number, 'p' percent, 'd' date
+function xlSheet(head, rows, kinds, widths){
+  const out=['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:'+xlCol(head.length-1)+(rows.length+1)+'"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>'];
+  widths.forEach((w,i)=>out.push(`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`));
+  out.push('</cols><sheetData>');
+  const row=(r,vals,hdr)=>{ out.push(`<row r="${r}">`); vals.forEach((v,i)=>{ const ref=xlCol(i)+r, k=hdr?'s':kinds[i];
+    if(v==null||v==='') return;
+    if(k==='s') out.push(`<c r="${ref}" t="inlineStr"${hdr?' s="1"':''}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`);
+    else if(k==='p') out.push(`<c r="${ref}" s="2"><v>${+v}</v></c>`);
+    else if(k==='d') out.push(`<c r="${ref}" s="3"><v>${xlSerial(v)}</v></c>`);
+    else out.push(`<c r="${ref}"><v>${+v}</v></c>`); }); out.push('</row>'); };
+  row(1,head,true); rows.forEach((v,i)=>row(i+2,v,false));
+  out.push(`</sheetData><autoFilter ref="A1:${xlCol(head.length-1)}${Math.max(1,rows.length+1)}"/></worksheet>`);
+  return out.join('');
+}
+function exportClassXlsx(d){
+  const X=classExportData(d), n=X.items.length;
+  const kinds=['n','s','d', ...Array(n*2).fill('n'), 'n','n','n','p','d'];
+  const widths=[7,18,17, ...X.items.flatMap(()=>[16,8]), 13,9,11,10,17];
+  const sum=xlSheet(X.head, X.rows.map(r=>[r.no, r.nick, r.joined, ...r.cells, r.done, r.star, r.total, r.pct, r.last]), kinds, widths);
+  const long=xlSheet(X.longHead, X.rows.flatMap(r=>r.long), ['s','s','n','n','n','p','s','d'], [18,34,11,10,7,10,12,17]);
+  const info=xlSheet(['หัวข้อ','รายละเอียด'], [
+    ['ห้องเรียน', d.name], ['รหัสห้อง', d.code], ['นักเรียน', d.members.length+' คน'], ['งานที่มอบหมาย', n+' รายการ'], ['ส่งออกเมื่อ', fmtDate(new Date())],
+    ['ผ่าน', 'จำนวนคำที่นักเรียนพิมพ์ตอบถูกแล้ว (ในโหมดทบทวน)'], ['★', 'คำที่ตอบถูกเองโดยไม่ใช้คำใบ้ ฟังเสียง หรือดูเฉลย'],
+    ['ผ่าน (%)', 'ผ่านรวม ÷ คำทั้งหมดของทุกงาน'], ['อัปเดตล่าสุด', 'ครั้งล่าสุดที่แอปของนักเรียนส่งความคืบหน้า (เมื่อเปิดแอปและออนไลน์)'],
+    ['หมายเหตุ', 'ข้อมูลนี้มีชื่อเล่นของนักเรียน โปรดเก็บรักษาตามนโยบายของโรงเรียน']], ['s','s'], [16,70]);
+  const sheets=[['สรุปรายคน',sum],['รายงาน-รายคน',long],['คำอธิบาย',info]];
+  const files=[
+    {name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'},
+    {name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>`<sheet name="${xesc(s[0])}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+`</sheets><definedNames>${[0,1].map(i=>`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(sheets[i][0])}'!$A$1:$${xlCol((i?X.longHead:X.head).length-1)}$${Math.max(1,(i?X.rows.reduce((a,r)=>a+r.long.length,0):X.rows.length)+1)}</definedName>`).join('')}</definedNames></workbook>`},
+    {name:'xl/_rels/workbook.xml.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd hh:mm"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Tahoma"/><family val="2"/></font><font><b/><sz val="11"/><name val="Tahoma"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEAF7"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'},
+    ...sheets.map((s,i)=>({name:`xl/worksheets/sheet${i+1}.xml`, data:s[1]})),
+  ];
+  downloadBlob(zipStore(files), exportName(d,'xlsx'));
 }
 // teacher: choose a scene or deck → (make / refresh its share link) → assign
 function openAssignPicker(d){
