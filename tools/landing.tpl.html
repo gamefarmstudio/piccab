@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+// Returning learners (or the installed app) go straight to the app; sign-in returns are passed on with their tokens.
+(function(){
+  try{
+    var l=location, q=l.search, h=l.hash;
+    if(/(access_token|refresh_token|error_description|type=recovery)/.test(h) || /[?&](code|error)=/.test(q)){ l.replace('/app'+q+h); return; }
+    if(/[?&]home\b/.test(q)) return;
+    var ls=window.localStorage, used=ls.getItem('pv-seen')||ls.getItem('pv-progress')||ls.getItem('pv-scenes2')||ls.getItem('pv-recent');
+    if(!used) for(var i=0;i<ls.length;i++){ if(/^sb-.+-auth-token$/.test(ls.key(i)||'')){ used=1; break; } }
+    var app=window.matchMedia && matchMedia('(display-mode: standalone)').matches;
+    if(used||app) l.replace('/app'+q);
+  }catch(e){}
+})();
+</script>
+<title>Piccab — ฝึกศัพท์อังกฤษจากภาพ ฟรี สำหรับคนไทยทุกวัย</title>
+<meta name="description" content="แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์ ฟังแล้วหา และทบทวนตามรอบเวลา ถ่ายรูปรอบตัวให้ AI หาคำศัพท์ให้ ใช้ฟรีบนมือถือและคอมพิวเตอร์">
+<link rel="canonical" href="https://piccab.com/">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#232046">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Piccab">
+<meta property="og:title" content="Piccab — ฝึกศัพท์อังกฤษจากภาพ">
+<meta property="og:description" content="แตะของในรูปเพื่อฟังเสียง ฝึกพิมพ์ ฟังแล้วหา และทบทวนตามรอบเวลา ใช้ฟรี">
+<meta property="og:image" content="https://piccab.com/icon-512.png">
+<link rel="preload" href="/fonts/sarabun-thai-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/sarabun-thai-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+:root{
+  --ink:#0d0930; --ink2:#232046; --ink3:#2d2a5a; --crimson:#b22546; --crimson2:#d63a5c; --bg:#fdf9f3; --bg2:#f7f3ed; --card:#fff;
+  --line:#e4dacd; --muted:#77728c; --text:#2b2840; --lav:#efeaf7; --lav2:#e4dfff; --violet:#6b4fd8; --mint:#e5f5eb; --green:#24a164;
+  --gold:#fcbc2b; --peach:#ffdea6; --pink:#ffd9dc; --r:20px;
+  --shadow:0 18px 40px -18px rgba(35,32,70,.28); --shadow2:0 8px 24px -10px rgba(35,32,70,.22);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 17px/1.65 Sarabun,system-ui,sans-serif;overflow-x:hidden}
+a{color:inherit}
+img,svg{display:block;max-width:100%}
+.en{font-family:Fredoka,Sarabun,sans-serif}
+h1,h2,h3{color:var(--ink);line-height:1.25;margin:0}
+h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
+.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+.sec{padding:84px 0}
+.sec.alt{background:var(--bg2)}
+.kicker{display:inline-block;font:600 12.5px/1 Fredoka,Sarabun,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:7px 12px;border-radius:999px;background:var(--pink);color:var(--crimson);margin-bottom:14px}
+.kicker.lav{background:var(--lav2);color:var(--ink3)}
+.kicker.mint{background:var(--mint);color:#17683f}
+.kicker.gold{background:var(--peach);color:#7a5200}
+.lead{color:var(--muted);font-size:18px;max-width:720px;margin:12px auto 0}
+.center{text-align:center}
+.btn{display:inline-flex;align-items:center;gap:10px;justify-content:center;padding:15px 26px;border-radius:14px;font-weight:700;font-size:17px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .15s, box-shadow .15s, background .15s;font-family:inherit}
+.btn:hover{transform:translateY(-1px)}
+.btn.primary{background:var(--crimson);color:#fff;box-shadow:0 12px 26px -10px rgba(178,37,70,.6)}
+.btn.primary:hover{background:#9c1d3c}
+.btn.ghost{background:#fff;color:var(--ink);border-color:var(--line);box-shadow:var(--shadow2)}
+.btn.dark{background:var(--ink2);color:#fff}
+.btn.small{padding:10px 16px;font-size:15px;border-radius:12px}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:rgba(253,249,243,.86);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid transparent;transition:border-color .2s}
+.top.scrolled{border-color:var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand img{width:38px;height:38px}
+.brand b{font:600 22px/1 Fredoka,sans-serif;color:var(--ink)}
+.brand b span{color:var(--crimson2)}
+.brand small{display:block;font-size:12px;color:var(--muted);line-height:1.2;margin-top:2px}
+.nav{display:flex;gap:4px;margin-left:auto}
+.nav a{text-decoration:none;color:#4a4660;font-size:15px;padding:8px 10px;border-radius:10px}
+.nav a:hover{background:var(--lav);color:var(--ink)}
+.top .act{display:flex;gap:8px;align-items:center}
+.top .login{text-decoration:none;font-weight:600;color:var(--ink);padding:8px 12px;font-size:15px}
+@media (max-width:1020px){ .nav{display:none} .top .act{margin-left:auto} }
+@media (max-width:480px){ .top .login{display:none} .brand small{display:none} }
+
+/* hero */
+.hero{padding:56px 0 30px;text-align:center;position:relative}
+.hero:before{content:"";position:absolute;inset:-120px 0 auto;height:620px;background:radial-gradient(600px 300px at 20% 30%,rgba(255,217,220,.55),transparent 70%),radial-gradient(560px 300px at 80% 20%,rgba(228,223,255,.7),transparent 70%);z-index:-1}
+.pill{display:inline-flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14.5px;color:#4a4660;box-shadow:var(--shadow2)}
+.hero h1{font-size:clamp(32px,5.4vw,58px);font-weight:700;margin:22px auto 0;max-width:900px;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--crimson);position:relative;white-space:nowrap}
+.hero h1 em:after{content:"";position:absolute;left:0;right:0;bottom:-.08em;height:.32em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12'%3E%3Cpath d='M2 8c18-6 30-6 46 0s30 6 46 0 18-4 24-2' fill='none' stroke='%23fcbc2b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.hero p.sub{font-size:clamp(17px,2vw,20px);color:#5d5970;max-width:760px;margin:20px auto 0}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+.trust{display:flex;gap:10px 26px;justify-content:center;flex-wrap:wrap;margin-top:24px;color:#5d5970;font-size:15px}
+.trust span{display:inline-flex;gap:7px;align-items:center}
+
+/* demo */
+.demo{max-width:1000px;margin:42px auto 0;position:relative}
+.frame{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;text-align:left}
+.fbar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #efe7dc;background:#fcfaf6}
+.dots{display:flex;gap:6px}.dots i{width:11px;height:11px;border-radius:50%;background:#f0a3a3}.dots i+i{background:#f4cf7a}.dots i+i+i{background:#9fd6a8}
+.url{flex:1;max-width:420px;background:#f3eee6;border-radius:9px;padding:5px 12px;font-size:13.5px;color:#6b6780;font-family:Fredoka,Sarabun,sans-serif}
+.live{margin-left:auto;font-size:13px;color:#17683f;background:var(--mint);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.stage{position:relative;aspect-ratio:1000/680;background:#e9eef3}
+.stage svg.pic{width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,calc(-100% - 10px));display:flex;align-items:center;gap:8px;background:#fff;border:0;border-radius:14px;padding:7px 8px 7px 12px;box-shadow:0 10px 22px -8px rgba(35,32,70,.45);cursor:pointer;font:inherit;text-align:left;white-space:nowrap;transition:transform .15s, box-shadow .15s;animation:pop .5s backwards}
+.pin:hover{transform:translate(-50%,calc(-100% - 13px));box-shadow:0 14px 26px -8px rgba(35,32,70,.5)}
+.pin:after{content:"";position:absolute;left:50%;bottom:-13px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--gold);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.pin .w{display:block;font:600 16px/1.1 Fredoka,sans-serif;color:var(--ink)}
+.pin .t{display:block;font-size:12.5px;color:var(--muted);line-height:1.2;margin-top:2px}
+.pin .s{width:30px;height:30px;border-radius:50%;background:var(--lav);display:grid;place-items:center;font-size:14px;flex:none}
+.pin.heard .s{background:var(--mint)}
+.pin.on{outline:3px solid var(--gold)}
+.pin .n{position:absolute;left:-8px;top:-8px;width:22px;height:22px;border-radius:50%;background:var(--ink2);color:#fff;font:600 12px/22px Fredoka,sans-serif;text-align:center}
+@keyframes pop{from{opacity:0;transform:translate(-50%,calc(-100% + 4px))}}
+.fbot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid #efe7dc;background:#fcfaf6;font-size:14.5px}
+.fbot .prog{display:inline-flex;align-items:center;gap:8px;color:#4a4660}
+.fbot .prog i{width:9px;height:9px;border-radius:50%;background:var(--green)}
+.fbot .tip{margin-left:auto;color:var(--muted)}
+.float{position:absolute;right:-12px;top:-22px;background:var(--ink2);color:#fff;border-radius:999px;padding:9px 16px;font-size:14px;box-shadow:var(--shadow2)}
+@media (max-width:700px){
+  .pin{padding:5px 6px 5px 9px;gap:6px;border-radius:11px}
+  .pin .w{font-size:13.5px}.pin .t{display:none}.pin .s{width:22px;height:22px;font-size:11px}.pin .n{display:none}
+  .pin.mhide{display:none}
+  .float{display:none}
+  .fbot .tip{display:none}
+  .url{font-size:12px}
+}
+
+/* facts band */
+.band{background:var(--ink2);color:#fff;padding:46px 0}
+.band .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.band .f{padding:6px 22px;text-align:center;border-left:1px solid rgba(255,255,255,.12)}
+.band .f:first-child{border-left:0}
+.band b{display:block;font:600 clamp(30px,3.8vw,44px)/1.1 Fredoka,Sarabun,sans-serif}
+.band .c1{color:#ffd27a}.band .c2{color:#ff8fa6}.band .c3{color:#b9adff}.band .c4{color:#7fe0a9}
+.band span{display:block;font-weight:600;margin-top:6px}
+.band small{display:block;color:#b8b4d6;font-size:14px;margin-top:2px}
+@media (max-width:820px){ .band .grid{grid-template-columns:1fr 1fr;gap:26px 0} .band .f:nth-child(3){border-left:0} }
+
+/* compare */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:44px}
+.col{border-radius:24px;padding:28px;border:1px solid var(--line)}
+.col.old{background:#f1ede7}
+.col.new{background:#fff;border-color:#bfe5cd;box-shadow:var(--shadow)}
+.col h3{font-size:22px;margin:4px 0 18px;display:flex;gap:12px;align-items:center}
+.col h3 .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
+.col.old h3 .ic{background:#ffdad6}.col.new h3 .ic{background:var(--mint)}
+.col .lbl{font-size:13px;font-weight:700;letter-spacing:.04em}
+.col.old .lbl{color:var(--crimson)}.col.new .lbl{color:var(--green)}
+.pt{display:flex;gap:14px;background:rgba(255,255,255,.7);border-radius:16px;padding:16px;margin-top:12px}
+.col.new .pt{background:#f4fbf6}
+.pt .e{font-size:20px;line-height:1.4}
+.pt b{display:block;color:var(--ink)}
+.pt p{margin:2px 0 0;color:#5d5970;font-size:15.5px}
+.res{margin-top:16px;border-radius:14px;padding:13px;text-align:center;font-weight:600;font-size:15.5px}
+.col.old .res{background:#e6e2dc;color:#5d5970}.col.new .res{background:var(--mint);color:#17683f}
+@media (max-width:820px){ .cmp{grid-template-columns:1fr} }
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+.mode{background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;display:flex;flex-direction:column;box-shadow:var(--shadow2)}
+.mode .no{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font:600 17px Fredoka,sans-serif;color:var(--ink3)}
+.mode:nth-child(1) .no{background:var(--lav2)}.mode:nth-child(2) .no{background:var(--pink)}.mode:nth-child(3) .no{background:var(--peach)}
+.mode .st{font-size:13px;font-weight:700;color:var(--crimson);margin-top:18px}
+.mode h3{font-size:21px;margin:4px 0 10px}
+.mode p{margin:0;color:#5d5970;font-size:15.5px;flex:1}
+.mock{margin-top:20px;background:var(--bg2);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;min-height:72px}
+.mock .ic{width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex:none;box-shadow:var(--shadow2)}
+.mock b{display:block;font:600 16px/1.2 Fredoka,sans-serif;color:var(--ink)}
+.mock small{color:var(--muted);font-size:13px}
+.mock .tag{margin-left:auto;font-size:12px;background:var(--mint);color:#17683f;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.mock .pat{font:600 18px/1 Fredoka,monospace;letter-spacing:.18em;background:#fff;border-radius:10px;padding:9px 12px;color:var(--ink)}
+.mock .hint{margin-left:auto;font-size:13px;color:var(--crimson)}
+.mock .score{margin-left:auto;font:600 20px Fredoka,sans-serif;color:var(--crimson)}
+.mock .play{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:14px;flex:none}
+@media (max-width:900px){ .modes{grid-template-columns:1fr} }
+
+/* review */
+.rev{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.ladder{display:flex;align-items:flex-end;gap:8px;margin:28px 0 8px}
+.ladder div{flex:1;text-align:center}
+.ladder i{display:block;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#b9adff,#6b4fd8)}
+.ladder span{display:block;font:600 15px Fredoka,Sarabun,sans-serif;color:var(--ink);margin-top:6px}
+.ladder small{display:block;font-size:12px;color:var(--muted);line-height:1.2}
+.checks{list-style:none;padding:0;margin:22px 0 0}
+.checks li{display:flex;gap:12px;margin-top:12px;color:#4a4660}
+.checks li:before{content:"✓";flex:none;width:24px;height:24px;border-radius:50%;background:var(--mint);color:#17683f;display:grid;place-items:center;font-weight:700;font-size:13px;margin-top:2px}
+.phones{display:flex;gap:18px;justify-content:center;align-items:flex-start}
+.phone{width:min(46%,250px);border-radius:34px;background:#1d1a35;padding:9px;box-shadow:var(--shadow)}
+.phone img{border-radius:26px;width:100%;height:auto;background:#f6f0e8}
+.phone.b{margin-top:46px}
+@media (max-width:900px){ .rev{grid-template-columns:1fr} }
+
+/* ai */
+.ai{display:grid;grid-template-columns:.95fr 1.05fr;gap:48px;align-items:center}
+.feat{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:12px}
+.feat .e{width:38px;height:38px;border-radius:11px;background:var(--lav);display:grid;place-items:center;flex:none;font-size:18px}
+.feat b{display:block;color:var(--ink)}
+.feat span{color:#5d5970;font-size:15px}
+.shot{background:#fff;border:1px solid var(--line);border-radius:24px;padding:14px;box-shadow:var(--shadow)}
+.shot .stage{border-radius:16px;overflow:hidden}
+.shot .badge{position:absolute;left:12px;top:12px;background:rgba(35,32,70,.88);color:#fff;border-radius:999px;padding:6px 12px;font-size:13px;z-index:2}
+.box{position:absolute;border:3px dashed;border-radius:10px}
+.box b{position:absolute;left:-3px;top:-28px;font:600 13px/1 Fredoka,sans-serif;color:#fff;padding:6px 8px;border-radius:8px;white-space:nowrap}
+.box small{position:absolute;right:-3px;bottom:-26px;font-size:11.5px;background:var(--ink2);color:#fff;padding:3px 7px;border-radius:7px;white-space:nowrap}
+.box.c1{border-color:#b22546}.box.c1 b{background:#b22546}
+.box.c2{border-color:#6b4fd8}.box.c2 b{background:#6b4fd8}
+.box.c3{border-color:#24a164}.box.c3 b{background:#24a164}
+.box.c4{border-color:#c98a00}.box.c4 b{background:#c98a00}
+.shot .cap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);padding:12px 4px 2px}
+.shot .cap b{color:var(--green);font-weight:600}
+@media (max-width:900px){ .ai{grid-template-columns:1fr} .ai .shot{order:-1} }
+@media (max-width:560px){ .box small{display:none} .box b{font-size:11.5px;top:-24px} }
+
+/* class */
+.who{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+.card{background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;box-shadow:var(--shadow2)}
+.card .em{font-size:34px}
+.card h3{font-size:20px;margin:12px 0 8px}
+.card p{margin:0;color:#5d5970;font-size:15.5px}
+.card ul{margin:12px 0 0;padding-left:20px;color:#4a4660;font-size:15.5px}
+.card ul li{margin-top:4px}
+.card.hl{background:linear-gradient(160deg,#f3eeff,#fff 60%);border-color:#d6cbfa}
+.code{display:inline-flex;gap:6px;margin-top:14px}
+.code i{font:600 18px/1 Fredoka,monospace;font-style:normal;background:var(--ink2);color:#fff;border-radius:8px;padding:8px 9px}
+@media (max-width:900px){ .who{grid-template-columns:1fr} }
+
+/* faq */
+.faq{max-width:820px;margin:36px auto 0}
+.faq details{background:#fff;border:1px solid var(--line);border-radius:16px;margin-top:12px;overflow:hidden}
+.faq summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;color:var(--ink);position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary:after{content:"";position:absolute;right:22px;top:50%;width:10px;height:10px;border-right:2.5px solid var(--muted);border-bottom:2.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);transition:transform .2s}
+.faq details[open] summary:after{transform:translateY(-30%) rotate(-135deg)}
+.faq details p{margin:0;padding:0 22px 18px;color:#5d5970}
+
+/* final */
+.final{padding:30px 0 90px}
+.final .box2{background:radial-gradient(500px 260px at 10% 0%,rgba(178,37,70,.55),transparent 70%),linear-gradient(135deg,#130e3a,#0d0930 55%,#271a46);border-radius:32px;color:#fff;text-align:center;padding:64px 24px;box-shadow:var(--shadow)}
+.final .chip{display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 14px;font-size:14px;color:#ffd27a}
+.final h2{color:#fff;margin:18px auto 0;max-width:760px}
+.final p{color:#c9c5e6;max-width:640px;margin:14px auto 0}
+.final .btn.ghost{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.22);box-shadow:none}
+.final .ok{display:flex;gap:8px 22px;justify-content:center;flex-wrap:wrap;margin-top:22px;font-size:14px;color:#c9c5e6}
+.final .ok span:before{content:"✓ ";color:#7fe0a9;font-weight:700}
+
+/* footer */
+.foot{border-top:1px solid var(--line);padding:50px 0 34px;background:#f9f5ef}
+.foot .grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:28px}
+.foot p{color:var(--muted);font-size:15px;margin:12px 0 0;max-width:340px}
+.foot h4{margin:0 0 10px;font-size:15px;color:var(--ink)}
+.foot ul{list-style:none;margin:0;padding:0}
+.foot li{margin-top:7px}
+.foot li a{text-decoration:none;color:#5d5970;font-size:15px}
+.foot li a:hover{color:var(--crimson)}
+.foot .tags{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.foot .tags span{font-size:12.5px;border-radius:999px;padding:4px 10px;background:var(--mint);color:#17683f}
+.foot .tags span+span{background:var(--lav2);color:var(--ink3)}
+.foot .bot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:34px;padding-top:20px;font-size:14px;color:var(--muted)}
+.foot .bot a{color:var(--muted);text-decoration:none;margin-left:16px}
+@media (max-width:820px){ .foot .grid{grid-template-columns:1fr 1fr} .foot .grid>div:first-child{grid-column:1/-1} }
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s, transform .6s}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){ .reveal{opacity:1;transform:none;transition:none} .pin{animation:none} html{scroll-behavior:auto} }
+@media (max-width:600px){ .sec{padding:64px 0} body{font-size:16px} .btn{padding:14px 20px} .cta .btn{flex:1 1 100%} }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="tea" viewBox="0 0 1000 680">{{TEA}}</symbol></svg>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Piccab หน้าแรก"><img src="/favicon.svg" alt="" width="38" height="38"><span><b>Pic<span>cab</span></b><small>ฝึกศัพท์อังกฤษจากภาพ</small></span></a>
+    <nav class="nav" aria-label="ส่วนต่าง ๆ ของหน้า">
+      <a href="#why">จุดเด่น</a><a href="#modes">3 โหมดฝึก</a><a href="#review">ทบทวนตามรอบ</a><a href="#ai">ถ่ายรูปด้วย AI</a><a href="#class">ห้องเรียน</a><a href="#faq">คำถามที่พบบ่อย</a>
+    </nav>
+    <div class="act"><a class="login" href="/app?login">เข้าสู่ระบบ</a><a class="btn primary small" href="/app">เริ่มฝึกฟรี 🎉</a></div>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <span class="pill">✨ ฝึกศัพท์อังกฤษจากภาพ สำหรับคนไทยทุกวัย</span>
+    <h1>จำศัพท์อังกฤษได้นานขึ้น<br>ด้วย<em>ภาพ</em>และการทบทวนตามรอบ</h1>
+    <p class="sub">ไม่ต้องนั่งท่องตารางศัพท์ แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์สะกด ฟังแล้วชี้หา แล้วให้ Piccab ชวนกลับมาทบทวนในวันที่ใกล้ลืม</p>
+    <div class="cta">
+      <a class="btn primary" href="/app">เริ่มฝึกฟรีบนเว็บ 🚀</a>
+      <a class="btn ghost" href="#demo">👆 ลองแตะฉากตัวอย่าง</a>
+    </div>
+    <div class="trust">
+      <span>✅ ใช้ฟรี ไม่ต้องสมัครก็เริ่มได้</span>
+      <span>🔊 ฟังเสียงอเมริกัน / อังกฤษ</span>
+      <span>📱 มือถือ แท็บเล็ต คอมพิวเตอร์</span>
+    </div>
+
+    <div class="demo reveal" id="demo">
+      <div class="float">🎯 แตะคำเพื่อฟังเสียง</div>
+      <div class="frame">
+        <div class="fbar"><span class="dots"><i></i><i></i><i></i></span><span class="url">piccab.com/app · Afternoon tea ☕</span><span class="live">● ลองได้เลย</span></div>
+        <div class="stage" id="stage">
+          <svg class="pic" viewBox="0 0 1000 680" role="img" aria-label="ภาพวาดชุดน้ำชายามบ่าย"><use href="#tea"/></svg>
+        </div>
+        <div class="fbot"><span class="prog"><i></i><span id="heard">ฟังแล้ว 0/6 คำ · ทั้งฉากมี 24 คำ</span></span><span class="tip">💡 แตะป้ายคำในภาพเพื่อฟังเสียง</span><a class="btn dark small" href="/app">เล่นฉากนี้ในแอป ›</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" aria-label="Piccab โดยย่อ">
+  <div class="wrap grid">
+    <div class="f"><b class="c1">ฟรี</b><span>ใช้ได้ทันทีบนเว็บ</span><small>ไม่ต้องใช้บัตร ไม่ต้องสมัครก็เริ่มได้</small></div>
+    <div class="f"><b class="c2">3 โหมด</b><span>ดู · พิมพ์ · ฟังแล้วหา</span><small>ฝึกจากการเห็น ได้ยิน และสะกด</small></div>
+    <div class="f"><b class="c3">1→120 วัน</b><span>ทบทวนตามรอบอัตโนมัติ</span><small>คำที่ใกล้ลืมจะกลับมาเอง</small></div>
+    <div class="f"><b class="c4">20 คำ</b><span>AI หาคำจากรูปของคุณ</span><small>สูงสุดต่อรูป เลือกระดับคำได้</small></div>
+  </div>
+</section>
+
+<section class="sec" id="why">
+  <div class="wrap center">
+    <span class="kicker">ทำไมต้องเรียนจากภาพ</span>
+    <h2>ท่องเป็นคำเดี่ยว ๆ ทำไมถึงลืมง่าย<br>และนึกไม่ออกตอนเจอของจริง?</h2>
+    <p class="lead">คำที่เรียนพร้อมภาพและตำแหน่งในฉาก มี “ที่เกาะ” ให้ความจำมากกว่าคำที่อยู่ลอย ๆ ในตาราง และถ้าได้ทบทวนเป็นระยะ ก็จะลืมช้าลงมาก</p>
+  </div>
+  <div class="wrap cmp">
+    <div class="col old reveal">
+      <span class="lbl">วิธีแบบเดิม</span>
+      <h3><span class="ic">✕</span>ตารางศัพท์ &amp; แฟลชการ์ดคำเดี่ยว</h3>
+      <div class="pt"><span class="e">😕</span><div><b>จำแยกส่วน ไม่มีบริบท</b><p>ท่อง “whisk = ตะกร้อมือ” ได้ แต่พอเข้าครัวจริงกลับนึกไม่ออก เพราะไม่เคยเห็นมันอยู่กับของอื่น</p></div></div>
+      <div class="pt"><span class="e">🔁</span><div><b>ต้องแปลไทยในหัวทุกครั้ง</b><p>อังกฤษ → ไทย → นึกภาพ ทำให้ตอบช้า และไม่เป็นธรรมชาติเวลาใช้จริง</p></div></div>
+      <div class="pt"><span class="e">📉</span><div><b>ท่องรวดเดียวแล้วลืม</b><p>ถ้าไม่ได้ทบทวน ความจำจะหายไปเร็วมากในไม่กี่วันแรก (เส้นโค้งการลืมของ Ebbinghaus)</p></div></div>
+      <div class="res">ผลลัพธ์: ใช้เวลาท่องเยอะ แต่ใช้จริงไม่ค่อยได้</div>
+    </div>
+    <div class="col new reveal">
+      <span class="lbl">วิธีแบบ Piccab</span>
+      <h3><span class="ic">✓</span>เรียนจากฉากจริง</h3>
+      <div class="pt"><span class="e">🖼️</span><div><b>คำผูกกับภาพและตำแหน่ง</b><p>เห็นกาน้ำชาอยู่ข้างถ้วยชาและจานรอง สมองจำเป็นชุด นึกถึงของหนึ่งก็นึกถึงคำรอบ ๆ ได้</p></div></div>
+      <div class="pt"><span class="e">👀</span><div><b>เห็นของ แล้วนึกคำอังกฤษได้ตรง ๆ</b><p>ฝึกจากภาพ ไม่ใช่จากคำแปล จึงค่อย ๆ ลดการแปลไทยในหัว</p></div></div>
+      <div class="pt"><span class="e">👂</span><div><b>ใช้หลายประสาทสัมผัส</b><p>ตาดูภาพ หูฟังเสียง นิ้วแตะหา และพิมพ์สะกด ฝึกคำเดียวกันจากหลายทาง</p></div></div>
+      <div class="res">ผลลัพธ์: เห็นของจริงแล้วนึกคำได้ และจำได้นานขึ้น</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="modes">
+  <div class="wrap center">
+    <span class="kicker lav">3 โหมดฝึก</span>
+    <h2>ฝึก 3 ขั้น จากรู้จัก → สะกดได้ → ได้ยินแล้วหาเจอ</h2>
+    <p class="lead">ทุกฉากเล่นได้ทั้ง 3 โหมด จะฝึกทีละโหมดหรือสลับไปมาก็ได้</p>
+  </div>
+  <div class="wrap modes">
+    <div class="mode reveal">
+      <span class="no en">01</span><span class="st">ขั้นที่ 1</span>
+      <h3>👀 ดูคำศัพท์</h3>
+      <p>ชี้เมาส์หรือแตะของในรูป เพื่อดูคำอังกฤษ ความหมายไทย และฟังเสียงอ่าน เลือกสำเนียงอเมริกันหรืออังกฤษ และพูดช้าได้ หรือกด ▶ Auto ให้แอปพาดูทีละคำ</p>
+      <div class="mock"><span class="ic">🔊</span><span><b>croissant</b><small>ครัวซองต์</small></span><span class="tag">US / UK</span></div>
+    </div>
+    <div class="mode reveal">
+      <span class="no en">02</span><span class="st">ขั้นที่ 2</span>
+      <h3>✍️ ทบทวน (พิมพ์)</h3>
+      <p>แอปชี้ของในรูป ให้คุณพิมพ์คำตอบเป็นภาษาอังกฤษ ติดตรงไหนกด 💡 คำใบ้ แอปจะบอกความหมายไทยและเปิดตัวอักษรทีละตัว ตอบเองได้โดยไม่ใช้ตัวช่วยจะได้ ★</p>
+      <div class="mock"><span class="pat en">t e a _ _ _</span><span class="hint">💡 คำใบ้: กาน้ำชา</span></div>
+    </div>
+    <div class="mode reveal">
+      <span class="no en">03</span><span class="st">ขั้นที่ 3</span>
+      <h3>👂 ฟังแล้วหา</h3>
+      <p>ฟังเสียงคำศัพท์ แล้วแตะหาของชิ้นนั้นในภาพให้เจอ ฝึกให้ได้ยินแล้วนึกภาพออกทันที โดยไม่ต้องผ่านคำแปล</p>
+      <div class="mock"><span class="play">▶</span><span><b>“teacup”</b><small>แตะให้ถูกในภาพ</small></span><span class="score en">5/8</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="review">
+  <div class="wrap rev">
+    <div class="reveal">
+      <span class="kicker lav">ทบทวนตามรอบเวลา</span>
+      <h2>คำที่ใกล้ลืม จะเด้งกลับมาให้ทบทวนเอง</h2>
+      <p style="color:#5d5970;margin:14px 0 0">ทุกวันหน้าแรกจะบอกว่า “คำที่ต้องทบทวนวันนี้ N คำ” ตอบถูกเองได้ รอบถัดไปจะห่างออกไปเรื่อย ๆ ถ้าต้องใช้คำใบ้ คำนั้นจะกลับมาเร็วขึ้น</p>
+      <div class="ladder" aria-label="รอบทบทวน 1, 3, 7, 14, 30, 60 และ 120 วัน">
+        <div><i style="height:18px"></i><span>1</span><small>วัน</small></div>
+        <div><i style="height:30px"></i><span>3</span><small>วัน</small></div>
+        <div><i style="height:44px"></i><span>7</span><small>วัน</small></div>
+        <div><i style="height:60px"></i><span>14</span><small>วัน</small></div>
+        <div><i style="height:80px"></i><span>30</span><small>วัน</small></div>
+        <div><i style="height:102px"></i><span>60</span><small>วัน</small></div>
+        <div><i style="height:126px"></i><span>120</span><small>วัน</small></div>
+      </div>
+      <ul class="checks">
+        <li>ทบทวนครั้งละ 10 คำ ใช้เวลาไม่กี่นาที คำที่เลยกำหนดนานที่สุดมาก่อน</li>
+        <li>🔥 นับวันที่ฝึกติดกัน ทบทวนทุกวันเพื่อรักษาสถิติ</li>
+        <li>เข้าสู่ระบบแล้ว ความคืบหน้าซิงก์ทุกเครื่อง</li>
+      </ul>
+    </div>
+    <div class="phones reveal">
+      <div class="phone"><img src="/landing/home.webp" alt="หน้าแรกของแอป Piccab บนมือถือ แสดงคำที่ต้องทบทวนวันนี้" width="520" height="1125" loading="lazy"></div>
+      <div class="phone b"><img src="/landing/words.webp" alt="หน้าคำของฉันในแอป Piccab บอกว่าแต่ละคำจะกลับมาให้ทบทวนเมื่อไร" width="520" height="1125" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="ai">
+  <div class="wrap ai">
+    <div class="reveal">
+      <span class="kicker">ถ่ายรูปด้วย AI</span>
+      <h2>📸 เปลี่ยนรูปรอบตัว ให้เป็นฉากคำศัพท์ของคุณเอง</h2>
+      <p style="color:#5d5970;margin:14px 0 0">ถ่ายรูปห้องนอน โต๊ะทำงาน ร้านกาแฟ หรือจานอาหาร แล้วกด ✨ ให้ AI หาคำศัพท์ AI จะตีกรอบรอบสิ่งของ ใส่คำอังกฤษและความหมายไทยให้ จากนั้นเล่นได้ทั้ง 3 โหมดทันที</p>
+      <div class="feat"><span class="e">🔎</span><div><b>หาได้สูงสุด 20 คำต่อรูป</b><span>เลือกระดับคำได้ ง่าย · กลาง · ยาก</span></div></div>
+      <div class="feat"><span class="e">✏️</span><div><b>แก้ไขเองได้ทุกคำ</b><span>ตีกรอบคำใหม่ แก้คำ ย้ายหรือลบกรอบ จะไม่ใช้ AI แล้วตีกรอบเองทั้งหมดก็ได้</span></div></div>
+      <div class="feat"><span class="e">🎁</span><div><b>เครดิต AI ฟรีทุกเดือน</b><span>สำหรับบัญชีที่เข้าสู่ระบบด้วยอีเมลหรือ Google</span></div></div>
+      <div class="cta" style="justify-content:flex-start;margin-top:22px"><a class="btn dark" href="/app">📷 ลองสร้างฉากจากรูป</a></div>
+    </div>
+    <div class="shot reveal">
+      <div class="stage" style="position:relative">
+        <span class="badge">✨ ตัวอย่างกรอบคำศัพท์ในฉาก</span>
+        <svg class="pic" viewBox="0 0 1000 680" aria-hidden="true"><use href="#tea"/></svg>
+        <span class="box c1" style="left:59.8%;top:45.7%;width:24%;height:26.6%"><b>teapot</b><small>กาน้ำชา</small></span>
+        <span class="box c2" style="left:62.2%;top:77.6%;width:16.4%;height:12.4%"><b>teacup</b><small>ถ้วยชา</small></span>
+        <span class="box c3" style="left:85.4%;top:39.6%;width:9.1%;height:26%"><b>vase</b><small>แจกัน</small></span>
+        <span class="box c4" style="left:6.5%;top:56.9%;width:10%;height:15%"><b>sugar bowl</b><small>โถน้ำตาล</small></span>
+      </div>
+      <div class="cap"><span>ภาพประกอบ: ฉากตัวอย่าง Afternoon tea ในแอป</span><b>✓ เล่นได้ทั้ง 3 โหมด</b></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="class">
+  <div class="wrap center">
+    <span class="kicker gold">สำหรับทุกวัย</span>
+    <h2>เรียนคนเดียวก็ได้ ใช้ในห้องเรียนก็ดี</h2>
+    <p class="lead">Piccab ออกแบบให้ใช้ได้ตั้งแต่เด็กถึงผู้ใหญ่ ครูและผู้ปกครองสร้างฉากแล้วแชร์ให้ผู้เรียนได้</p>
+  </div>
+  <div class="wrap who">
+    <div class="card reveal">
+      <div class="em">🧑‍🎓</div>
+      <h3>ผู้เรียนทุกวัย</h3>
+      <p>เริ่มจากฉากตัวอย่าง หรือถ่ายรูปของรอบตัวเพื่อเรียนคำที่ได้ใช้จริงในชีวิตประจำวัน</p>
+      <ul><li>เก็บคำไว้ใน “คำของฉัน” และจัดเป็นชุดคำ</li><li>ติดตั้งเป็นแอปบนมือถือ ฝึกได้แม้ไม่มีเน็ต</li></ul>
+    </div>
+    <div class="card hl reveal">
+      <div class="em">🎓</div>
+      <h3>ครู: ห้องเรียนในแอป</h3>
+      <p>สร้างห้อง ได้รหัส 6 ตัว นักเรียนเข้าด้วยรหัสห้อง + ชื่อเล่น ไม่ต้องใช้อีเมล</p>
+      <ul><li>มอบหมายฉากหรือชุดคำให้ทั้งห้อง</li><li>ดูความคืบหน้ารายคน และตารางอันดับในห้อง</li></ul>
+      <div class="code" aria-label="ตัวอย่างรหัสห้อง"><i>K</i><i>7</i><i>Q</i><i>M</i><i>2</i><i>X</i></div>
+    </div>
+    <div class="card reveal">
+      <div class="em">👫</div>
+      <h3>เพื่อนและครอบครัว</h3>
+      <p>เพิ่มเพื่อนด้วยรหัสหรือ QR แล้วส่งกำลังใจและแชร์ฉากให้กันได้</p>
+      <ul><li>ส่งลิงก์ฉากหรือชุดคำให้ใครก็ได้</li><li>ไม่มีแชตกับคนแปลกหน้า ข้อความส่งได้เฉพาะคำให้กำลังใจที่เตรียมไว้</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="faq">
+  <div class="wrap center">
+    <span class="kicker lav">คำถามที่พบบ่อย</span>
+    <h2>ข้อสงสัยเกี่ยวกับ Piccab</h2>
+  </div>
+  <div class="wrap faq">
+    <details><summary>ใช้ฟรีจริงไหม ต้องสมัครก่อนหรือเปล่า?</summary><p>ใช้ฟรีครับ เปิด piccab.com/app แล้วเริ่มเล่นฉากตัวอย่างหรือสร้างฉากจากรูปได้เลย ไม่ต้องสมัคร ความคืบหน้าจะเก็บไว้ในเครื่อง ถ้าเข้าสู่ระบบด้วยอีเมลหรือ Google จะซิงก์ข้ามเครื่อง และได้เครดิต AI สำหรับหาคำศัพท์จากรูปทุกเดือน</p></details>
+    <details><summary>ไม่มีพื้นฐานภาษาอังกฤษเลย เริ่มได้ไหม?</summary><p>ได้ครับ ทุกคำมีความหมายภาษาไทยและเสียงอ่าน เริ่มจากโหมด 👀 ดูคำศัพท์ แตะของในรูปเพื่อฟังเสียง แล้วค่อยลองโหมดพิมพ์และฟังแล้วหา คำใบ้จะช่วยทีละขั้น</p></details>
+    <details><summary>ใช้บนอุปกรณ์อะไรได้บ้าง? ใช้ตอนไม่มีเน็ตได้ไหม?</summary><p>ใช้ผ่านเบราว์เซอร์บนมือถือ แท็บเล็ต และคอมพิวเตอร์ และติดตั้งเป็นแอปบนหน้าจอโฮมได้ หลังเปิดครั้งแรกแล้ว ฉากที่มีอยู่ฝึกต่อได้แม้ไม่มีอินเทอร์เน็ต ส่วน AI และการซิงก์ต้องต่อเน็ต</p></details>
+    <details><summary>รูปที่ถ่ายส่งให้ AI ไปไหน ปลอดภัยไหม?</summary><p>รูปจะถูกส่งไปให้บริการ AI (Google Gemini) วิเคราะห์เพื่อหาคำศัพท์เท่านั้น ถ้าเข้าสู่ระบบ รูปและฉากจะเก็บไว้ในบัญชีของคุณ และลบได้ทุกเมื่อ รายละเอียดอยู่ใน <a href="/privacy">นโยบายความเป็นส่วนตัว</a> แนะนำให้ไม่ถ่ายใบหน้าคนหรือข้อมูลส่วนตัว</p></details>
+    <details><summary>เด็กใช้ได้ไหม?</summary><p>ได้ครับ Piccab ตั้งใจให้ทุกวัยใช้ เด็กเริ่มฝึกได้โดยไม่ต้องมีบัญชี ในห้องเรียน นักเรียนเข้าด้วยรหัสห้องและชื่อเล่น ไม่ต้องใช้อีเมล และบัญชีนักเรียนจะไม่ใช้ AI ผู้ที่อายุต่ำกว่า 20 ปีควรขออนุญาตพ่อแม่หรือผู้ปกครองก่อนสมัครบัญชี</p></details>
+    <details><summary>ทบทวนตามรอบทำงานอย่างไร?</summary><p>คำที่คุณพิมพ์ถูกในโหมดทบทวนแล้ว จะกลับมาให้ทบทวนหลัง 1 วัน แล้วห่างออกไปเป็น 3, 7, 14, 30, 60 และ 120 วัน ถ้าตอบได้เองโดยไม่ใช้ตัวช่วย ถ้าต้องใช้คำใบ้หรือตอบผิด คำนั้นจะกลับมาเร็วขึ้น ไม่ต้องตั้งค่าอะไรเพิ่ม</p></details>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <div class="box2 reveal">
+      <span class="chip">🎉 เริ่มได้ทันที ไม่ต้องรอ</span>
+      <h2>พร้อมเปลี่ยนสิ่งรอบตัว ให้เป็นภาษาอังกฤษแล้วหรือยัง?</h2>
+      <p>เปิดฉากตัวอย่างแล้วแตะของชิ้นแรก หรือถ่ายรูปห้องของคุณเพื่อสร้างฉากแรกของตัวเอง</p>
+      <div class="cta">
+        <a class="btn primary" href="/app">เริ่มใช้งานฟรีทันที</a>
+        <a class="btn ghost" href="/app?install">📲 ติดตั้งเป็นแอป</a>
+      </div>
+      <div class="ok"><span>ไม่ต้องใช้บัตร</span><span>ไม่ต้องสมัครก็เริ่มได้</span><span>ภาษาไทยทั้งแอป</span></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <a class="brand" href="/"><img src="/favicon.svg" alt="" width="38" height="38"><span><b>Pic<span>cab</span></b><small>ฝึกศัพท์อังกฤษจากภาพ</small></span></a>
+        <p>เปลี่ยนรูปภาพรอบตัวให้เป็นคำศัพท์ภาษาอังกฤษ ฝึกด้วยภาพ เสียง การพิมพ์ และการทบทวนตามรอบเวลา</p>
+        <div class="tags"><span>✓ สำหรับผู้เรียนไทย</span><span>ทุกวัย</span></div>
+      </div>
+      <div><h4>ฝึกฝน</h4><ul><li><a href="#modes">👀 ดูคำศัพท์</a></li><li><a href="#modes">✍️ ทบทวน (พิมพ์)</a></li><li><a href="#modes">👂 ฟังแล้วหา</a></li><li><a href="#review">🔁 ทบทวนตามรอบ</a></li></ul></div>
+      <div><h4>ใช้งาน</h4><ul><li><a href="/app">เปิดแอป</a></li><li><a href="#ai">ถ่ายรูปด้วย AI</a></li><li><a href="#class">ห้องเรียน &amp; เพื่อน</a></li><li><a href="#faq">คำถามที่พบบ่อย</a></li></ul></div>
+      <div><h4>ติดต่อ</h4><ul><li><a href="mailto:contact@piccab.com">contact@piccab.com</a></li><li><a href="/privacy">นโยบายความเป็นส่วนตัว</a></li><li><a href="/terms">ข้อตกลงการใช้งาน</a></li></ul></div>
+    </div>
+    <div class="bot"><span>© <span id="yr">2026</span> Piccab · ทำด้วย ❤️ สำหรับคนไทยที่อยากเก่งอังกฤษ</span><span><a href="/privacy">ความเป็นส่วนตัว</a><a href="/terms">ข้อตกลง</a></span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  $('#yr').textContent=new Date().getFullYear();
+  var top=$('#top'); var onS=function(){ top.classList.toggle('scrolled', scrollY>8); }; addEventListener('scroll',onS,{passive:true}); onS();
+  // hero demo: the sample scene with six words
+  var W=[['macaron','มาการง',350,134,0],['teapot','กาน้ำชา',594,354,0],['scone','สโคน',318,374,0],['teacup','ถ้วยชา',690,585,0],['vase','แจกัน',904,410,1],['sugar bowl','โถน้ำตาล',115,452,1]];
+  var stage=$('#stage'), heard={}, n=0;
+  var voice=null;
+  function pick(){ try{ var v=speechSynthesis.getVoices().filter(function(x){return /^en[-_]US/i.test(x.lang)}); voice=v.find(function(x){return /google|samantha|natural|aria|jenny/i.test(x.name)})||v[0]||null; }catch(e){} }
+  if(window.speechSynthesis){ pick(); speechSynthesis.onvoiceschanged=pick; }
+  function say(t){ try{ if(!window.speechSynthesis) return; speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(t); u.lang='en-US'; if(voice) u.voice=voice; u.rate=.9; speechSynthesis.speak(u); }catch(e){} }
+  W.forEach(function(w,i){
+    var b=document.createElement('button'); b.type='button'; b.className='pin'+(w[4]?' mhide':''); b.style.left=(w[2]/10)+'%'; b.style.top=(w[3]/6.8)+'%'; b.style.animationDelay=(.15+i*.09)+'s';
+    b.setAttribute('aria-label','ฟังเสียง '+w[0]+' '+w[1]);
+    b.innerHTML='<span class="n">'+(i+1)+'</span><span><span class="w"></span><span class="t"></span></span><span class="s" aria-hidden="true">🔊</span>';
+    b.querySelector('.w').textContent=w[0]; b.querySelector('.t').textContent=w[1];
+    b.addEventListener('click',function(){
+      say(w[0]);
+      document.querySelectorAll('.pin.on').forEach(function(x){x.classList.remove('on')}); b.classList.add('on');
+      if(!heard[w[0]]){ heard[w[0]]=1; n++; b.classList.add('heard'); b.querySelector('.s').textContent='✓'; $('#heard').textContent='ฟังแล้ว '+n+'/'+W.length+' คำ · ทั้งฉากมี 24 คำ'; }
+    });
+    stage.appendChild(b);
+  });
+  // gentle reveal on scroll
+  var els=document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); },{rootMargin:'0px 0px -8% 0px'});
+    els.forEach(function(e){ io.observe(e); });
+  } else els.forEach(function(e){ e.classList.add('in'); });
+})();
+</script>
+</body>
+</html>

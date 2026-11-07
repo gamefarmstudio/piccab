@@ -610,7 +610,7 @@ async function listShares(request, env) {
 // /s/<id>: the normal app page, plus title / preview tags so chat apps show the scene.
 async function sharePage(request, env, url) {
   const id = url.pathname.split('/')[2];
-  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/app`, { headers: request.headers }));
   let html = await page.text();
   let row = null;
   if (env.SUPABASE_SECRET_KEY) row = await getShare(env, id).catch(() => null);
@@ -907,7 +907,7 @@ async function admin(request, env, url) {
 
 // The app page with a generic preview (no personal details).
 async function appPageWith(request, env, url, title, desc) {
-  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/app`, { headers: request.headers }));
   let html = await page.text();
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab"><meta property="og:title" content="${esc(title)}">
@@ -1091,7 +1091,7 @@ async function friends(request, env, url, ctx) {
 // /c/<code>: the app page, with a preview that names the class (a join link)
 async function classPage(request, env, url) {
   const code = url.pathname.split('/')[2].toUpperCase();
-  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/app`, { headers: request.headers }));
   let html = await page.text();
   const c = env.SUPABASE_SECRET_KEY && CLASS_CODE.test(code) ? (await q(env, `classes?code=eq.${code}&select=name`).catch(() => null) || [])[0] : null;
   if (c) {
