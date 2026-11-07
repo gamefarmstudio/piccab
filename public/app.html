@@ -57,6 +57,11 @@ h1{font-family:'Fredoka',sans-serif;font-weight:600;font-size:22px;margin:0;line
 .modes{display:flex;gap:6px;margin-top:12px}
 .modes button{flex:1;padding:10px 6px;border-radius:12px;font-weight:600;font-size:15px}
 .modes button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sub .mic.on{background:#d24343;border-color:#d24343;animation:micpulse 1.2s ease-in-out infinite}
+@keyframes micpulse{50%{box-shadow:0 0 0 6px rgba(210,67,67,.18)}}
+.sub .target.hidden{letter-spacing:2px;color:var(--muted)}
+.spkheard{font-style:italic;color:var(--muted)}
+.spkres{font-weight:600}.spkres.ok{color:var(--ok)}.spkres.no{color:#b2591f}
 .modes button:disabled{opacity:.45;cursor:default}
 .sub{margin-top:10px;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:42px}
 .sub .hint{color:var(--muted);font-size:15px}
@@ -689,6 +694,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     <button data-mode="learn">👀 ดูคำศัพท์</button>
     <button data-mode="quiz">✍️ ทบทวน (พิมพ์)</button>
     <button data-mode="find">👂 ฟังแล้วหา</button>
+    <button data-mode="speak">🎤 ฝึกพูด</button>
     <button class="fillbtn" id="fillBtn" type="button"></button>
   </nav>
 
@@ -1390,7 +1396,7 @@ function rrPath(g){
 // Spotlight: dim everything except the chosen word's box.
 function updateSpot(){
   const spot=svg.querySelector('.spot'); if(!spot) return;
-  const id = S.editing || (S.mode==='learn' && S.showAll) ? null : (flash ? flash.id : (pinnedId || quizId));
+  const id = S.editing || (S.mode==='learn' && S.showAll) ? null : (flash ? flash.id : (pinnedId || quizId || spkTarget()));
   const it = id && items()[id];
   if(!it){ spot.classList.remove('on'); return; }
   const sc=scene();
@@ -1433,7 +1439,7 @@ function goHome(view){
   apReset();
   if(S.editing){ S.editing=false; selId=null; saveScenes(); }
   if(aiCtl) aiCtl.abort();
-  closeQuiz(true); pinnedId=hoverId=null; flash=null;
+  closeQuiz(true); spkStop(); pinnedId=hoverId=null; flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
   S.view=(view==='library'||view==='words'||view==='class'||view==='admin')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
@@ -1444,13 +1450,14 @@ function openScene(id, mode, edit){
   S.view='play'; S.mode=mode||'learn'; S.editing=!!edit; selId=null; S.showAll=false;
   fullRender();
   if(S.mode==='find' && ids().length){ startFind(); renderSub(); }
+  if(S.mode==='speak'){ startSpeak(); }
   window.scrollTo(0,0);
 }
 // ---------- home + library ----------
 let recent=store.get('pv-recent',{}); if(typeof recent!=='object'||!recent) recent={};
 let lastMode=store.get('pv-lastmode',{}); if(typeof lastMode!=='object'||!lastMode) lastMode={};
 let days=store.get('pv-days',{}); if(typeof days!=='object'||!days) days={};
-const MODE_NAMES={learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา'};
+const MODE_NAMES={learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา', speak:'ฝึกพูด'};
 const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 function markActive(words){ const k=dkey(new Date()); if(!days[k]) days[k]={n:0}; days[k].n+=words||0; store.set('pv-days',days); }
 function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-1); let n=0; while(days[dkey(d)]){ n++; d.setDate(d.getDate()-1); } return n; }
@@ -2062,7 +2069,7 @@ function openPreview(id){
         el('div',{}, el('h3',{text:sc.name}), el('div',{class:'meta',text: n ? `${n} คำศัพท์ • ทบทวนแล้ว ${d}/${n}` : 'ยังไม่มีคำศัพท์ในฉากนี้'})),
         el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       fig,
-      n ? el('div',{class:'pv-row'}, mode('learn','👀 ดูคำศัพท์'), mode('quiz','✍️ ทบทวน (พิมพ์)'), mode('find','👂 ฟังแล้วหา'))
+      n ? el('div',{class:'pv-row'}, mode('learn','👀 ดูคำศัพท์'), mode('quiz','✍️ ทบทวน (พิมพ์)'), mode('find','👂 ฟังแล้วหา'), mode('speak','🎤 ฝึกพูด'))
         : el('div',{class:'pv-row'}, el('button',{class:'modebtn primary',text: aiReady?'✨ ให้ AI หาคำศัพท์ / ✏️ แก้ไขฉาก':'✏️ เริ่มใส่คำศัพท์',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }})),
       el('div',{class:'pv-row'},
         n ? lbl : null,
@@ -2105,7 +2112,7 @@ function setLang(l){
   S.lang=l; store.set('pv-lang',l); fillAccent(); langPills();
   if(l!=='en' && !practised.includes(l)){ practised.push(l); store.set('pv-langs',practised); }
   help={}; used={}; qMiss={}; selId=null;
-  if(S.view==='play'){ fullRender(); if(S.mode==='find' && ids().length) startFind(); }
+  if(S.view==='play'){ fullRender(); if(S.mode==='find' && ids().length) startFind(); if(S.mode==='speak') startSpeak(); }
   else { refresh(); renderGallery(); }
   toast(`${LANGS[l].flag} ตอนนี้ฝึกภาษา${LANGS[l].name} — ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา`, 3500);
   if(l!=='en') translateAll(l);
@@ -2143,7 +2150,7 @@ function fullRender(){
 
 function setHL(){
   // Only ONE item is highlighted at a time: the one under the pointer, otherwise the clicked/open one.
-  const active = hoverId || pinnedId || quizId;
+  const active = hoverId || pinnedId || quizId || spkTarget();
   svg.querySelectorAll('.item').forEach(e=>{
     const id=e.dataset.id;
     const f = flash && flash.id===id ? flash.kind : '';
@@ -2331,6 +2338,8 @@ function renderSub(){
       listBtn(),
       el('button',{class:isMobile()?'icon':'',text:isMobile()?'↺':'↺ เริ่มใหม่','aria-label':'เริ่มใหม่',onclick:resetQuiz})
     );
+  } else if(S.mode==='speak'){
+    renderSpeakSub(put);
   } else if(S.mode==='find'){
     if(find.target){
       const word = find.showWord ? el('span',{class:'target',text:items()[find.target].word}) : null;
@@ -2369,7 +2378,7 @@ function renderChips(){
   ids().forEach((id,i)=>{
     const b=el('button',{class:'chip'});
     if(S.editing){ b.textContent=labelOf(its[id]); if(!its[id].word) b.classList.add('unk'); if(id===selId) b.classList.add('on'); }
-    else if(S.mode==='learn'){ b.textContent=its[id].word; if(id===pinnedId) b.classList.add('on'); }
+    else if(S.mode==='learn' || S.mode==='speak'){ b.textContent=its[id].word; if(id===(S.mode==='speak'?spk.target:pinnedId)) b.classList.add('on'); }
     else{
       if(p.done[id]){ b.textContent=(p.star[id]?'★ ':'✓ ')+its[id].word; b.classList.add('done'); }
       else { b.textContent='คำที่ '+(i+1); b.classList.add('unk'); }
@@ -2429,6 +2438,7 @@ function select(id){
     if(prog().done[id]){ closeQuiz(); doFlash(id,'good',1800); speak(sayOf(id)); }
     else openQuiz(id);
   } else if(S.mode==='find'){ findTap(id); }
+  else if(S.mode==='speak'){ spkPick(id); }
 }
 svg.addEventListener('pointermove', e=>{
   if(drawing){ updDraft(toSvg(e)); return; }
@@ -2555,11 +2565,150 @@ function findTap(id){
   else { find.missed=true; doFlash(id,'bad',1500); }
 }
 
+// ---------- 🎤 speaking: say the word, the browser's speech recognition checks it (no AI credits) ----------
+// Chrome / Edge send the sound to their own speech service (Google / Microsoft), Safari to Apple's; Piccab never gets it.
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+var spk={queue:[],target:null,score:0,total:0,tries:0,heard:'',state:'idle',result:'',showWord:true,rec:null,last:null};
+function spkTarget(){ return spk && S.mode==='speak' && !S.editing ? spk.target : null; }   // (var/function: setHL may run before this part of the script)
+function startSpeak(){
+  spkStop();
+  spk={...spk,queue:shuffle(ids()),target:null,score:0,total:ids().length,tries:0,heard:'',state:'idle',result:''};
+  spkNext();
+}
+function spkNext(){
+  if(spk.target) spk.last=spk.target;
+  spk.target=spk.queue.shift()||null; spk.tries=0; spk.heard=''; spk.result=''; spk.state='idle';
+  if(S.view==='play' && S.mode==='speak'){ renderSub(); renderChips(); setHL(); }
+  if(!spk.target) speak('Well done!');
+}
+function spkPick(id){   // tap a thing in the picture: practise that one now
+  if(!items()[id] || spk.state==='listening') return;
+  if(spk.target && spk.target!==id) spk.queue=[spk.target, ...spk.queue.filter(x=>x!==id)]; else spk.queue=spk.queue.filter(x=>x!==id);
+  spk.target=id; spk.tries=0; spk.heard=''; spk.result=''; spk.state='idle';
+  if(!spk.total) spk.total=ids().length;
+  renderSub(); renderChips(); setHL(); speak(sayOf(id));
+}
+function spkStop(){ const r=spk.rec; spk.rec=null; if(r){ try{ r.onresult=r.onerror=r.onend=null; r.abort(); }catch(e){} } if(spk.state==='listening') spk.state='idle'; }
+// words to compare: lower case, no punctuation, German letters folded, no leading article
+function spkNorm(t){
+  let s=String(t||'').toLowerCase().replace(/[.,!?;:"“”'’()]/g,' ').replace(/\s+/g,' ').trim();
+  if(S.lang==='de') s=foldDe(s);
+  return s;
+}
+const SPK_ART={ en:/^(a|an|the) /, de:/^(der|die|das|ein|eine|einen|den|dem) / };
+// {ok, art:'right'|'wrong'|'missing', said} for the best of the recogniser's guesses
+function spkCheck(alts, it){
+  const art=it.art||'', targets=[it.base||it.word, ...(it.alts||[])].map(spkNorm).filter(Boolean);
+  const bare=x=>x.replace(SPK_ART[S.lang]||/^$/,'');
+  const glue=x=>x.replace(/ /g,'');
+  let best=null;
+  for(const a of alts){
+    const said=spkNorm(a);
+    for(const t of targets){
+      const hit = said===t || bare(said)===t || glue(bare(said))===glue(t) || (' '+said+' ').includes(' '+t+' ');
+      if(!hit) continue;
+      let ar='missing';
+      if(S.lang==='de' && art){ const m=/^(der|die|das)\s/.exec(said); ar = m ? (m[1]===art ? 'right' : 'wrong') : 'missing'; }
+      const r={ok:true, art:ar, said:a};
+      if(!best || (ar==='right' && best.art!=='right')) best=r;
+    }
+  }
+  return best || {ok:false, said:alts[0]||''};
+}
+function spkLang(){ return S.lang==='en' ? (store.get(accentKey(), 'en-GB')||'en-GB') : (LANGS[S.lang].voices[0][0]); }
+function spkListen(){
+  if(!SR || !spk.target) return;
+  if(spk.state==='listening'){ try{ spk.rec && spk.rec.stop(); }catch(e){} return; }
+  if(!store.get('pv-mic-ok',false)){ spkIntro(); return; }
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const it=items()[spk.target]; if(!it) return;
+  const rec=new SR(); spk.rec=rec;
+  rec.lang=spkLang(); rec.interimResults=true; rec.maxAlternatives=5; rec.continuous=false;
+  let finalAlts=null, gotAny=false;
+  rec.onresult=e=>{
+    const r=e.results[e.results.length-1]; gotAny=true;
+    spk.heard=r[0] ? r[0].transcript : '';
+    if(r.isFinal){ finalAlts=[...r].map(x=>x.transcript); }
+    renderSub();
+  };
+  rec.onerror=e=>{
+    spk.rec=null; spk.state='idle';
+    const msg={ 'not-allowed':'อนุญาตให้ใช้ไมโครโฟนก่อน (กดที่ไอคอนข้างช่องที่อยู่เว็บ)', 'service-not-allowed':'อนุญาตให้ใช้ไมโครโฟนก่อน (กดที่ไอคอนข้างช่องที่อยู่เว็บ)',
+      'no-speech':'ไม่ได้ยินเสียง ลองพูดใกล้ไมค์อีกครั้ง', 'audio-capture':'ไม่พบไมโครโฟนในเครื่องนี้', 'network':'ต้องต่ออินเทอร์เน็ตเพื่อฟังเสียง',
+      'language-not-supported':`เบราว์เซอร์นี้ยังฟังภาษา${LANGS[S.lang].name}ไม่ได้` }[e.error];
+    if(msg) toast(msg, 4000);
+    renderSub();
+  };
+  rec.onend=()=>{
+    if(spk.rec!==rec) return;
+    spk.rec=null;
+    const alts=finalAlts || (spk.heard ? [spk.heard] : null);
+    if(!alts){ spk.state='idle'; if(!gotAny) spk.result='nothing'; renderSub(); return; }
+    spkJudge(alts);
+  };
+  spk.state='listening'; spk.heard=''; spk.result=''; renderSub();
+  try{ rec.start(); }catch(e){ spk.rec=null; spk.state='idle'; renderSub(); }
+}
+function spkJudge(alts){
+  const id=spk.target, it=items()[id]; if(!it) return;
+  const r=spkCheck(alts, it);
+  spk.heard=r.said; spk.tries++;
+  if(r.ok){
+    if(spk.tries===1) spk.score++;
+    spk.result = r.art==='wrong' ? 'okart' : (S.lang==='de' && it.art && r.art==='right') ? 'okstar' : 'ok';
+    spk.state='done'; markActive(1); doFlash(id,'good',1400); renderSub();
+    setTimeout(()=>{ if(spk.target===id && S.mode==='speak') spkNext(); }, r.art==='wrong' ? 2600 : 1500);
+  } else {
+    spk.result='no'; spk.state='idle'; renderSub();
+    if(spk.tries>=2) speak(sayOf(id));     // second miss: say it for them to copy
+  }
+}
+function spkIntro(){
+  openModal(m=>{
+    m.append(el('h3',{text:'🎤 ฝึกพูด'}),
+      el('p',{text:'แตะ 🎤 แล้วพูดคำศัพท์ของสิ่งที่ไฮไลต์ไว้ แอปจะฟังแล้วบอกว่าตรงกับคำไหม'}),
+      el('p',{class:'note'}, 'เสียงของคุณจะถูกส่งไปให้ระบบฟังเสียงของเบราว์เซอร์แปลงเป็นข้อความ (เช่น Google ใน Chrome หรือ Apple ใน Safari) — Piccab ไม่ได้รับและไม่เก็บเสียงของคุณ · ไม่ใช้เครดิต AI', ' · ', el('a',{href:'/privacy#speak',target:'_blank',rel:'noopener',text:'อ่านเพิ่ม'})),
+      el('p',{class:'note small',text:'ครั้งแรกเบราว์เซอร์จะถามสิทธิ์ใช้ไมโครโฟน ให้กด “อนุญาต”'}),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'🎤 เริ่มพูด',onclick:()=>{ store.set('pv-mic-ok',true); closeModal(); spkListen(); }})));
+  });
+}
+function renderSpeakSub(put){
+  if(!SR){
+    put(el('span',{class:'hint',text:'🎤 เบราว์เซอร์นี้ยังฟังเสียงไม่ได้ — ลองเปิดด้วย Chrome (Android / คอมพิวเตอร์) หรือ Safari (iPhone / iPad)'}));
+    return;
+  }
+  if(!spk.target){
+    if(!spk.total){ put(el('span',{class:'hint',text:'ฉากนี้ยังไม่มีคำศัพท์'})); return; }
+    put(el('span',{class:'hint',text:`🎉 จบรอบแล้ว! พูดถูกตั้งแต่ครั้งแรก ${spk.score}/${spk.total} คำ`}), el('span',{class:'grow'}),
+      el('button',{class:'primary',text:'เล่นอีกรอบ',onclick:startSpeak}));
+    return;
+  }
+  const it=items()[spk.target], listening=spk.state==='listening';
+  const mic=el('button',{class:'primary big mic'+(listening?' on':''),text:listening?'🔴 กำลังฟัง… (แตะเพื่อหยุด)':'🎤 พูด',onclick:spkListen,disabled:spk.state==='done'?'':null});
+  const word = spk.showWord ? el('span',{class:'target'}, wordEl(it)) : el('span',{class:'target hidden',text:'?'});
+  let msg=null;
+  if(listening) msg=el('span',{class:'spkheard',text: spk.heard ? `“${spk.heard}”` : 'พูดได้เลย…'});
+  else if(spk.result==='ok') msg=el('span',{class:'spkres ok',text:`✓ ถูกต้อง! ได้ยินว่า “${spk.heard}”`});
+  else if(spk.result==='okstar') msg=el('span',{class:'spkres ok',text:`★ ถูกต้อง พร้อม ${it.art}! ได้ยินว่า “${spk.heard}”`});
+  else if(spk.result==='okart') msg=el('span',{class:'spkres ok',text:`✓ คำถูก แต่คำนำหน้าคือ “${it.art}” — ${it.word}`});
+  else if(spk.result==='no') msg=el('span',{class:'spkres no',text: spk.tries>=2 ? `ได้ยินว่า “${spk.heard}” — ฟังแล้วลองพูดตามอีกครั้ง` : `ได้ยินว่า “${spk.heard}” — ลองอีกครั้ง หรือกด 🔊 ฟังก่อน`});
+  else if(spk.result==='nothing') msg=el('span',{class:'spkres no',text:'ไม่ได้ยินเสียง ลองพูดใกล้ไมค์อีกครั้ง'});
+  else msg=el('span',{class:'hint tip',text: S.lang==='de' ? 'พูดคำของสิ่งที่ไฮไลต์ไว้ (พูด der/die/das ด้วยจะได้ ★)' : 'พูดคำของสิ่งที่ไฮไลต์ไว้'});
+  put(mic,
+    el('button',{text:'🔊','aria-label':'ฟังคำ',title:'ฟังคำ',onclick:()=>speak(sayOf(spk.target))}),
+    word, msg, el('span',{class:'grow'}),
+    el('button',{class:'toggle'+(spk.showWord?' on':''),text:spk.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ spk.showWord=!spk.showWord; renderSub(); }}),
+    el('button',{text:'ข้าม ⏭',onclick:()=>{ spkStop(); spkNext(); }}),
+    el('span',{class:'pill',text:`ถูก ${spk.score} • เหลือ ${spk.queue.length+1}/${spk.total}`}));
+}
+
 // ---------- modes / buttons ----------
 document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListener('click',()=>{
-  apReset(); S.mode=b.dataset.mode; pinnedId=hoverId=null; flash=null; closeQuiz(true);
+  apReset(); spkStop(); S.mode=b.dataset.mode; pinnedId=hoverId=null; flash=null; closeQuiz(true);
   try{ speechSynthesis.cancel(); }catch(e){}
   if(S.mode==='find' && ids().length) startFind();
+  if(S.mode==='speak') startSpeak();
   refresh();
 }));
 $('#homeBtn').addEventListener('click',()=>goHome('home'));
