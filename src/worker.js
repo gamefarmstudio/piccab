@@ -77,6 +77,10 @@ export default {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return scan(request, env);
     }
+    if (url.pathname === '/api/translate') {
+      if (request.method !== 'POST') return error('method_not_allowed', 405);
+      return translate(request, env);
+    }
     if (url.pathname.startsWith('/api/img/')) return image(request, env, url);
     if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname === '/api/shares') return listShares(request, env);
@@ -94,11 +98,11 @@ export default {
   },
 };
 
-async function scan(request, env) {
+// Who may use AI: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
+// Returns { provider, uid, useCredits } or an error Response.
+async function aiAccess(request, env) {
   const provider = pickProvider(env);
   if (!provider) return error('not_configured', 503);
-
-  // Who is asking: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
   const useCredits = !!env.SUPABASE_SECRET_KEY;
   const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
   if (who && who.anon) return error('student_account', 403);       // students (no e-mail) don't use AI
@@ -110,7 +114,6 @@ async function scan(request, env) {
       if (!safeEqual(code, String(env.SCAN_CODE).trim())) return error('bad_code', 401);
     } else if (useCredits) return error('login_required', 401);
   }
-
   if (env.SCAN_LIMITER) {
     const ip = request.headers.get('cf-connecting-ip') || 'unknown';
     try {
@@ -118,6 +121,29 @@ async function scan(request, env) {
       if (!success) return error('rate_limited', 429);
     } catch (e) { /* limiter unavailable: continue */ }
   }
+  return { provider, uid, useCredits };
+}
+// Takes one credit, runs the AI call, gives the credit back if it didn't work.
+async function withCredit(env, acc, run) {
+  let left = null;
+  if (acc.uid && acc.useCredits) {
+    try { left = await creditRpc(env, 'use_ai_credit', { p_user: acc.uid, p_monthly: monthlyCredits(env) }); }
+    catch (e) { console.log('credit check failed', String(e)); return error('busy', 503); }
+    if (typeof left !== 'number' || left < 0) return error('no_credits', 402);
+  }
+  const res = await run();
+  if (left === null) return res;
+  if (res.status !== 200) {
+    try { left = await creditRpc(env, 'refund_ai_credit', { p_user: acc.uid }); } catch (e) { console.log('refund failed', String(e)); }
+    return withField(res, 'credits_left', typeof left === 'number' ? left : undefined);
+  }
+  return withField(res, 'credits_left', left);
+}
+
+async function scan(request, env) {
+  const acc = await aiAccess(request, env);
+  if (acc instanceof Response) return acc;
+  const provider = acc.provider;
 
   let body;
   try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
@@ -134,22 +160,65 @@ async function scan(request, env) {
     .filter(Boolean)
     .slice(0, 80);
 
+  const lang = AI_LANGS[body.lang] ? body.lang : null;   // also give the words in this language (e.g. German)
   // Take one credit now; give it back if the scan doesn't produce a result.
-  let left = null;
-  if (uid && useCredits) {
-    try { left = await creditRpc(env, 'use_ai_credit', { p_user: uid, p_monthly: monthlyCredits(env) }); }
-    catch (e) { console.log('credit check failed', String(e)); return error('busy', 503); }
-    if (typeof left !== 'number' || left < 0) return error('no_credits', 402);
-  }
-  const res = provider === 'gemini'
-    ? await scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini'))
-    : await scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude'));
-  if (left === null) return res;
-  if (res.status !== 200) {
-    try { left = await creditRpc(env, 'refund_ai_credit', { p_user: uid }); } catch (e) { console.log('refund failed', String(e)); }
-    return withField(res, 'credits_left', typeof left === 'number' ? left : undefined);
-  }
-  return withField(res, 'credits_left', left);
+  return withCredit(env, acc, () => provider === 'gemini'
+    ? scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', lang))
+    : scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', lang)));
+}
+
+// Languages the AI can add next to English. German nouns come with their article.
+const AI_LANGS = { de: 'German' };
+// POST /api/translate {lang, words:[{k, en, th}]} -> {items:[{k, w, a, alts}]}  (one AI credit per call)
+async function translate(request, env) {
+  const acc = await aiAccess(request, env);
+  if (acc instanceof Response) return acc;
+  let body;
+  try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
+  const lang = AI_LANGS[body.lang] ? body.lang : null;
+  if (!lang) return error('bad_request', 400);
+  const words = (Array.isArray(body.words) ? body.words : [])
+    .filter(w => w && typeof w.k === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(w.k) && typeof w.en === 'string' && w.en.trim())
+    .slice(0, 80)
+    .map(w => ({ k: w.k, en: w.en.replace(/[^\p{L}\p{N} '\-]/gu, '').trim().slice(0, 60), th: String(w.th || '').replace(/[\u0000-\u001f"\\]/g, '').slice(0, 80) }))
+    .filter(w => w.en);
+  if (!words.length) return error('bad_request', 400);
+  const prompt = buildTranslatePrompt(lang, words);
+  return withCredit(env, acc, () => acc.provider === 'gemini'
+    ? scanGemini(env, null, null, prompt, parseTranslations)
+    : scanClaude(env, null, null, prompt, parseTranslations));
+}
+export function buildTranslatePrompt(lang, words) {
+  return `You help Thai children and adults learn ${AI_LANGS[lang]} vocabulary from pictures. Each item below is an object in a picture, given by its usual English name ("en") and Thai meaning ("th").
+
+For each item give:
+- "k": the same k as in the input
+- "w": the usual ${AI_LANGS[lang]} word a learner's dictionary would use for that object — singular, WITHOUT the article, with normal ${AI_LANGS[lang]} spelling and capitalisation (e.g. "Teekanne"), 1-3 words
+- "a": its definite article: "der", "die" or "das" (use "" only if it is not a noun)
+- "alts": up to 3 other acceptable ${AI_LANGS[lang]} answers for the same object, without article, or []
+
+Keep every word suitable for all ages. Reply with a JSON array only, no other text, in the same order as the input.
+
+Items: ${JSON.stringify(words)}`;
+}
+export function parseTranslations(text) {
+  const s = String(text || '');
+  const a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a < 0 || b <= a) return null;
+  let arr;
+  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  if (!Array.isArray(arr)) return null;
+  return arr.map(r => {
+    if (!r || typeof r.k !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(r.k) || typeof r.w !== 'string' || !r.w.trim()) return null;
+    return { k: r.k, ...cleanLangWord({ w: r.w, a: r.a, alts: r.alts }) };
+  }).filter(Boolean).slice(0, 80);
+}
+// {w, a, alts} for a language other than English: trimmed, article only der/die/das
+export function cleanLangWord(v) {
+  const w = String(v && v.w || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  const a = ['der', 'die', 'das'].includes(String(v && v.a || '').toLowerCase()) ? String(v.a).toLowerCase() : '';
+  const alts = (Array.isArray(v && v.alts) ? v.alts : []).filter(x => typeof x === 'string' && x.trim()).slice(0, 4).map(x => x.trim().slice(0, 60));
+  return { w, a, alts };
 }
 
 // Calls a server-only database function (use/refund AI credit) with the Supabase secret key.
@@ -171,7 +240,7 @@ async function withField(res, k, v) {
   return json(body, res.status);
 }
 
-async function scanClaude(env, mime, data64, prompt) {
+async function scanClaude(env, mime, data64, prompt, parse = parseItems) {
   let res;
   try {
     res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -187,7 +256,7 @@ async function scanClaude(env, mime, data64, prompt) {
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mime, data: data64 } },
+            ...(mime ? [{ type: 'image', source: { type: 'base64', media_type: mime, data: data64 } }] : []),
             { type: 'text', text: prompt },
           ],
         }],
@@ -210,7 +279,7 @@ async function scanClaude(env, mime, data64, prompt) {
   const data = await res.json();
   if (data.stop_reason === 'refusal') return error('refused', 422);
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-  const items = parseItems(text);
+  const items = parse(text);
   if (!items) return error('invalid_json', 502);
   return json({ items, provider: 'claude', model: env.CLAUDE_MODEL || DEFAULT_MODEL, usage: data.usage ? { in: data.usage.input_tokens, out: data.usage.output_tokens } : undefined });
 }
@@ -220,13 +289,13 @@ export function geminiModels(env) {
     .map(m => m.trim().replace(/[^a-z0-9.\-]/gi, '')).filter(Boolean).slice(0, 5);
 }
 
-async function scanGemini(env, mime, data64, prompt) {
+async function scanGemini(env, mime, data64, prompt, parse = parseItems) {
   const models = geminiModels(env);
   const now = Date.now();
   const order = [...models.filter(m => !(skipUntil.get(m) > now)), ...models.filter(m => skipUntil.get(m) > now)];
   let last = error('not_configured', 503);
   for (const model of order) {
-    const r = await callGemini(env, model, mime, data64, prompt);
+    const r = await callGemini(env, model, mime, data64, prompt, parse);
     if (r.ok) return json({ items: r.items, provider: 'gemini', model, usage: r.usage });
     last = error(r.code, r.status);
     // Out of quota, model not available to this key, or Google busy: try the next model.
@@ -236,7 +305,7 @@ async function scanGemini(env, mime, data64, prompt) {
   return last;
 }
 
-async function callGemini(env, model, mime, data64, prompt) {
+async function callGemini(env, model, mime, data64, prompt, parse = parseItems) {
   let res;
   try {
     res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -244,7 +313,7 @@ async function callGemini(env, model, mime, data64, prompt) {
       headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [
-          { inline_data: { mime_type: mime, data: data64 } },
+          ...(mime ? [{ inline_data: { mime_type: mime, data: data64 } }] : []),
           { text: prompt },
         ] }],
         generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
@@ -277,7 +346,7 @@ async function callGemini(env, model, mime, data64, prompt) {
   if (!cand) return { code: 'empty_completion', status: 502 };
   if (/SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(cand.finishReason || '')) return { code: 'refused', status: 422 };
   const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
-  const items = parseItems(text);
+  const items = parse(text);
   if (!items) return { code: 'invalid_json', status: 502 };
   const u = data.usageMetadata;
   return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: u.candidatesTokenCount } : undefined };
@@ -381,7 +450,7 @@ async function image(request, env, url) {
   return error('method_not_allowed', 405);
 }
 
-function buildPrompt(count, level, existing, provider) {
+function buildPrompt(count, level, existing, provider, lang) {
   // Gemini is trained on its own box format ("box_2d": [ymin, xmin, ymax, xmax], 0-1000) and is much
   // less accurate with any other order, so it gets that format and parseItems() converts it.
   const gem = provider === 'gemini';
@@ -395,7 +464,10 @@ For each thing give:
 - "word": the usual English name a learner's dictionary would use (British spelling, singular, lowercase), 1-4 words
 - "th": a short Thai meaning (a few words)
 - "alts": up to 3 other acceptable English answers (US spelling, close synonyms), or []
-${gem
+${lang ? `- "${lang}": the usual ${AI_LANGS[lang]} word for it — singular, WITHOUT the article, normal ${AI_LANGS[lang]} spelling and capitalisation
+- "${lang}_art": its definite article: "der", "die" or "das" ("" if not a noun)
+- "${lang}_alts": up to 3 other acceptable ${AI_LANGS[lang]} answers without article, or []
+` : ''}${gem
   ? '- "box_2d": [ymin, xmin, ymax, xmax], a tight 2D bounding box around that thing, normalised to 0-1000'
   : '- "box": [x0, y0, x1, y1], a tight bounding box around that thing, in coordinates normalised to 0-1000, where [0,0] is the top-left corner and [1000,1000] is the bottom-right corner of the image'}
 
@@ -425,12 +497,19 @@ export function parseItems(text) {
         box = [xmin, ymin, xmax, ymax];
       }
       if (!box) return null;
-      return {
+      const out = {
         word: r.word.slice(0, 60),
         th: typeof r.th === 'string' ? r.th.slice(0, 120) : '',
         alts: Array.isArray(r.alts) ? r.alts.filter(x => typeof x === 'string').slice(0, 4) : [],
         box,
       };
+      for (const lg of Object.keys(AI_LANGS)) {
+        if (typeof r[lg] === 'string' && r[lg].trim()) {
+          const v = cleanLangWord({ w: r[lg], a: r[lg + '_art'], alts: r[lg + '_alts'] });
+          if (v.w) out.l = { ...(out.l || {}), [lg]: v };
+        }
+      }
+      return out;
     })
     .filter(Boolean)
     .slice(0, 40);
@@ -511,6 +590,12 @@ export function cleanShareBody(b) {
         if (!it || typeof it.word !== 'string' || !SCENE_ID.test(k)) continue;
         items[k] = { word: cleanStr(it.word, 80), th: cleanStr(it.th, 120), alts: Array.isArray(it.alts) ? it.alts.filter(a => typeof a === 'string').slice(0, 4).map(a => a.slice(0, 60)) : [],
           ...(it.say ? { say: cleanStr(it.say, 80) } : {}), x: num(it.x), y: num(it.y), w: num(it.w), h: num(it.h) };
+        // the same box in other languages (e.g. German with its article)
+        if (it.l && typeof it.l === 'object') for (const lg of Object.keys(AI_LANGS)) {
+          const v = it.l[lg] && cleanLangWord(it.l[lg]);
+          if (v && v.w) items[k].l = { ...(items[k].l || {}), [lg]: v };
+        }
+        if (!items[k].word && !items[k].l) delete items[k];
       }
     }
     const w = Math.round(+sc.w), h = Math.round(+sc.h);
