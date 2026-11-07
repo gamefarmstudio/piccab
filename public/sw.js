@@ -2,6 +2,7 @@
 //  - Pages (the landing page /, the app /app, /privacy, /terms): network first, so updates show up straight away;
 //    the saved copy is used when offline or when the network takes too long.
 //  - Static files (fonts, icons, supabase-js, CSS): served from the cache, refreshed in the background.
+//  - English menus (/i18n/*): network first, like pages, so new words show up straight away.
 //  - /api/* (AI, pictures, account) and other sites (Supabase): never cached — they always go to the network.
 // Scenes, pictures and progress already live in the browser (localStorage / IndexedDB), so
 // practising works offline; sync and AI resume when the connection is back.
@@ -13,6 +14,7 @@ const ASSETS = [
   '/fonts/sarabun-thai-400-normal.woff2', '/fonts/sarabun-thai-600-normal.woff2', '/fonts/sarabun-thai-700-normal.woff2',
   '/fonts/sarabun-latin-400-normal.woff2', '/fonts/sarabun-latin-600-normal.woff2', '/fonts/sarabun-latin-700-normal.woff2',
   '/fonts/fredoka-latin-500-normal.woff2', '/fonts/fredoka-latin-600-normal.woff2',
+  '/i18n/en.js',
 ];
 const NET_TIMEOUT = 4000;
 
@@ -55,6 +57,17 @@ async function pageFirstNetwork(req, key) {
   return net.catch(() => c.match('/app').then(r => r || new Response('ออฟไลน์อยู่ — เปิด Piccab ครั้งแรกต้องต่ออินเทอร์เน็ต', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } })));
 }
 
+async function netFirst(req) {
+  const c = await caches.open(VERSION);
+  try {
+    const res = await Promise.race([fetch(req), new Promise((_, no) => setTimeout(no, NET_TIMEOUT))]);
+    if (res.ok) c.put(req, res.clone());
+    return res;
+  } catch (e) {
+    return (await c.match(req, { ignoreSearch: true })) || Response.error();
+  }
+}
+
 async function assetFromCache(req, e) {
   const c = await caches.open(VERSION);
   const saved = await c.match(req, { ignoreSearch: true });
@@ -72,6 +85,7 @@ self.addEventListener('fetch', e => {
   if (url.pathname === '/sw.js') return;
   const key = pageKey(url);                                   // only the app and the policy pages
   if (key && (req.mode === 'navigate' || req.destination === 'document')) { e.respondWith(pageFirstNetwork(req, key)); return; }
+  if (url.pathname.startsWith('/i18n/')) { e.respondWith(netFirst(req)); return; }
   if (ASSETS.includes(url.pathname) || url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/vendor/')) {
     e.respondWith(assetFromCache(req, e));
   }
