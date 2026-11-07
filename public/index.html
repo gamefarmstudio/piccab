@@ -69,6 +69,9 @@ body.fsside #sub{grid-area:sub;margin:8px 0 0;flex-direction:column;align-items:
 body.fsside #sub .grow{display:none}
 body.fsside #sub>*{max-width:100%}
 body.fsside .chips{display:none}
+.fillbtn{display:none}
+body.fsside.fsnarrow .fillbtn{display:block}
+body.fsside.fsfill.fsnarrow #playView>main{align-self:start;overflow-y:auto;overscroll-behavior:contain;border-radius:18px}
 #scene{display:block;width:100%;height:auto;border-radius:18px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 body.editing #scene{touch-action:none;cursor:crosshair}
 body.drawmode #scene .hs{opacity:.3}
@@ -525,6 +528,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  body.fs:not(.fsside) #sub{order:2;margin-top:8px}
  body.fs:not(.fsside) #modes{order:3;margin-top:8px}
  body.fs:not(.fsside) .fsexit{display:inline-flex}
+ body.fs:not(.fsside) #playView{padding-bottom:calc(max(8px, env(safe-area-inset-bottom)) + 76px)}   /* clear of the phone's own full-screen notice */
  body.fs:not(.fsside) .toast{bottom:auto;top:max(14px,env(safe-area-inset-top))}   /* keep messages off the bottom controls */
  .sub .tip{display:none}
  .sub{gap:6px}
@@ -602,6 +606,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     <button data-mode="learn">👀 ดูคำศัพท์</button>
     <button data-mode="quiz">✍️ ทบทวน (พิมพ์)</button>
     <button data-mode="find">👂 ฟังแล้วหา</button>
+    <button class="fillbtn" id="fillBtn" type="button"></button>
   </nav>
 
   <section class="sub" id="sub"></section>
@@ -3995,11 +4000,26 @@ function fitWrap(){
   const pv=$('#playView'), short=window.innerHeight<560 && window.innerWidth>window.innerHeight;
   if(document.body.classList.contains('fsside')!==short){ document.body.classList.toggle('fsside', short); renderSub(); renderChips(); }
   let availH, availW;
+  const main=pv.querySelector('main');
   if(short){                                                   // landscape phone: picture left, controls in a side column
     const cs=getComputedStyle(pv);
     availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-2;
-    availW=pv.querySelector('main').clientWidth;
+    availW=main.clientWidth;
+    // A tall picture leaves empty sides: offer "fill the width" (scroll up/down) — on by default — or "whole picture".
+    const narrow=availH*r < availW*0.9;
+    document.body.classList.toggle('fsnarrow', narrow);
+    document.body.classList.toggle('fsfill', narrow && fsFill);
+    const fb=$('#fillBtn'); fb.textContent = fsFill ? '🔲 ดูทั้งภาพ' : '↔️ ขยายเต็มจอ';
+    fb.title = fsFill ? 'ย่อให้เห็นทั้งภาพในจอเดียว' : 'ขยายภาพให้เต็มความกว้าง แล้วเลื่อนขึ้นลงดู';
+    if(narrow && fsFill){
+      if(!store.get('pv-fsfill-tip', false)){ store.set('pv-fsfill-tip', true); setTimeout(()=>toast('↕️ เลื่อนขึ้น-ลงเพื่อดูส่วนอื่นของภาพ · กด 🔲 ดูทั้งภาพ เพื่อย่อ', 4000), 600); }
+      main.style.height=availH+'px';
+      wrap.style.maxWidth=availW+'px';
+      return;
+    }
+    main.style.height='';
   } else {
+    main.style.height=''; document.body.classList.remove('fsnarrow','fsfill');
     // Height of everything except the picture (tabs, controls, word chips), measured from the boxes themselves:
     // #playView fills the screen, so its scrollHeight would include the picture's current size and it could never grow.
     const cs=getComputedStyle(pv); let other=0;
@@ -4011,12 +4031,17 @@ function fitWrap(){
     availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-other-6;
     availW=pv.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
   }
-  wrap.style.maxWidth=Math.max(200, Math.min(availW, Math.max(160,availH)*r))+'px';
+  wrap.style.maxWidth=Math.max(120, Math.min(availW, Math.max(160,availH)*r))+'px';
 }
+var fsFill=store.get('pv-fsfill', true);
+$('#fillBtn').addEventListener('click', e=>{
+  e.stopPropagation(); fsFill=!fsFill; store.set('pv-fsfill', fsFill);
+  fitWrap(); requestAnimationFrame(()=>{ relayout(); const m=$('#playView>main'); m.scrollTop=Math.max(0,(m.scrollHeight-m.clientHeight)/2); });
+});
 // In full screen, also draw into the camera-notch strip (otherwise Android leaves a black bar); the padding keeps controls clear of it.
 const vpMeta=document.querySelector('meta[name=viewport]'), vpBase=vpMeta ? vpMeta.content : '';
 function setFsUi(on){
-  document.body.classList.toggle('fs', on); if(!on) document.body.classList.remove('fsside');
+  document.body.classList.toggle('fs', on); if(!on){ document.body.classList.remove('fsside','fsnarrow','fsfill'); $('#playView>main').style.height=''; }
   if(vpMeta) vpMeta.content = on ? vpBase+', viewport-fit=cover' : vpBase;
   const b=$('#fsBtn'); b.innerHTML=on?FS_OUT:FS_IN; b.setAttribute('aria-label', on?'ออกจากเต็มจอ':'เต็มจอ'); b.title=b.getAttribute('aria-label');
   fitWrap(); requestAnimationFrame(()=>{ fitWrap(); relayout(); });
