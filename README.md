@@ -31,6 +31,7 @@ supabase/2026-11-classes.sql เพิ่มตารางห้องเรี
 supabase/2026-11-leaderboard.sql เพิ่มสวิตช์ตารางอันดับในห้องเรียน
 supabase/2026-11-friends.sql ระบบเพื่อน (ไม่มีค้นหา/แชต, นักเรียนเป็นเพื่อนได้เฉพาะเพื่อนร่วมห้อง) — รายงานอยู่ในตาราง friend_reports
 supabase/2026-11-admin.sql  คอลัมน์ติดตามรายงาน (share_id, resolved_at, note) สำหรับหน้า 🛡️ ดูแลระบบ (/admin) — ตั้งตัวแปร ADMIN_EMAILS ใน Cloudflare
+supabase/2026-11-ai-usage.sql  ตัวนับการใช้ AI (ตาราง ai_usage) สำหรับแท็บ ✨ การใช้ AI ในหน้า 🛡️ ดูแลระบบ — นับเฉพาะจำนวนครั้ง รุ่น ผลลัพธ์ และ token ไม่เก็บรูป คำ หรือผู้ใช้ · ยังไม่รันก็ใช้ AI ได้ตามปกติ แค่ไม่ถูกนับ
 public/vendor/qrcode-generator-2.0.4.js  QR (MIT) โหลดเฉพาะตอนเปิดหน้าเพื่อน
 wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
 README.md          ไฟล์นี้
@@ -62,6 +63,7 @@ npx wrangler dev
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-haiku-5-5` (ถูกที่สุด) ถ้ากรอบไม่แม่นเปลี่ยนเป็น `claude-sonnet-5-5` |
 | `SUPABASE_SECRET_KEY` | Secret | แนะนำ | Supabase secret key (`sb_secret_…`) → สมาชิกที่ล็อกอินได้เครดิต AI รายเดือน |
 | `AI_MONTHLY_CREDITS` | Text | – | เครดิต AI ต่อคนต่อเดือน (ค่าเริ่มต้น 30) |
+| `GEMINI_FREE_RPD` | Text | – | โควตาฟรีต่อวันของแต่ละรุ่น สำหรับแถบในแท็บ ✨ การใช้ AI เมื่อ Google เปลี่ยนตัวเลข เช่น `gemini-3.8-flash:20,gemini-3.5-flash-lite:500` (ค่าเริ่มต้นตามที่ Google ประกาศ พ.ย. 2026) |
 | `SCAN_CODE` | Secret | – | รหัสทดสอบ: ใช้ AI ได้โดยไม่ต้องล็อกอิน (ไม่ใช้เครดิต) — ลบออกเพื่อบังคับให้ล็อกอิน |
 | `SEND_EMAIL_HOOK_SECRET` | Secret | ล็อกอิน | secret ของ Supabase Send Email hook (`v1,whsec_…`) → URL `https://piccab.com/api/auth-email` |
 | `RESEND_API_KEY` | Secret | ล็อกอิน | คีย์ Resend (`re_…`) ส่งอีเมลรหัสเข้าสู่ระบบภาษาไทยจาก `no-reply@piccab.com` |

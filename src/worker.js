@@ -165,9 +165,14 @@ async function scan(request, env) {
   // also give the words in the other languages this learner practises (e.g. German), at no extra cost
   const langs = [...new Set([].concat(Array.isArray(body.langs) ? body.langs : [], body.lang || []))].filter(l => AI_LANGS[l]).slice(0, 3);
   // Take one credit now; give it back if the scan doesn't produce a result.
-  return withCredit(env, acc, () => provider === 'gemini'
-    ? scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', langs))
-    : scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', langs)));
+  const log = [];
+  return withCredit(env, acc, async () => {
+    const res = provider === 'gemini'
+      ? await scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', langs), parseItems, log)
+      : await scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', langs), parseItems, log);
+    await saveUsage(env, 'scan', log);
+    return res;
+  });
 }
 
 // Languages the AI can add next to English. German nouns come with their article.
@@ -189,9 +194,76 @@ async function translate(request, env) {
     .filter(w => w.en);
   if (!words.length) return error('bad_request', 400);
   const prompt = buildTranslatePrompt(lang, words);
-  return acc.provider === 'gemini'
-    ? scanGemini(env, null, null, prompt, parseTranslations)
-    : scanClaude(env, null, null, prompt, parseTranslations);
+  const log = [];
+  const res = acc.provider === 'gemini'
+    ? await scanGemini(env, null, null, prompt, parseTranslations, log)
+    : await scanClaude(env, null, null, prompt, parseTranslations, log);
+  await saveUsage(env, 'translate', log);
+  return res;
+}
+
+// ---------- AI usage counter (🛡️ admin → ✨ AI usage) ----------
+// One row per model call in public.ai_usage (supabase/2026-11-ai-usage.sql). No user, picture or words.
+// Never holds up or breaks the answer: without the table (or on any error) nothing is saved.
+async function saveUsage(env, kind, log) {
+  if (!env.SUPABASE_SECRET_KEY || !log || !log.length) return;
+  const rows = log.map(x => ({ kind, provider: x.provider, model: String(x.model).slice(0, 60), outcome: String(x.outcome || 'error').slice(0, 30),
+    ms: Number.isFinite(x.ms) ? Math.round(x.ms) : null, tok_in: Number.isFinite(x.tok_in) ? x.tok_in : null, tok_out: Number.isFinite(x.tok_out) ? x.tok_out : null }));
+  try {
+    await Promise.race([
+      sbRest(env, 'ai_usage', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify(rows) }).then(r => { if (!r.ok) console.log('ai_usage insert', r.status); }),
+      new Promise(r => setTimeout(r, 2000)),
+    ]);
+  } catch (e) { console.log('ai_usage insert failed', String(e)); }
+}
+// Free daily requests per model on the Gemini API (Google's free tier, November 2026; Google changes these).
+// Override with GEMINI_FREE_RPD, e.g. "gemini-3.8-flash:20,gemini-3.5-flash-lite:500".
+const FREE_RPD = { 'gemini-3.8-flash': 20, 'gemini-3.6-flash': 20, 'gemini-3.5-flash-lite': 500, 'gemini-3.1-flash-lite': 500 };
+export function freeRpd(env) {
+  const out = { ...FREE_RPD };
+  for (const part of String(env.GEMINI_FREE_RPD || '').split(',')) {
+    const m = /^\s*([a-z0-9.\-]+)\s*:\s*(\d+)\s*$/i.exec(part); if (m) out[m[1]] = +m[2];
+  }
+  return out;
+}
+// Paid prices per 1M tokens (USD), used only to estimate "what would this have cost on the paid tier".
+const PAID_PRICE = { 'gemini-3.8-flash': [0.75, 3.75], 'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.5-flash-lite': [0.30, 2.50], 'claude-haiku-5-5': [0.10, 0.50] };
+// Midnight in a time zone, as a Date: Thai days for the counts, Pacific days for Google's daily quota.
+export function zoneMidnight(now, timeZone) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    .formatToParts(now).map(x => [x.type, x.value]));
+  const secs = (Number(p.hour) % 24) * 3600 + Number(p.minute) * 60 + Number(p.second);
+  return new Date(Math.floor(now.getTime() / 1000) * 1000 - secs * 1000);
+}
+export async function aiUsageReport(env, now = new Date()) {
+  const rpc = async (fn, args) => {
+    const r = await sbRest(env, `rpc/${fn}`, { method: 'POST', body: JSON.stringify(args || {}) });
+    if (r.status === 404) { const e = new Error('missing'); e.missing = true; throw e; }
+    if (!r.ok) throw new Error(`${fn} ${r.status}`);
+    return r.json().catch(() => null);
+  };
+  const today = zoneMidnight(now, 'Asia/Bangkok');
+  const month = new Date(Date.UTC(new Date(now.getTime() + 7 * 3600e3).getUTCFullYear(), new Date(now.getTime() + 7 * 3600e3).getUTCMonth(), 1) - 7 * 3600e3);
+  const quotaStart = zoneMidnight(now, 'America/Los_Angeles');
+  const since30 = new Date(today.getTime() - 29 * 86400e3);
+  try {
+    const [t, mo, qd, daily] = await Promise.all([
+      rpc('ai_usage_summary', { p_since: today.toISOString() }), rpc('ai_usage_summary', { p_since: month.toISOString() }),
+      rpc('ai_usage_summary', { p_since: quotaStart.toISOString() }), rpc('ai_usage_daily', { p_since: since30.toISOString() }),
+    ]);
+    if (Math.random() < 0.1) rpc('ai_usage_cleanup').catch(() => {});
+    return {
+      provider: pickProvider(env),
+      gemini_models: geminiModels(env), claude_model: env.CLAUDE_MODEL || DEFAULT_MODEL,
+      free_rpd: freeRpd(env), paid_price: PAID_PRICE, monthly_credits: monthlyCredits(env),
+      today: { since: today.toISOString(), rows: t || [] }, month: { since: month.toISOString(), rows: mo || [] },
+      quota_day: { since: quotaStart.toISOString(), resets: new Date(quotaStart.getTime() + 86400e3).toISOString(), rows: qd || [] },
+      daily: daily || [],
+    };
+  } catch (e) {
+    if (e.missing) return { setup: true };
+    throw e;
+  }
 }
 export function buildTranslatePrompt(lang, words) {
   return `You help Thai children and adults learn ${AI_LANGS[lang]} vocabulary from pictures. Each item below is an object in a picture, given by its usual English name ("en") and Thai meaning ("th").
@@ -245,7 +317,13 @@ async function withField(res, k, v) {
   return json(body, res.status);
 }
 
-async function scanClaude(env, mime, data64, prompt, parse = parseItems) {
+async function scanClaude(env, mime, data64, prompt, parse = parseItems, log = null) {
+  const t0 = Date.now(), model = env.CLAUDE_MODEL || DEFAULT_MODEL;
+  const out = await claudeOnce(env, model, mime, data64, prompt, parse);
+  if (log) { const b = await out.clone().json().catch(() => ({})); log.push({ provider: 'claude', model, outcome: out.status === 200 ? 'ok' : (b.error || 'error'), ms: Date.now() - t0, tok_in: b.usage ? b.usage.in : null, tok_out: b.usage ? b.usage.out : null }); }
+  return out;
+}
+async function claudeOnce(env, model, mime, data64, prompt, parse) {
   let res;
   try {
     res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -256,7 +334,7 @@ async function scanClaude(env, mime, data64, prompt, parse = parseItems) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: env.CLAUDE_MODEL || DEFAULT_MODEL,
+        model,
         max_tokens: 4096,
         messages: [{
           role: 'user',
@@ -286,7 +364,7 @@ async function scanClaude(env, mime, data64, prompt, parse = parseItems) {
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
   const items = parse(text);
   if (!items) return error('invalid_json', 502);
-  return json({ items, provider: 'claude', model: env.CLAUDE_MODEL || DEFAULT_MODEL, usage: data.usage ? { in: data.usage.input_tokens, out: data.usage.output_tokens } : undefined });
+  return json({ items, provider: 'claude', model, usage: data.usage ? { in: data.usage.input_tokens, out: data.usage.output_tokens } : undefined });
 }
 
 export function geminiModels(env) {
@@ -294,13 +372,15 @@ export function geminiModels(env) {
     .map(m => m.trim().replace(/[^a-z0-9.\-]/gi, '')).filter(Boolean).slice(0, 5);
 }
 
-async function scanGemini(env, mime, data64, prompt, parse = parseItems) {
+async function scanGemini(env, mime, data64, prompt, parse = parseItems, log = null) {
   const models = geminiModels(env);
   const now = Date.now();
   const order = [...models.filter(m => !(skipUntil.get(m) > now)), ...models.filter(m => skipUntil.get(m) > now)];
   let last = error('not_configured', 503);
   for (const model of order) {
+    const t0 = Date.now();
     const r = await callGemini(env, model, mime, data64, prompt, parse);
+    if (log) log.push({ provider: 'gemini', model, outcome: r.ok ? 'ok' : (r.why || r.code), ms: Date.now() - t0, tok_in: r.usage ? r.usage.in : null, tok_out: r.usage ? r.usage.out : null });
     if (r.ok) return json({ items: r.items, provider: 'gemini', model, usage: r.usage });
     last = error(r.code, r.status);
     // Out of quota, model not available to this key, or Google busy: try the next model.
@@ -335,7 +415,7 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
       // "limit: 0" = no free quota for this model; "per day" = daily quota used up; otherwise per-minute.
       const none = /limit: ?0\b/.test(detail), daily = /per ?day|PerDay/i.test(detail);
       return { code: none ? 'not_configured' : 'rate_limited', status: none ? 503 : 429, next: true,
-               skipMs: none || daily ? 60 * 60 * 1000 : 60 * 1000 };
+               skipMs: none || daily ? 60 * 60 * 1000 : 60 * 1000, why: none ? 'no_quota' : daily ? 'quota_day' : 'quota_minute' };
     }
     if (res.status === 503 || res.status === 500) return { code: 'busy', status: 503, next: true, skipMs: 30 * 1000 };
     if (res.status === 404) return { code: 'not_configured', status: 503, next: true, skipMs: 60 * 60 * 1000 };
@@ -354,7 +434,8 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
   const items = parse(text);
   if (!items) return { code: 'invalid_json', status: 502 };
   const u = data.usageMetadata;
-  return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: u.candidatesTokenCount } : undefined };
+  // thinking tokens are billed as output too
+  return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } : undefined };
 }
 
 // ---------- scene pictures in R2 ----------
@@ -949,6 +1030,7 @@ async function admin(request, env, url) {
   const body = m === 'POST' ? await request.json().catch(() => ({})) : {};
   try {
     if (what === 'me' && m === 'GET') return json({ admin: true });
+    if (what === 'ai-usage' && m === 'GET') return json(await aiUsageReport(env));
     if (what === 'reports' && !id && m === 'GET') {
       const all = url.searchParams.get('all') === '1';
       const reps = await q(env, `friend_reports?select=*&order=created_at.desc&limit=200${all ? '' : '&resolved_at=is.null'}`) || [];
