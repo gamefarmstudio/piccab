@@ -159,6 +159,15 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 .duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .tile{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:#fff;text-align:left;width:100%}
 .tile .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;flex:none}
+.tile.srs{margin-bottom:10px}
+.tile.srs .ic{background:#efeafe}
+.tile.srs.due{margin-top:14px;border:2px solid #b9a3fa;background:linear-gradient(135deg,#f3eeff,#fff 70%);cursor:pointer;box-shadow:0 8px 22px rgba(98,70,190,.14)}
+.tile.srs.due .num{display:inline-block;min-width:1.7em;padding:0 8px;border-radius:999px;background:#6b4fd8;color:#fff;text-align:center}
+.tile.srs.done .ic{background:#e6f6ec}
+.tile.srs .go{margin-left:auto;font-weight:700;color:#6b4fd8;white-space:nowrap}
+.wd-next{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.wd-next.due{color:#6b4fd8;font-weight:600}
+.rv-next{color:var(--muted)}
 .tile b{display:block;font-size:16px}
 .tile small{display:block;color:var(--muted);font-size:13.5px;margin-top:1px}
 .tile.review{background:#efeaf7;border-color:#d9cff2}
@@ -971,13 +980,44 @@ let customs = store.get('pv-scenes2', null) || store.get('pv-scenes', []); if(!A
 let progress = store.get('pv-progress', {}); if(typeof progress!=='object'||!progress) progress={};
 const S = { view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false) };
 let hoverId=null, pinnedId=null, quizId=null, flash=null, flashT=null;
-let help={}, used={};
+let help={}, used={}, qMiss={};
 let find={queue:[],target:null,score:0,total:0,missed:false,showWord:false,lock:false};
 
 const scenes=()=>BUILTIN.concat(customs);
 const scene=()=>scenes().find(s=>s.id===S.sceneId)||BUILTIN[0];
 const items=()=>scene().items;
 const ids=()=>Object.keys(items());
+// ---------- spaced repetition ----------
+// A passed word is due again after 1, 3, 7, 14, 30, 60, 120 days. Typing it right with no help moves it up a step;
+// needing help or a wrong try brings it back a step and asks again tomorrow. Kept inside progress.done (true or {b,d}),
+// so it syncs with what already exists and older versions still see the word as passed.
+const SRS_DAYS=[1,3,7,14,30,60,120];
+const dayNo=(t)=>{ const d=t?new Date(t):new Date(); return Math.floor((d.getTime()-d.getTimezoneOffset()*60000)/86400000); };
+function hashStr(x){ let h=2166136261; for(let i=0;i<x.length;i++){ h^=x.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+// Words passed before this existed: start them at step 1, spread over a few days so nobody gets everything at once.
+function srsOf(scId,id){
+  const p=progress[scId], v=p && p.done && p.done[id];
+  if(!v) return null;
+  if(typeof v==='object' && v.d!=null) return {b:Math.max(1,Math.min(SRS_DAYS.length,v.b|0||1)), d:v.d|0};
+  const base=p.updatedAt ? dayNo(p.updatedAt) : dayNo()-1;
+  return {b:1, d:base+1+hashStr(scId+'|'+id)%4, legacy:true};
+}
+const srsDue=(scId,id)=>{ const r=srsOf(scId,id); return !!r && r.d<=dayNo(); };
+// Called when a word is typed right. clean = no hint/listen/answer and no wrong try.
+function srsAnswer(p, scId, id, clean){
+  const t=dayNo(), cur=srsOf(scId,id);
+  if(!cur){ p.done[id]={b:1, d:t+1}; return; }                         // just learned → see it again tomorrow
+  if(cur.d>t){ if(cur.legacy) p.done[id]={b:cur.b, d:cur.d}; return; }  // not due yet: keep the plan
+  if(clean){ const b=Math.min(cur.b+1, SRS_DAYS.length); p.done[id]={b, d:t+SRS_DAYS[b-1]}; }
+  else p.done[id]={b:Math.max(1,cur.b-1), d:t+1};
+}
+function dueWords(all){ const t=dayNo(); return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.id); return r && r.d<=t; }); }
+function dueOn(day, all){ return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.id); return r && r.d===day; }).length; }
+function nextReviewText(scId,id){
+  const r=srsOf(scId,id); if(!r) return '';
+  const n=r.d-dayNo();
+  return n<=0 ? '🔁 ถึงรอบทบทวน' : n===1 ? 'ทบทวนพรุ่งนี้' : n<7 ? `ทบทวนอีก ${n} วัน` : n<30 ? `ทบทวนอีก ${Math.round(n/7)} สัปดาห์` : `ทบทวนอีก ${Math.round(n/30)} เดือน`;
+}
 function prog(){ const id=scene().id; if(!progress[id]) progress[id]={done:{},star:{}}; return progress[id]; }
 function saveProg(){
   const now=Date.now();
@@ -1219,7 +1259,7 @@ function goHome(view){
 function openScene(id, mode, edit){
   apReset();
   recent[id]=Date.now(); lastMode[id]=mode||'learn'; store.set('pv-recent',recent); store.set('pv-lastmode',lastMode); markActive(0);
-  S.sceneId=id; store.set('pv-scene',id); help={}; used={};
+  S.sceneId=id; store.set('pv-scene',id); help={}; used={}; qMiss={};
   S.view='play'; S.mode=mode||'learn'; S.editing=!!edit; selId=null; S.showAll=false;
   fullRender();
   if(S.mode==='find' && ids().length){ startFind(); renderSub(); }
@@ -1298,6 +1338,26 @@ function sceneCard(sc){
       progBar(n,d)));
 }
 
+function reviewTile(){
+  const all=allWords(), learned=all.filter(w=>w.st!=='todo').length;
+  if(!learned) return el('div',{class:'tile srs idle'},
+    el('span',{class:'ic',text:'🔁'}),
+    el('span',{}, el('b',{text:'ทบทวนตามรอบ'}), el('small',{text:'พิมพ์คำในโหมด ✍️ ทบทวน ให้ผ่าน แล้วคำนั้นจะกลับมาให้ทบทวนในวันที่ใกล้ลืม'})));
+  const due=dueWords(all).length;
+  if(!due){
+    const t=dayNo(); let nd=0, nn=0;
+    for(let k=1;k<=120 && !nn;k++){ nn=dueOn(t+k, all); nd=k; }
+    return el('div',{class:'tile srs done'},
+      el('span',{class:'ic',text:'✅'}),
+      el('span',{}, el('b',{text:'ทบทวนครบสำหรับวันนี้แล้ว'}),
+        el('small',{text: nn ? (nd===1?`พรุ่งนี้มี ${nn} คำ`:`อีก ${nd} วันมี ${nn} คำ`)+` · จำได้แล้ว ${learned} คำ` : `จำได้แล้ว ${learned} คำ`})));
+  }
+  return el('button',{class:'tile srs due',onclick:startDueReview},
+    el('span',{class:'ic',text:'🔁'}),
+    el('span',{}, el('b',{}, 'คำที่ต้องทบทวนวันนี้ ', el('span',{class:'num',text:String(due)}), ' คำ'),
+      el('small',{text: (!days[dkey(new Date())] && streak()>0 ? `ทบทวนวันนี้เพื่อรักษา 🔥 ${streak()} วันติดกัน · ` : 'คำที่ใกล้ลืมแล้ว ทบทวนตอนนี้จะจำได้นานขึ้น · ')+'ครั้งละ 10 คำ'})),
+    el('span',{class:'go',text:'เริ่ม ›'}));
+}
 function renderHome(){
   const h=$('#homeView'); h.innerHTML='';
   const all=scenes();
@@ -1309,6 +1369,7 @@ function renderHome(){
       el('span',{class:'stat'},'📖 วันนี้ฝึก ',el('b',{text:String(today)}),' คำ'),
       el('span',{class:'stat'},'🔥 ',el('b',{text:String(st)}),' วันติดกัน'),
       el('span',{class:'stat'},'★ ',el('b',{text:String(stars)}),' ดาว'))));
+  const rtile=reviewTile(); if(rtile.classList.contains('due')) h.append(rtile);
   if(installAvailable() && !store.get('pv-install-hide',false)){
     h.append(el('div',{class:'tile install'},
       el('span',{class:'ic',text:'📲'}),
@@ -1339,12 +1400,13 @@ function renderHome(){
   const totalLeft=pend.reduce((a,x)=>a+x.left,0), nScenes=pend.length;
   const best=pend.filter(x=>x.started).sort((a,b)=>b.left-a.left)[0]||pend.slice().sort((a,b)=>b.left-a.left)[0];
   h.append(el('div',{class:'hsec'}, el('h3',{text:'วันนี้ทำอะไรดี'})));
+  if(!rtile.classList.contains('due')) h.append(rtile);
   h.append(best
     ? el('button',{class:'tile review',onclick:()=>startReview(allWords())},
         el('span',{class:'ic',text:'✍️'}),
-        el('span',{}, el('b',{text:`ทบทวนวันนี้ · ${totalLeft} คำ`}), el('small',{text:`ที่ยังไม่ผ่าน จาก ${nScenes} ฉาก · ครั้งละ ${Math.min(10,totalLeft)} คำ`})),
+        el('span',{}, el('b',{text:`ฝึกคำใหม่ · ${totalLeft} คำ`}), el('small',{text:`ที่ยังไม่ผ่าน จาก ${nScenes} ฉาก · ครั้งละ ${Math.min(10,totalLeft)} คำ`})),
         el('span',{class:'arrow',text:'→'}))
-    : el('div',{class:'tile review'}, el('span',{class:'ic',text:'🎉'}), el('span',{}, el('b',{text:'ทบทวนครบทุกคำแล้ว'}), el('small',{text:'ลองสร้างฉากใหม่จากรูปรอบตัว'}))));
+    : el('div',{class:'tile review'}, el('span',{class:'ic',text:'🎉'}), el('span',{}, el('b',{text:'ผ่านครบทุกคำแล้ว'}), el('small',{text:'ลองสร้างฉากใหม่จากรูปรอบตัว'}))));
   h.append(el('div',{class:'createrow'},
     el('button',{class:'cbtn',onclick:()=>$('#fileCam').click()},'📷 ถ่ายรูป'),
     el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()},'🖼️ เลือกรูป')));
@@ -1450,7 +1512,7 @@ function allWords(){
   return out;
 }
 const WD={q:'',f:'all',sort:'scene',limit:120,deck:String(store.get('pv-wdeck','')||'')};
-const WD_LABELS={all:'ทั้งหมด',todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
+const WD_LABELS={all:'ทั้งหมด',due:'🔁 ถึงรอบ',todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const WD_ST={todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const sayWord=it=>it.say||it.word;
 // ---------- word decks ("ชุดคำ") ----------
@@ -1486,7 +1548,8 @@ const liveKeys=all=>new Set((all||allWords()).map(w=>wkey(w.sc.id,w.id)));
 const deckCount=(d,keys)=>d.words.filter(k=>keys.has(k)).length;
 function wordsFiltered(all){
   const q=WD.q.trim().toLowerCase();
-  let list=all.filter(w=>WD.f==='all'||w.st===WD.f);
+  const today=dayNo();
+  let list=all.filter(w=>WD.f==='all'||(WD.f==='due' ? (w.st!=='todo' && (srsOf(w.sc.id,w.id)||{d:1e9}).d<=today) : w.st===WD.f));
   if(q) list=list.filter(w=>[w.it.word,w.it.th||''].concat(w.it.alts||[]).some(t=>String(t).toLowerCase().includes(q)));
   const ord={todo:0,done:1,star:2};
   if(WD.sort==='az') list=list.slice().sort((a,b)=>a.it.word.localeCompare(b.it.word,'en',{sensitivity:'base'}));
@@ -1538,7 +1601,7 @@ function updateWords(all){
       el('button',{class:'linkbtn small muted',onclick:()=>ask(`ลบชุดคำ “${deck.name}”? (คำศัพท์ในฉากยังอยู่เหมือนเดิม)`,'ลบชุดคำ').then(ok=>{ if(ok){ deleteDeck(deck); WD.deck=''; store.set('pv-wdeck',''); updateWords(); toast('ลบชุดคำแล้ว'); } })},'🗑 ลบชุด'));
   }
   if(deck){ const ks=new Set(deck.words); all=all.filter(w=>ks.has(wkey(w.sc.id,w.id))); }
-  const cnt={all:all.length,todo:0,done:0,star:0}; all.forEach(w=>cnt[w.st]++);
+  const cnt={all:all.length,todo:0,done:0,star:0,due:dueWords(all).length}; all.forEach(w=>cnt[w.st]++);
   const nSc=new Set(all.map(w=>w.sc.id)).size;
   $('#wdCount').textContent=(deck?deckName(deck)+' · ':'')+`${all.length} คำ จาก ${nSc} ฉาก · ★ จำได้ ${cnt.star} · ✓ ผ่าน ${cnt.done} · ยังไม่ผ่าน ${cnt.todo}`;
   document.querySelectorAll('#wdFilters button').forEach(b=>{ const f=b.dataset.f; b.textContent=WD_LABELS[f]; b.append(el('span',{class:'n',text:String(cnt[f])})); b.classList.toggle('on',f===WD.f); });
@@ -1573,7 +1636,7 @@ function wordCard(w, kept){
       el('b',{text:it.word}),
       it.th ? el('span',{class:'wd-th',text:it.th}) : null),
     el('div',{class:'wd-foot'},
-      el('span',{class:'wd-st',text:WD_ST[st]}),
+      el('span',{class:'wd-st',text:WD_ST[st]}, st!=='todo' ? el('small',{class:'wd-next'+(srsDue(sc.id,id)?' due':''),text:nextReviewText(sc.id,id)}) : null),
       el('button',{class:'wd-go',title:'ดูในฉาก “'+sc.name+'”',onclick:()=>{ openScene(sc.id,'learn'); select(id); }},'📍 ',el('span',{text:sc.name}))));
 }
 function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)); }
@@ -1656,10 +1719,19 @@ function startReview(list){
   markActive(0);
   rvQuestion();
 }
+// Today's spaced-repetition review: the most overdue / least known words first, 10 at a time.
+function startDueReview(){
+  const due=dueWords();
+  if(!due.length){ toast('วันนี้ทบทวนครบแล้ว 🎉'); return; }
+  const pick=due.map(w=>({w, r:srsOf(w.sc.id,w.id)})).sort((a,b)=>a.r.d-b.r.d || a.r.b-b.r.b).slice(0,10).map(x=>x.w);
+  RV={list:shuffle(pick), src:[], i:0, ok:0, star:0, due:true};
+  markActive(0);
+  rvQuestion();
+}
 function rvWord(){ return RV && RV.list[RV.i]; }
 function rvQuestion(){
   const w=rvWord(); if(!w){ rvDone(); return; }
-  RV.lvl=0; RV.used=false; RV.answered=false;
+  RV.lvl=0; RV.used=false; RV.miss=false; RV.answered=false;
   openModal(m=>{
     m.classList.add('rvbox');
     const n=RV.list.length;
@@ -1668,7 +1740,7 @@ function rvQuestion(){
     const form=el('form',{class:'rv-row',autocomplete:'off'}, inp, el('button',{class:'primary',type:'submit',text:'ตรวจ'}));
     form.addEventListener('submit',e=>{ e.preventDefault(); rvCheck(inp.value); });
     m.append(
-      el('div',{class:'rv-top'}, el('h3',{text:'ทบทวนคำศัพท์'}), el('span',{class:'rv-n',text:`${RV.i+1}/${n}`}),
+      el('div',{class:'rv-top'}, el('h3',{text:RV.due?'🔁 ทบทวนตามรอบ':'ทบทวนคำศัพท์'}), el('span',{class:'rv-n',text:`${RV.i+1}/${n}`}),
         el('button',{class:'x',type:'button','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       bar,
       el('div',{class:'rv-pic'}, wordThumb(w.sc,w.it,'rv-thumb',true)),
@@ -1707,13 +1779,14 @@ function rvCheck(v){
     RV.answered=true;
     if(!progress[w.sc.id]) progress[w.sc.id]={done:{},star:{}};
     const p=progress[w.sc.id]; p.done=p.done||{}; p.star=p.star||{};
-    p.done[w.id]=true; if(!RV.used) p.star[w.id]=true; saveProg(); markActive(1);
+    srsAnswer(p, w.sc.id, w.id, !RV.used && !RV.miss); if(!RV.used) p.star[w.id]=true; saveProg(); markActive(1);
     RV.ok++; if(!RV.used) RV.star++;
     rvMsg('ok',(RV.used?'ถูกต้อง! ✓ ':'ถูกต้อง! เก่งมาก ★ ')+w.it.word);
     speak(sayWord(w.it));
     const at=RV.i, run=RV; setTimeout(()=>{ if(RV===run && RV.i===at) rvNext(); }, 1300);
     return;
   }
+  RV.miss=true;
   const d=lev(norm(v), norm(w.it.word));
   rvMsg('bad', d<=2 && norm(w.it.word).length>3 ? 'เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด' : 'ยังไม่ใช่ ลองอีกครั้ง หรือกด 💡 คำใบ้');
   const box=$('#mbox'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
@@ -1721,6 +1794,22 @@ function rvCheck(v){
 function rvNext(){ if(!RV) return; RV.i++; rvQuestion(); }
 function rvDone(){
   const r=RV, n=r.list.length;
+  if(r.due){
+    const left=dueWords().length, tmr=dueOn(dayNo()+1);
+    openModal(m=>{
+      m.classList.add('rvbox');
+      m.append(el('div',{class:'rv-end'},
+        el('div',{class:'big',text: left ? (r.ok===n?'🎉':'👍') : '🏆'}),
+        el('h3',{text: left ? 'ทบทวนชุดนี้เสร็จแล้ว' : 'ทบทวนครบสำหรับวันนี้แล้ว!'}),
+        el('p',{text:`ตอบถูก ${r.ok}/${n} คำ`+(r.star?` · ★ ${r.star} คำไม่ใช้ตัวช่วย`:'')}),
+        el('p',{class:'rv-next',text: left ? `ยังเหลือคำที่ถึงรอบวันนี้อีก ${left} คำ` : (tmr ? `พรุ่งนี้มีคำให้ทบทวน ${tmr} คำ — มาต่อ 🔥 กันนะ` : 'คำที่ตอบถูกจะกลับมาให้ทบทวนในอีกไม่กี่วัน')}),
+        el('div',{class:'row'},
+          el('button',{text:'ปิด',onclick:closeModal}),
+          left ? el('button',{class:'primary',text:`🔁 ทบทวนต่อ (${Math.min(10,left)} คำ)`,onclick:startDueReview}) : null)));
+    });
+    modalClose=()=>{ RV=null; if(S.view==='words') updateWords(); else if(S.view==='home') renderHome(); };
+    return;
+  }
   openModal(m=>{
     m.classList.add('rvbox');
     m.append(el('div',{class:'rv-end'},
@@ -2151,13 +2240,14 @@ $('#qform').addEventListener('submit', e=>{
   const v=$('#qin').value; if(!v.trim()) return;
   const it=items()[id];
   if(matches(v,it)){
-    const p=prog(); p.done[id]=true; if(!used[id]) p.star[id]=true; saveProg(); markActive(1);
+    const p=prog(); srsAnswer(p, scene().id, id, !used[id] && !qMiss[id]); if(!used[id]) p.star[id]=true; saveProg(); markActive(1);
     setMsg('ok', (used[id]?'ถูกต้อง! ✓ ':'ถูกต้อง! เก่งมาก ★ ')+it.word);
     speak(sayOf(id));
     updateOverlay(); renderSub();
     setTimeout(()=>{ if(quizId===id){ closeQuiz(); } const pp=prog(); if(ids().every(i=>pp.done[i])) toast('🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!'); }, 1100);
     return;
   }
+  qMiss[id]=true;
   const other=ids().find(o=>o!==id && matches(v,items()[o]));
   const d=lev(norm(v), norm(it.word));
   if(other) setMsg('bad','คำนี้มีในภาพ แต่เป็นของอีกชิ้นนะ ลองดูใหม่');
