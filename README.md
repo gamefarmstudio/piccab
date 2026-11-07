@@ -7,7 +7,7 @@
 
 ## สถานะ
 
-ต้นแบบที่ใช้งานได้ (prototype) — หน้าแอปอยู่ใน `public/index.html` ไฟล์เดียว ไม่ต้อง build
+ต้นแบบที่ใช้งานได้ (prototype) — หน้าแอปอยู่ใน `public/app.html` ไฟล์เดียว (เปิดที่ `/app`) ส่วน `/` เป็นหน้าแนะนำ (landing page) ไม่ต้อง build
 มี Cloudflare Worker เล็กๆ (`src/worker.js`) เป็นหลังบ้านสำหรับ AI หาคำศัพท์
 
 ## โครงสร้าง
@@ -17,7 +17,9 @@ public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้
 public/fonts/      ฟอนต์ Sarabun + Fredoka (OFL) เก็บในเว็บเอง ไม่โหลดจาก Google Fonts
 public/sw.js       service worker: เปิดแอปได้แม้ออฟไลน์ (หน้าเว็บ network-first, ไฟล์ static จาก cache, ไม่ cache /api/*) — แก้รายการไฟล์แล้วเปลี่ยน VERSION
 public/privacy.html, public/terms.html, public/legal.css  นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน (/privacy, /terms)
-public/index.html  แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG
+public/index.html  หน้าแนะนำ (landing page) ที่ piccab.com/ — คนที่เคยเปิดแอปแล้วจะถูกพาไป /app อัตโนมัติ (ดูหน้าแนะนำได้ที่ /?home)
+public/app.html    แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG — เปิดที่ /app
+public/landing/    รูปหน้าจอแอปที่ใช้ในหน้าแนะนำ
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
                      GET  /api/health  → { ai, needCode }
                      POST /api/scan    → ส่งรูปให้ Gemini หรือ Claude แล้วคืนรายการคำศัพท์ + กรอบ
@@ -42,7 +44,7 @@ npx wrangler dev
 ```
 
 ถ้าจะทดสอบ AI บนเครื่อง ให้สร้างไฟล์ `.dev.vars` (อยู่ใน .gitignore แล้ว) ใส่ `ANTHROPIC_API_KEY=...`
-หรือเปิด `public/index.html` ตรงๆ ในเบราว์เซอร์ก็ได้ (ปุ่ม AI จะซ่อน)
+หรือเปิด `public/app.html` ตรงๆ ในเบราว์เซอร์ก็ได้ (ปุ่ม AI จะซ่อน)
 
 ## การนำขึ้นเว็บ (Cloudflare Workers)
 
@@ -79,7 +81,7 @@ npx wrangler dev
 
 ## Supabase (บัญชีผู้ใช้)
 
-- โปรเจกต์: `piccab` (Singapore) — URL และ publishable key อยู่ใน `public/index.html` (ใช้ในเบราว์เซอร์ได้ ข้อมูลป้องกันด้วย RLS)
+- โปรเจกต์: `piccab` (Singapore) — URL และ publishable key อยู่ใน `public/app.html` (ใช้ในเบราว์เซอร์ได้ ข้อมูลป้องกันด้วย RLS)
 - ล็อกอินด้วยอีเมล + รหัสครั้งเดียว (OTP) — ต้องใส่ `{{ .Token }}` ในเทมเพลตอีเมล Magic Link / Confirm signup
 - Authentication → URL Configuration: Site URL `https://piccab.com`, Redirect URLs `https://piccab.com/**` และ `https://*-piccab.itthanun-s.workers.dev/**`
 - Sync: ฉาก + ความคืบหน้าเก็บใน Supabase (ใหม่กว่าชนะ), รูปเก็บใน **Cloudflare R2** bucket `piccab-images` (binding `IMAGES`)

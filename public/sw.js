@@ -1,12 +1,12 @@
 // Piccab service worker: lets the app open and run without a connection.
-//  - Pages (the app, /privacy, /terms): network first, so updates show up straight away;
+//  - Pages (the landing page /, the app /app, /privacy, /terms): network first, so updates show up straight away;
 //    the saved copy is used when offline or when the network takes too long.
 //  - Static files (fonts, icons, supabase-js, CSS): served from the cache, refreshed in the background.
 //  - /api/* (AI, pictures, account) and other sites (Supabase): never cached — they always go to the network.
 // Scenes, pictures and progress already live in the browser (localStorage / IndexedDB), so
 // practising works offline; sync and AI resume when the connection is back.
 const VERSION = 'piccab-v1';
-const PAGES = ['/', '/privacy', '/terms'];
+const PAGES = ['/', '/app', '/privacy', '/terms'];
 const ASSETS = [
   '/vendor/supabase-2.119.0.js', '/fonts/fonts.css', '/legal.css', '/manifest.webmanifest',
   '/favicon.svg', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -52,7 +52,7 @@ async function pageFirstNetwork(req, key) {
   } catch (e) { /* offline */ }
   const saved = await c.match(key);
   if (saved) return saved;
-  return net.catch(() => c.match('/').then(r => r || new Response('ออฟไลน์อยู่ — เปิด Piccab ครั้งแรกต้องต่ออินเทอร์เน็ต', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } })));
+  return net.catch(() => c.match('/app').then(r => r || new Response('ออฟไลน์อยู่ — เปิด Piccab ครั้งแรกต้องต่ออินเทอร์เน็ต', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } })));
 }
 
 async function assetFromCache(req, e) {
