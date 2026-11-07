@@ -283,6 +283,8 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
 }
 .streakpill{font-weight:600;white-space:nowrap}
 .langpill{font-weight:600;white-space:nowrap;cursor:pointer}
+.busyline{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
 .langpill:hover{background:var(--lav,#efeaf7)}
 .art{font-weight:700}
 .art-der{color:#1d5fd1}.art-die{color:#d02c4f}.art-das{color:#15803d}
@@ -1480,6 +1482,7 @@ function reviewTile(){
     el('span',{class:'go',text:'เริ่ม ›'}));
 }
 function renderHome(){
+  if(S.lang!=='en') setTimeout(()=>translateAll(S.lang), 300);
   const h=$('#homeView'); h.innerHTML='';
   const all=scenes();
   const stars=Object.values(progress).reduce((a,p)=>a+Object.keys((p&&p.star)||{}).length,0);
@@ -2035,15 +2038,19 @@ function refresh(){
   renderSub(); renderChips(); if(isFs()) fitWrap(); setHL(); updateTag(); updateOverlay();
   if(quizId) positionQ();
 }
+let practised=store.get('pv-langs',[]); if(!Array.isArray(practised)) practised=[];
+practised=practised.filter(l=>l!=='en' && langOk(l)); if(S.lang!=='en' && !practised.includes(S.lang)){ practised.push(S.lang); store.set('pv-langs',practised); }
 function langPills(){ const q=$('#qin'); if(q) q.placeholder=`พิมพ์เป็นภาษา${LANGS[S.lang].name}…`; document.querySelectorAll('.langpill').forEach(b=>{ const L=LANGS[S.lang]; b.textContent=L.flag+' '+L.name; b.setAttribute('aria-label','ภาษาที่ฝึก: '+L.name+' — เปลี่ยน'); }); }
 function setLang(l){
   if(!langOk(l) || l===S.lang) return;
   apReset(); closeQuiz(true); try{ speechSynthesis.cancel(); }catch(e){}
   S.lang=l; store.set('pv-lang',l); fillAccent(); langPills();
+  if(l!=='en' && !practised.includes(l)){ practised.push(l); store.set('pv-langs',practised); }
   help={}; used={}; qMiss={}; selId=null;
   if(S.view==='play'){ fullRender(); if(S.mode==='find' && ids().length) startFind(); }
   else { refresh(); renderGallery(); }
   toast(`${LANGS[l].flag} ตอนนี้ฝึกภาษา${LANGS[l].name} — ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา`, 3500);
+  if(l!=='en') translateAll(l);
 }
 function openLangPicker(){
   openModal(m=>{
@@ -2061,7 +2068,8 @@ function openLangPicker(){
 }
 document.querySelectorAll('.langpill').forEach(b=>b.addEventListener('click',openLangPicker));
 langPills();
-function fullRender(){ closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); if(S.mode==='find' && find.target && !items()[find.target]) find={...find,queue:[],target:null,total:0,score:0}; renderSelect(); refresh(); }
+function fullRender(){
+  if(S.view==='play' && S.lang!=='en' && !S.editing){ const sc=scene(); if(missingIn(sc,S.lang).length) setTimeout(()=>autoTranslate(sc,S.lang),0); } closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); if(S.mode==='find' && find.target && !items()[find.target]) find={...find,queue:[],target:null,total:0,score:0}; renderSelect(); refresh(); }
 
 function setHL(){
   // Only ONE item is highlighted at a time: the one under the pointer, otherwise the clicked/open one.
@@ -2197,10 +2205,15 @@ function renderSub(){
   if(!n){
     const sc=scene(), boxes=Object.keys(sc.items||{}).length;
     if(S.lang!=='en' && boxes){
-      const L=LANGS[S.lang];
-      put(el('span',{class:'hint',text:`ฉากนี้ยังไม่มีคำภาษา${L.name} (${boxes} กรอบมีคำภาษาอังกฤษแล้ว)`}),
-        (!sc.builtin && aiReady) ? el('button',{class:'ai',text:`✨ แปลเป็นภาษา${L.name}ด้วย AI`,onclick:()=>translateScene(sc,S.lang)}) : null,
-        !sc.builtin ? el('button',{text:'✏️ ใส่คำเอง',onclick:()=>{ S.editing=true; selId=null; renderScene(); refresh(); }}) : null,
+      const L=LANGS[S.lang], st=autoLangState(sc);
+      if(translating(sc)){ put(el('span',{class:'hint busyline',text:`✨ กำลังเตรียมคำภาษา${L.name}ให้ฉากนี้… (ไม่ใช้เครดิต)`})); return; }
+      const failed=TLfail[sc.id+'@'+S.lang];
+      put(el('span',{class:'hint',text: st==='student' ? `ฉากนี้ยังไม่มีคำภาษา${L.name} — ขอให้ครูเปิดฉากนี้ในโหมดภาษา${L.name} แล้วระบบจะเตรียมคำให้` :
+                                         st==='login' ? `ฉากนี้ยังไม่มีคำภาษา${L.name} — เข้าสู่ระบบ แล้วแอปจะเตรียมคำให้อัตโนมัติ (ไม่ใช้เครดิต) หรือพิมพ์เอง` :
+                                         failed ? `เตรียมคำภาษา${L.name}ไม่สำเร็จ` : `ฉากนี้ยังไม่มีคำภาษา${L.name}`}),
+        st==='login' ? el('button',{class:'primary',text:'เข้าสู่ระบบ',onclick:()=>openLogin()}) : null,
+        (st==='ok' && failed) ? el('button',{class:'ai',text:'✨ ลองอีกครั้ง',onclick:()=>translateScene(sc,S.lang)}) : null,
+        (!sc.builtin && st!=='student') ? el('button',{text:'✏️ ใส่คำเอง',onclick:()=>{ S.editing=true; selId=null; renderScene(); refresh(); }}) : null,
         el('button',{text:'🇬🇧 ฝึกภาษาอังกฤษแทน',onclick:()=>setLang('en')}));
       return;
     }
@@ -2745,7 +2758,7 @@ async function runAI({count=20, level='mid', replace=true}={}){
     try{
       r=await fetch('/api/scan',{method:'POST', signal:aiCtl.signal,
         headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})},
-        body:JSON.stringify({image:sc.img, count, level, existing, ...(S.lang!=='en'?{lang:S.lang}:{})})});
+        body:JSON.stringify({image:sc.img, count, level, existing, langs:practised})});
     }catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
     const data=await r.json().catch(()=>({}));
     if(typeof data.credits_left==='number') aiLeft=data.credits_left;
@@ -2788,40 +2801,68 @@ async function runAI({count=20, level='mid', replace=true}={}){
   }
 }
 
-// ✨ Add a language to a scene that has English words: one AI credit, no picture sent.
-async function translateScene(sc, lang){
-  if(!aiReady){ toast('ตอนนี้ใช้ AI ไม่ได้ — ใส่คำเองได้ด้วย ✏️'); return; }
-  if(aiCtl) return;
-  if(navigator.onLine===false){ toast('ต้องต่ออินเทอร์เน็ตก่อนใช้ AI', 4000); return; }
-  const tok=(aiCredits && user) ? await accessToken() : null;
-  const code=tok ? '' : store.get('pv-ai-code','');
-  if(aiCredits && !tok && !code){ openLogin(); toast('เข้าสู่ระบบเพื่อใช้ AI', 4000); return; }
-  if(tok && aiLeft===0){ toast(`เครดิต AI เดือนนี้หมดแล้ว — ใส่คำเองได้ด้วย ✏️`, 5000); return; }
-  const words=Object.entries(sc.items).filter(([k,it])=>it && it.word && !(it.l && it.l[lang] && it.l[lang].w)).map(([k,it])=>({k, en:it.word, th:it.th||''}));
-  if(!words.length){ toast('ทุกคำมีภาษานี้แล้ว'); return; }
-  aiCtl=new AbortController(); showBusy(true);
-  try{
-    let r;
-    try{ r=await fetch('/api/translate',{method:'POST', signal:aiCtl.signal, headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})}, body:JSON.stringify({lang, words})}); }
-    catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
-    const data=await r.json().catch(()=>({}));
-    if(typeof data.credits_left==='number') aiLeft=data.credits_left;
-    if(!r.ok) throw {code:data.error||'error'};
-    let n=0;
-    for(const t of (Array.isArray(data.items)?data.items:[])){
-      const it=sc.items[t.k]; const lw=cleanLang({[lang]:t}); if(!it || !lw) continue;
-      it.l={...(it.l||{}), ...lw}; n++;
-    }
-    saveScenes();
-    if(scene()===sc){ renderScene(); refresh(); }
-    toast(n ? `✨ แปลเป็นภาษา${LANGS[lang].name}แล้ว ${n} คำ — ตรวจดูได้ด้วย ✏️ แก้ไขฉาก`+(typeof data.credits_left==='number'?` · เครดิต AI เหลือ ${data.credits_left}`:'') : 'AI แปลไม่สำเร็จ ลองใหม่อีกครั้ง', 5000);
-  }catch(e){
-    const c=e && e.code;
-    if(c==='login_required'){ openLogin(); toast('เข้าสู่ระบบเพื่อใช้ AI', 4000); }
-    else if(c==='no_credits'){ aiLeft=0; toast('เครดิต AI เดือนนี้หมดแล้ว — ใส่คำเองได้ด้วย ✏️', 5000); }
-    else if(c!=='cancelled') toast(aiErr(c), 5000);
-  }finally{ aiCtl=null; showBusy(false); }
+// ---------- words in another language, prepared by the app itself ----------
+// A scene that has English words but none (or only some) in the language being practised is translated in the
+// background: words only, no picture, no AI credit. Runs when you switch language, open such a scene, or add
+// English words while also practising another language. Students and signed-out users type them (or ask the teacher).
+const TL={}, TLfail={};
+const missingIn=(sc,lang)=>Object.entries((sc&&sc.items)||{}).filter(([k,it])=>it && it.word && !(it.l && it.l[lang] && it.l[lang].w));
+function autoLangState(sc){
+  if(!sc || sc.builtin) return 'no';
+  if(!aiReady) return 'noai';
+  if(isStudent()) return 'student';
+  const code=store.get('pv-ai-code','');
+  if(aiCredits) return (user || code) ? 'ok' : 'login';
+  if(aiNeedCode) return code ? 'ok' : 'login';
+  return 'ok';
 }
+const translating=(sc,lang)=>!!(sc && TL[sc.id+'@'+(lang||S.lang)]);
+function autoTranslate(sc, lang){
+  const key=sc.id+'@'+lang;
+  if(TL[key]) return TL[key];
+  if(TLfail[key] && Date.now()-TLfail[key]<10*60e3) return Promise.resolve(-1);
+  const miss=missingIn(sc,lang);
+  if(!miss.length || autoLangState(sc)!=='ok' || navigator.onLine===false) return Promise.resolve(0);
+  TL[key]=(async()=>{
+    let n=0;
+    try{
+      const tok=(aiCredits && user) ? await accessToken() : null, code=tok ? '' : store.get('pv-ai-code','');
+      for(let i=0;i<miss.length;i+=80){
+        const words=miss.slice(i,i+80).map(([k,it])=>({k, en:it.word, th:it.th||''}));
+        const r=await fetch('/api/translate',{method:'POST', headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})}, body:JSON.stringify({lang, words})});
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(data.error||'error');
+        for(const t of (Array.isArray(data.items)?data.items:[])){
+          const it=sc.items[t.k], lw=cleanLang({[lang]:t});
+          if(!it || !lw || (it.l && it.l[lang] && it.l[lang].w)) continue;    // never overwrite a word someone typed
+          it.l={...(it.l||{}), ...lw}; n++;
+        }
+      }
+      if(n) saveScenes();
+      delete TLfail[key];
+    }catch(e){ console.warn('translate', e); TLfail[key]=Date.now(); n=n||-1; }
+    finally{
+      delete TL[key];
+      if(S.view==='play' && scene()===sc && S.lang===lang){ renderScene(); refresh(); if(S.mode==='find' && ids().length && !(find && find.target)) startFind(); }
+      else if(S.view!=='play') renderGallery();
+    }
+    return n;
+  })();
+  if(S.view==='play' && scene()===sc) refresh();       // shows "กำลังเตรียมคำ…"
+  return TL[key];
+}
+// all your own scenes, one after another (after switching language, or on the home page)
+let tlAllRun=null;
+function translateAll(lang){
+  if(tlAllRun) return tlAllRun;
+  const list=scenes().filter(sc=>!sc.builtin && missingIn(sc,lang).length);
+  if(!list.length || autoLangState(list[0])!=='ok') return Promise.resolve(0);
+  tlAllRun=(async()=>{ let done=0; for(const sc of list){ const n=await autoTranslate(sc,lang); if(n>0) done++; } return done; })()
+    .then(done=>{ tlAllRun=null; if(done) toast(`✨ เตรียมคำภาษา${LANGS[lang].name}ให้ ${done} ฉากแล้ว`, 3500); return done; });
+  return tlAllRun;
+}
+// kept for the manual "try again" button
+function translateScene(sc, lang){ delete TLfail[sc.id+'@'+lang]; return autoTranslate(sc, lang).then(n=>{ if(n<0) toast('แปลไม่สำเร็จ ลองใหม่อีกครั้ง หรือใส่คำเองด้วย ✏️', 4000); }); }
 function openItemForm(id, rect, draftEl){
   if(S.lang!=='en') return openItemFormLang(id, rect, draftEl, S.lang);
   const sc=scene(); if(sc.builtin) return;
@@ -2838,6 +2879,7 @@ function openItemForm(id, rect, draftEl){
       if(it){ it.word=word; it.th=th.value.trim(); it.alts=alts; }
       else{ const nid='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); sc.items[nid]=Object.assign({word, th:th.value.trim(), alts}, rect); selId=nid; }
       saveScenes(); closeModal(); renderScene(); refresh();
+      practised.forEach(l=>setTimeout(()=>autoTranslate(sc,l), 400));
     };
     [w,th,al].forEach(i=>i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } }));
     m.append(

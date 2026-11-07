@@ -160,16 +160,19 @@ async function scan(request, env) {
     .filter(Boolean)
     .slice(0, 80);
 
-  const lang = AI_LANGS[body.lang] ? body.lang : null;   // also give the words in this language (e.g. German)
+  // also give the words in the other languages this learner practises (e.g. German), at no extra cost
+  const langs = [...new Set([].concat(Array.isArray(body.langs) ? body.langs : [], body.lang || []))].filter(l => AI_LANGS[l]).slice(0, 3);
   // Take one credit now; give it back if the scan doesn't produce a result.
   return withCredit(env, acc, () => provider === 'gemini'
-    ? scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', lang))
-    : scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', lang)));
+    ? scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', langs))
+    : scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', langs)));
 }
 
 // Languages the AI can add next to English. German nouns come with their article.
 const AI_LANGS = { de: 'German' };
-// POST /api/translate {lang, words:[{k, en, th}]} -> {items:[{k, w, a, alts}]}  (one AI credit per call)
+// POST /api/translate {lang, words:[{k, en, th}]} -> {items:[{k, w, a, alts}]}
+// Words only (no picture) and small, so it uses no AI credit: the app calls it by itself when a scene lacks a language.
+// Same gate as scans (signed in, or the access code; students can't) and the same per-IP rate limit.
 async function translate(request, env) {
   const acc = await aiAccess(request, env);
   if (acc instanceof Response) return acc;
@@ -184,9 +187,9 @@ async function translate(request, env) {
     .filter(w => w.en);
   if (!words.length) return error('bad_request', 400);
   const prompt = buildTranslatePrompt(lang, words);
-  return withCredit(env, acc, () => acc.provider === 'gemini'
+  return acc.provider === 'gemini'
     ? scanGemini(env, null, null, prompt, parseTranslations)
-    : scanClaude(env, null, null, prompt, parseTranslations));
+    : scanClaude(env, null, null, prompt, parseTranslations);
 }
 export function buildTranslatePrompt(lang, words) {
   return `You help Thai children and adults learn ${AI_LANGS[lang]} vocabulary from pictures. Each item below is an object in a picture, given by its usual English name ("en") and Thai meaning ("th").
@@ -450,7 +453,8 @@ async function image(request, env, url) {
   return error('method_not_allowed', 405);
 }
 
-function buildPrompt(count, level, existing, provider, lang) {
+function buildPrompt(count, level, existing, provider, langs) {
+  langs = [].concat(langs || []).filter(l => AI_LANGS[l]);
   // Gemini is trained on its own box format ("box_2d": [ymin, xmin, ymax, xmax], 0-1000) and is much
   // less accurate with any other order, so it gets that format and parseItems() converts it.
   const gem = provider === 'gemini';
@@ -464,10 +468,10 @@ For each thing give:
 - "word": the usual English name a learner's dictionary would use (British spelling, singular, lowercase), 1-4 words
 - "th": a short Thai meaning (a few words)
 - "alts": up to 3 other acceptable English answers (US spelling, close synonyms), or []
-${lang ? `- "${lang}": the usual ${AI_LANGS[lang]} word for it — singular, WITHOUT the article, normal ${AI_LANGS[lang]} spelling and capitalisation
+${langs.map(lang => `- "${lang}": the usual ${AI_LANGS[lang]} word for it — singular, WITHOUT the article, normal ${AI_LANGS[lang]} spelling and capitalisation
 - "${lang}_art": its definite article: "der", "die" or "das" ("" if not a noun)
 - "${lang}_alts": up to 3 other acceptable ${AI_LANGS[lang]} answers without article, or []
-` : ''}${gem
+`).join('')}${gem
   ? '- "box_2d": [ymin, xmin, ymax, xmax], a tight 2D bounding box around that thing, normalised to 0-1000'
   : '- "box": [x0, y0, x1, y1], a tight bounding box around that thing, in coordinates normalised to 0-1000, where [0,0] is the top-left corner and [1000,1000] is the bottom-right corner of the image'}
 
