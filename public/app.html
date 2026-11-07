@@ -282,6 +282,19 @@ body.show-boxes .hs .box{stroke:rgba(255,255,255,.95);stroke-dasharray:5 4}
  .mainnav button{padding:7px 10px;font-size:14px}
 }
 .streakpill{font-weight:600;white-space:nowrap}
+.langpill{font-weight:600;white-space:nowrap;cursor:pointer}
+.langpill:hover{background:var(--lav,#efeaf7)}
+.art{font-weight:700}
+.art-der{color:#1d5fd1}.art-die{color:#d02c4f}.art-das{color:#15803d}
+.langlist{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px}
+.langopt{display:flex;align-items:center;gap:12px;text-align:left;padding:12px 14px;border-radius:14px}
+.langopt .fl{font-size:28px;line-height:1}
+.langopt b{display:block}.langopt small{display:block;color:var(--muted)}
+.langopt.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.langopt .ok{margin-left:auto;font-weight:700}
+.artrow{display:flex;align-items:center;gap:10px;margin:2px 0 10px;flex-wrap:wrap}
+.artrow .lbl{font-size:14px;color:var(--muted)}
+.artseg button{font-weight:700}.artseg button.on.art-der{background:#1d5fd1;color:#fff}.artseg button.on.art-die{background:#d02c4f;color:#fff}.artseg button.on.art-das{background:#15803d;color:#fff}
 .acct{border-radius:999px;padding:6px 12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .acct .av{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:inline-grid;place-items:center;font-size:13px;font-weight:700;text-transform:uppercase}
 .acct.in{padding:4px 10px 4px 4px}
@@ -580,6 +593,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     <div class="scenebar" id="playBar">
       <button id="homeBtn">🗂 ฉากทั้งหมด</button>
       <span class="curname" id="curName"></span>
+      <button class="stat langpill" type="button" title="ภาษาที่ฝึก"></button>
       <button id="renameBtn" class="ghost" hidden>📝 เปลี่ยนชื่อ</button>
       <button id="editBtn" hidden>✏️ แก้ไขฉาก</button>
     </div>
@@ -590,6 +604,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
         <button data-view="words">🔖 คำของฉัน</button>
         <button data-view="class">🎓 ห้องเรียน</button>
       </div>
+      <button class="stat langpill" type="button" title="ภาษาที่ฝึก"></button>
       <span class="stat streakpill" id="streakPill" title="วันที่ฝึกติดกัน">🔥 0</span>
       <button class="acct" id="acctBtn" type="button" hidden>👤 เข้าสู่ระบบ</button>
     </div>
@@ -948,6 +963,27 @@ const TEA_ITEMS = {
   'table-bell':        {word:'table bell', th:'กระดิ่งตั้งโต๊ะ', alts:['bell','tea bell'], at:[905,584], x:865, y:498, w:80, h:125},
   'vase':              {word:'vase', th:'แจกัน', alts:['flower vase'], at:[904,410], x:854, y:269, w:91, h:177}
 };
+// The sample scene in German (der/die/das + word; alts = other accepted answers).
+const TEA_DE = {
+  'cake-stand':['die','Etagere',['Kuchenetagere','Tortenständer']], 'macaron':['das','Macaron',[]], 'sponge-cake':['der','Biskuitkuchen',['Biskuit','Rührkuchen']],
+  'shortbread':['das','Shortbread',['Mürbegebäck','Butterkeks']], 'lemon-drizzle-cake':['der','Zitronenkuchen',[]], 'cocktail-umbrella':['der','Cocktailschirm',['Cocktailschirmchen','Schirmchen']],
+  'fruit-scone':['der','Rosinenscone',['Scone']], 'scone':['der','Scone',[]], 'jam':['die','Marmelade',['Konfitüre']], 'clotted-cream':['die','Clotted Cream',['Sahne','Rahm']],
+  'savoury-croissant':['das','Croissant',['Schinkencroissant','Käsecroissant']], 'wholemeal-roll':['das','Vollkornbrötchen',['Brötchen']], 'tea-sandwich':['das','Sandwich',['Teesandwich']],
+  'teapot':['die','Teekanne',['Kanne']], 'tea-cosy':['die','Teehaube',['Teewärmer']], 'sugar-bowl':['die','Zuckerdose',[]], 'milk-jug':['das','Milchkännchen',['Milchkanne','Kännchen']],
+  'teacup':['die','Teetasse',['Tasse']], 'saucer':['die','Untertasse',[]], 'teaspoon':['der','Teelöffel',['Löffel']], 'side-plate':['der','Kuchenteller',['Teller','Dessertteller']],
+  'napkin':['die','Serviette',[]], 'table-bell':['die','Tischglocke',['Glocke','Klingel']], 'vase':['die','Vase',[]],
+};
+for(const [k,[a,w,alts]] of Object.entries(TEA_DE)) if(TEA_ITEMS[k]) TEA_ITEMS[k].l={ de:{a, w, alts} };
+// a word in another language as stored: {w, a, alts}; null when empty
+function cleanLang(l){
+  if(!l || typeof l!=='object') return null; const o={};
+  for(const lg of Object.keys(LANGS)){ if(lg==='en' || !l[lg] || typeof l[lg]!=='object') continue;
+    const w=String(l[lg].w||'').trim().replace(/\s+/g,' ').slice(0,60); if(!w) continue;
+    const a=['der','die','das'].includes(String(l[lg].a||'').toLowerCase()) ? String(l[lg].a).toLowerCase() : '';
+    o[lg]={w, a, alts:(Array.isArray(l[lg].alts)?l[lg].alts:[]).filter(x=>typeof x==='string'&&x.trim()).slice(0,4).map(x=>x.trim().slice(0,60))};
+  }
+  return Object.keys(o).length ? o : null;
+}
 const BUILTIN = [{id:'tea', name:'Afternoon tea ☕', builtin:true, w:1000, h:680, items:TEA_ITEMS}];
 
 // ---------- helpers ----------
@@ -975,6 +1011,77 @@ function el(tagName, props, ...kids){
 let toastT;
 function toast(m, ms){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'), ms||2800); }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+// ---------- languages ----------
+// The picture and its boxes are the same in every language; each box keeps its words per language:
+//   English: it.word / it.alts / it.say (as before)  ·  other languages: it.l[lang] = {w, a(article), alts, say}
+//   meanings: it.th (Thai). Progress for a language other than English is kept under "<item>@<lang>".
+const LANGS={
+  en:{ name:'อังกฤษ', native:'English', flag:'🇬🇧', ph:'เช่น teapot', voices:[['en-GB','🇬🇧 British'],['en-US','🇺🇸 American']], hello:'Hello! Shall we have some tea?' },
+  de:{ name:'เยอรมัน', native:'Deutsch', flag:'🇩🇪', ph:'เช่น Teekanne', voices:[['de-DE','🇩🇪 Deutsch (Deutschland)']], articles:['der','die','das'], hello:'Hallo! Trinken wir eine Tasse Tee?' },
+};
+const langOk=l=>Object.prototype.hasOwnProperty.call(LANGS,l);
+// One view object per item and language: reads give that language's word; everything else (box, Thai) is the item itself.
+const PXC=new WeakMap();
+function itemIn(it, lang){
+  if(!it || lang==='en') return it;
+  let m=PXC.get(it); if(!m){ m={}; PXC.set(it,m); }
+  if(m[lang]) return m[lang];
+  const tr=()=>(it.l && it.l[lang]) || null;
+  const p=new Proxy(it,{
+    get(t,k){
+      switch(k){
+        case 'word': { const e=tr(); return e&&e.w ? (e.a ? e.a+' '+e.w : e.w) : ''; }
+        case 'base': { const e=tr(); return (e&&e.w)||''; }
+        case 'art': { const e=tr(); return (e&&e.a)||''; }
+        case 'alts': { const e=tr(); return (e&&Array.isArray(e.alts)&&e.alts)||[]; }
+        case 'say': { const e=tr(); return (e&&e.say) || (e&&e.w ? (e.a ? e.a+' '+e.w : e.w) : ''); }
+        case 'en': return t.word||'';
+        case 'th': return [t.th, t.word].filter(Boolean).join(' · ');      // Thai + English meaning
+        case 'lang': return lang;
+        default: return t[k];
+      }
+    },
+    set(t,k,v){ t[k]=v; return true; },
+  });
+  m[lang]=p; return p;
+}
+function itemsOf(sc, lang){
+  lang=lang||S.lang; const src=(sc&&sc.items)||{};
+  if(lang==='en') return src;
+  const o={}; for(const k of Object.keys(src)) if(src[k]) o[k]=itemIn(src[k], lang); return o;
+}
+const pk=(id,lang)=>{ lang=lang||S.lang; return lang==='en' ? id : id+'@'+lang; };   // progress key
+// German etc.: progress lives under "<id>@<lang>" in the same progress record
+function langMap(obj, lang){
+  return new Proxy(obj,{
+    get:(t,k)=> typeof k==='string' ? t[k+'@'+lang] : t[k],
+    set:(t,k,v)=>{ t[k+'@'+lang]=v; return true; },
+    has:(t,k)=> typeof k==='string' && (k+'@'+lang) in t,
+    deleteProperty:(t,k)=>{ delete t[k+'@'+lang]; return true; },
+  });
+}
+// German letters: ä→ae etc., so a keyboard without umlauts still works (and "a" for "ä" too).
+function foldDe(s, loose){ s=String(s).toLowerCase().replace(/ß/g,'ss'); return loose ? s.replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u') : s.replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue'); }
+const normDe=(s,loose)=>foldDe(s,loose).trim().replace(/[^a-z0-9]/g,'');
+// check(v,it) → {ok, art:'right'|'missing'|'wrong'|null}
+function check(v, it){
+  const lang=it && it.lang;
+  if(!lang || lang==='en') return { ok:matches(v,it), art:null };
+  if(lang==='de'){
+    let t=String(v).trim().replace(/\s+/g,' '), said=null;
+    const m=/^(der|die|das)\s+(.+)$/i.exec(t); if(m){ said=m[1].toLowerCase(); t=m[2]; }
+    const cands=[it.base].concat(it.alts||[]).filter(Boolean);
+    const hit=cands.some(w=>{ const a=normDe(t), b=normDe(w); return !!a && (a===b || normDe(t,true)===normDe(w,true)); });
+    if(!hit) return { ok:false, art:null };
+    if(!it.art) return { ok:true, art:null };
+    if(!said) return { ok:true, art:'missing' };
+    // an alternative word may have another article: only the main word's article is checked
+    if(normDe(t)!==normDe(it.base) && normDe(t,true)!==normDe(it.base,true)) return { ok:true, art:'right' };
+    return said===it.art ? { ok:true, art:'right' } : { ok:false, art:'wrong', said };
+  }
+  return { ok:false, art:null };
+}
+const artNote=r=> r.art==='missing' ? ' — ใส่ der/die/das ด้วยจะได้ ★' : '';
 function norm(s){ return String(s).toLowerCase().trim().replace(/\bthree\b/g,'3').replace(/cozy/g,'cosy').replace(/savory/g,'savoury').replace(/[^a-z0-9]/g,''); }
 function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m; let p=Array.from({length:n+1},(_,j)=>j); for(let i=1;i<=m;i++){ const c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c; } return p[n]; }
 function matches(v,it){ const n=norm(v); if(!n) return false; return [it.word].concat(it.alts||[]).some(w=>{ const t=norm(w); return n===t||n===t+'s'||n===t+'es'; }); }
@@ -984,15 +1091,19 @@ function matches(v,it){ const n=norm(v); if(!n) return false; return [it.word].c
 // Older versions kept pictures inline in 'pv-scenes' — migrated on start (see boot()).
 let customs = store.get('pv-scenes2', null) || store.get('pv-scenes', []); if(!Array.isArray(customs)) customs=[];
 let progress = store.get('pv-progress', {}); if(typeof progress!=='object'||!progress) progress={};
-const S = { view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false) };
+const S = { lang: langOk(store.get('pv-lang','en')) ? store.get('pv-lang','en') : 'en', view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false) };
 let hoverId=null, pinnedId=null, quizId=null, flash=null, flashT=null;
 let help={}, used={}, qMiss={};
 let find={queue:[],target:null,score:0,total:0,missed:false,showWord:false,lock:false};
 
 const scenes=()=>BUILTIN.concat(customs);
 const scene=()=>scenes().find(s=>s.id===S.sceneId)||BUILTIN[0];
-const items=()=>scene().items;
-const ids=()=>Object.keys(items());
+const items=()=>itemsOf(scene());
+// words that exist in the language being practised (all boxes while editing)
+const ids=()=>{ const its=items(); return Object.keys(its).filter(k=>its[k] && (S.editing || its[k].word)); };
+const normFor=(s,it)=> it && it.lang==='de' ? normDe(s) : norm(s);
+// label while editing: a box without a word in this language shows "＋ (English word)"
+const labelOf=it=> it.word || ('＋ '+((it.en!==undefined ? it.en : '') || (it.l && Object.values(it.l).map(x=>x&&x.w).find(Boolean)) || 'ใส่คำ'));
 // ---------- spaced repetition ----------
 // A passed word is due again after 1, 3, 7, 14, 30, 60, 120 days. Typing it right with no help moves it up a step;
 // needing help or a wrong try brings it back a step and asks again tomorrow. Kept inside progress.done (true or {b,d}),
@@ -1017,14 +1128,16 @@ function srsAnswer(p, scId, id, clean){
   if(clean){ const b=Math.min(cur.b+1, SRS_DAYS.length); p.done[id]={b, d:t+SRS_DAYS[b-1]}; }
   else p.done[id]={b:Math.max(1,cur.b-1), d:t+1};
 }
-function dueWords(all){ const t=dayNo(); return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.id); return r && r.d<=t; }); }
-function dueOn(day, all){ return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.id); return r && r.d===day; }).length; }
+function dueWords(all){ const t=dayNo(); return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.pid); return r && r.d<=t; }); }
+function dueOn(day, all){ return (all||allWords()).filter(w=>{ if(w.st==='todo') return false; const r=srsOf(w.sc.id,w.pid); return r && r.d===day; }).length; }
 function nextReviewText(scId,id){
   const r=srsOf(scId,id); if(!r) return '';
   const n=r.d-dayNo();
   return n<=0 ? '🔁 ถึงรอบทบทวน' : n===1 ? 'ทบทวนพรุ่งนี้' : n<7 ? `ทบทวนอีก ${n} วัน` : n<30 ? `ทบทวนอีก ${Math.round(n/7)} สัปดาห์` : `ทบทวนอีก ${Math.round(n/30)} เดือน`;
 }
-function prog(){ const id=scene().id; if(!progress[id]) progress[id]={done:{},star:{}}; return progress[id]; }
+function progRaw(){ const id=scene().id; if(!progress[id]) progress[id]={done:{},star:{}}; const p=progress[id]; p.done=p.done||{}; p.star=p.star||{}; return p; }
+// progress of the current scene in the language being practised (keys are item ids either way)
+function prog(){ const p=progRaw(); return S.lang==='en' ? p : { done:langMap(p.done,S.lang), star:langMap(p.star,S.lang) }; }
 function saveProg(){
   const now=Date.now();
   for(const [id,p] of Object.entries(progress)){ if(!p) continue; const g=JSON.stringify([p.done||{},p.star||{}]); if(p._sig!==g){ if(p._sig!==undefined || !p.updatedAt) p.updatedAt=now; Object.defineProperty(p,'_sig',{value:g,writable:true,configurable:true,enumerable:false}); } }
@@ -1092,9 +1205,10 @@ try{ speechSynthesis.addEventListener('voiceschanged', loadVoices); }catch(e){}
 function pickVoice(lang){
   const L=lang.toLowerCase();
   const c=voices.filter(v=>(v.lang||'').replace('_','-').toLowerCase().startsWith(L));
-  return c.find(v=>/google|natural|premium|enhanced|siri|daniel|samantha|serena/i.test(v.name)) || c[0] || voices.find(v=>/^en/i.test(v.lang||'')) || null;
+  const base=L.split('-')[0], c2=c.length?c:voices.filter(v=>(v.lang||'').toLowerCase().startsWith(base));
+  return c2.find(v=>/google|natural|premium|enhanced|siri|daniel|samantha|serena|anna|helena|markus/i.test(v.name)) || c2[0] || null;
 }
-let noVoiceWarned=false;
+let noVoiceWarned=false; const noLangVoice={};
 function speak(text, onDone){
   // onDone (optional) fires once when the word has been spoken — or after a safety timeout,
   // since some browsers never fire onend.
@@ -1108,6 +1222,7 @@ function speak(text, onDone){
     const u=new SpeechSynthesisUtterance(text);
     const lang=$('#accent').value; u.lang=lang;
     const v=pickVoice(lang); if(v) u.voice=v;
+    else if(voices.length && !noLangVoice[lang]){ noLangVoice[lang]=true; toast(`เครื่องนี้ไม่มีเสียงอ่าน${(LANGS[S.lang]||{}).name||''} — เบราว์เซอร์อาจอ่านด้วยเสียงอื่น ลองติดตั้งเสียงภาษานี้ในการตั้งค่าเครื่อง`, 5000); }
     u.rate=$('#slow').checked?0.6:0.92;
     u.onend=fin; u.onerror=fin;
     speechSynthesis.speak(u);
@@ -1194,7 +1309,7 @@ function renderScene(){
   }
   const spot=document.createElementNS(NS,'path'); spot.setAttribute('class','spot'); spot.setAttribute('fill-rule','evenodd');
   svg.appendChild(spot);
-  for(const id of Object.keys(sc.items)){
+  for(const id of (S.editing ? Object.keys(sc.items) : ids())){
     const g=document.createElementNS(NS,'g'); g.setAttribute('class','item hs'); g.setAttribute('data-id', id);
     const r=document.createElementNS(NS,'rect'); r.setAttribute('class','box');
     const h=document.createElementNS(NS,'rect'); h.setAttribute('class','handle');
@@ -1242,7 +1357,7 @@ function sceneImg(sc){
   if(!TEA_URL) TEA_URL='data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 680">'+$('#tea-svg').textContent+'</svg>');
   return TEA_URL;
 }
-function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}; const k=Object.keys(sc.items); return {n:k.length, d:k.filter(i=>p.done&&p.done[i]).length}; }
+function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}, its=itemsOf(sc), k=Object.keys(its).filter(i=>its[i]&&its[i].word); return {n:k.length, d:k.filter(i=>p.done&&p.done[pk(i)]).length}; }
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
@@ -1309,13 +1424,13 @@ function labeledImg(sc, ar){
   const ia=sc.w/sc.h; let vx0=0,vx1=sc.w,vy0=0,vy1=sc.h;
   if(ia>ar){ const vw=sc.h*ar; vx0=(sc.w-vw)/2; vx1=vx0+vw; } else { const vh=sc.w/ar; vy0=(sc.h-vh)/2; vy1=vy0+vh; }
   const VW=vx1-vx0, fs=VW*0.036, picks=[];
-  for(const it of Object.values(sc.items)){
+  for(const it of Object.values(itemsOf(sc))){ if(!it.word) continue;
     const a=anchorOf(it); if(!a) continue;
     if(a.x<vx0+VW*0.1||a.x>vx1-VW*0.1||a.y<vy0+fs*2.2||a.y>vy1-fs*2.2) continue;
     if(picks.some(p=>Math.abs(p.x-a.x)<VW*0.3 && Math.abs(p.y-a.y)<fs*3.6)) continue;
     picks.push({x:a.x,y:a.y,it}); if(picks.length>=4) break;
   }
-  for(const {x,y,it} of picks){
+  for(const {x,y,it} of picks){   // it: in the language being practised
     const th=(it.th||'').split(' (')[0].slice(0,18);
     const w=Math.max(it.word.length*0.56*fs, th.length*0.36*fs)+fs*1.3, hh=th?fs*2.45:fs*1.6;
     const x0=Math.max(vx0+fs*0.3,Math.min(vx1-w-fs*0.3,x-w/2)), y0=Math.max(vy0+fs*0.3,Math.min(vy1-hh-fs*0.3,y-hh/2));
@@ -1505,14 +1620,14 @@ function wordThumb(sc,it,cls,outline){
   }
   return sv;
 }
-function allWords(){
-  const out=[];
+function allWords(lang){
+  lang=lang||S.lang; const out=[];
   scenes().slice().sort(byRecent).forEach(sc=>{
     const p=progress[sc.id]||{};
-    Object.entries(sc.items||{}).forEach(([id,it],k)=>{
+    Object.entries(itemsOf(sc,lang)).forEach(([id,it],k)=>{
       if(!it || !it.word) return;
-      const st=(p.done&&p.done[id]) ? ((p.star&&p.star[id])?'star':'done') : 'todo';
-      out.push({sc,id,it,st,k});
+      const pid=pk(id,lang), st=(p.done&&p.done[pid]) ? ((p.star&&p.star[pid])?'star':'done') : 'todo';
+      out.push({sc,id,pid,it,st,k});
     });
   });
   return out;
@@ -1521,6 +1636,13 @@ const WD={q:'',f:'all',sort:'scene',limit:120,deck:String(store.get('pv-wdeck','
 const WD_LABELS={all:'ทั้งหมด',due:'🔁 ถึงรอบ',todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const WD_ST={todo:'ยังไม่ผ่าน',done:'✓ ผ่าน',star:'★ จำได้'};
 const sayWord=it=>it.say||it.word;
+// the word as shown: German articles coloured (der blue, die red, das green — the usual classroom colours)
+function wordEl(it, tag, prefix){
+  const b=el(tag||'b',{}); if(prefix) b.append(prefix);
+  if(it && it.art){ b.append(el('span',{class:'art art-'+it.art,text:it.art}),' ',it.base); }
+  else b.append(it ? it.word : '');
+  return b;
+}
 // ---------- word decks ("ชุดคำ") ----------
 // A deck is a list of "<scene id>|<item id>" keys. "saved" (🔖 เก็บไว้) always shows; it is stored once used.
 const SAVED_DECK='saved';
@@ -1555,7 +1677,7 @@ const deckCount=(d,keys)=>d.words.filter(k=>keys.has(k)).length;
 function wordsFiltered(all){
   const q=WD.q.trim().toLowerCase();
   const today=dayNo();
-  let list=all.filter(w=>WD.f==='all'||(WD.f==='due' ? (w.st!=='todo' && (srsOf(w.sc.id,w.id)||{d:1e9}).d<=today) : w.st===WD.f));
+  let list=all.filter(w=>WD.f==='all'||(WD.f==='due' ? (w.st!=='todo' && (srsOf(w.sc.id,w.pid)||{d:1e9}).d<=today) : w.st===WD.f));
   if(q) list=list.filter(w=>[w.it.word,w.it.th||''].concat(w.it.alts||[]).some(t=>String(t).toLowerCase().includes(q)));
   const ord={todo:0,done:1,star:2};
   if(WD.sort==='az') list=list.slice().sort((a,b)=>a.it.word.localeCompare(b.it.word,'en',{sensitivity:'base'}));
@@ -1639,10 +1761,10 @@ function wordCard(w, kept){
     el('button',{class:'wd-add'+(kept?' on':''),title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ','aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',onclick:()=>openDeckPicker(w)}, kept?'🔖':'＋'),
     el('button',{class:'wd-main',title:'ฟังเสียง','aria-label':'ฟังเสียง '+it.word,onclick:()=>speak(sayWord(it))},
       el('span',{class:'wd-pic'}, wordThumb(sc,it), el('span',{class:'wd-say',text:'🔊'})),
-      el('b',{text:it.word}),
+      wordEl(it),
       it.th ? el('span',{class:'wd-th',text:it.th}) : null),
     el('div',{class:'wd-foot'},
-      el('span',{class:'wd-st',text:WD_ST[st]}, st!=='todo' ? el('small',{class:'wd-next'+(srsDue(sc.id,id)?' due':''),text:nextReviewText(sc.id,id)}) : null),
+      el('span',{class:'wd-st',text:WD_ST[st]}, st!=='todo' ? el('small',{class:'wd-next'+(srsDue(sc.id,w.pid)?' due':''),text:nextReviewText(sc.id,w.pid)}) : null),
       el('button',{class:'wd-go',title:'ดูในฉาก “'+sc.name+'”',onclick:()=>{ openScene(sc.id,'learn'); select(id); }},'📍 ',el('span',{text:sc.name}))));
 }
 function deckWordHead(w){ return el('div',{class:'dk-word'}, wordThumb(w.sc,w.it,'dk-thumb'), el('span',{}, el('b',{text:w.it.word}), w.it.th?el('small',{text:w.it.th}):null)); }
@@ -1729,7 +1851,7 @@ function startReview(list){
 function startDueReview(){
   const due=dueWords();
   if(!due.length){ toast('วันนี้ทบทวนครบแล้ว 🎉'); return; }
-  const pick=due.map(w=>({w, r:srsOf(w.sc.id,w.id)})).sort((a,b)=>a.r.d-b.r.d || a.r.b-b.r.b).slice(0,10).map(x=>x.w);
+  const pick=due.map(w=>({w, r:srsOf(w.sc.id,w.pid)})).sort((a,b)=>a.r.d-b.r.d || a.r.b-b.r.b).slice(0,10).map(x=>x.w);
   RV={list:shuffle(pick), src:[], i:0, ok:0, star:0, due:true};
   markActive(0);
   rvQuestion();
@@ -1742,7 +1864,7 @@ function rvQuestion(){
     m.classList.add('rvbox');
     const n=RV.list.length;
     const bar=el('span',{class:'bar'},el('i')); bar.firstChild.style.width=(RV.i/n*100)+'%';
-    const inp=el('input',{id:'rvIn',autocomplete:'off',autocapitalize:'none',autocorrect:'off',spellcheck:'false',enterkeyhint:'done',placeholder:'พิมพ์เป็นภาษาอังกฤษ…','aria-label':'คำตอบ'});
+    const inp=el('input',{id:'rvIn',autocomplete:'off',autocapitalize:'none',autocorrect:'off',spellcheck:'false',enterkeyhint:'done',placeholder:`พิมพ์เป็นภาษา${LANGS[S.lang].name}…`,'aria-label':'คำตอบ'});
     const form=el('form',{class:'rv-row',autocomplete:'off'}, inp, el('button',{class:'primary',type:'submit',text:'ตรวจ'}));
     form.addEventListener('submit',e=>{ e.preventDefault(); rvCheck(inp.value); });
     m.append(
@@ -1766,7 +1888,7 @@ function rvQuestion(){
 function rvMsg(kind,text){ const m=$('#rvMsg'); if(!m) return; m.className='msg'+(kind?' '+kind:''); m.textContent=text; }
 function rvHint(){
   const w=rvWord(); if(!w || RV.answered) return;
-  const max=norm(w.it.word).length;
+  const max=normFor(w.it.word,w.it).length;
   if(RV.lvl>=max){ rvMsg('info','เปิดคำใบ้หมดแล้ว ลองพิมพ์ดูนะ'); return; }
   RV.lvl++; RV.used=true;
   const c=$('#rvClue'); c.innerHTML=''; c.hidden=false;
@@ -1781,20 +1903,25 @@ function rvShow(){
 }
 function rvCheck(v){
   const w=rvWord(); if(!w || RV.answered || !String(v).trim()) return;
-  if(matches(v,w.it)){
+  const res=check(v,w.it);
+  if(res.ok){
     RV.answered=true;
     if(!progress[w.sc.id]) progress[w.sc.id]={done:{},star:{}};
     const p=progress[w.sc.id]; p.done=p.done||{}; p.star=p.star||{};
-    srsAnswer(p, w.sc.id, w.id, !RV.used && !RV.miss); if(!RV.used) p.star[w.id]=true; saveProg(); markActive(1);
-    RV.ok++; if(!RV.used) RV.star++;
-    rvMsg('ok',(RV.used?'ถูกต้อง! ✓ ':'ถูกต้อง! เก่งมาก ★ ')+w.it.word);
+    const clean=!RV.used && !RV.miss && res.art!=='missing';
+    srsAnswer(p, w.sc.id, w.pid, clean); if(clean) p.star[w.pid]=true; saveProg(); markActive(1);
+    RV.ok++; if(clean) RV.star++;
+    rvMsg('ok',(clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+w.it.word+artNote(res));
     speak(sayWord(w.it));
     const at=RV.i, run=RV; setTimeout(()=>{ if(RV===run && RV.i===at) rvNext(); }, 1300);
     return;
   }
   RV.miss=true;
-  const d=lev(norm(v), norm(w.it.word));
-  rvMsg('bad', d<=2 && norm(w.it.word).length>3 ? 'เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด' : 'ยังไม่ใช่ ลองอีกครั้ง หรือกด 💡 คำใบ้');
+  if(res.art==='wrong') rvMsg('bad',`คำถูกแล้ว แต่ไม่ใช่ “${res.said}” — ลองเปลี่ยน der/die/das หรือพิมพ์แค่คำนาม`);
+  else {
+    const goal=w.it.base||w.it.word, d=lev(normFor(String(v).replace(/^(der|die|das)\s+/i,''),w.it), normFor(goal,w.it));
+    rvMsg('bad', d<=2 && normFor(goal,w.it).length>3 ? 'เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด' : 'ยังไม่ใช่ ลองอีกครั้ง หรือกด 💡 คำใบ้');
+  }
   const box=$('#mbox'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
 }
 function rvNext(){ if(!RV) return; RV.i++; rvQuestion(); }
@@ -1839,7 +1966,7 @@ function previewSvg(sc, showLabels){
   s.appendChild(im);
   if(!showLabels) return s;
   const fs=Math.max(sc.w,sc.h)*(sc.w>=sc.h?0.016:0.025);
-  for(const it of Object.values(sc.items)){
+  for(const it of Object.values(itemsOf(sc))){ if(!it.word) continue;
     let x,y;
     if(it.at){ x=it.at[0]; y=it.at[1]; }
     else {
@@ -1908,6 +2035,32 @@ function refresh(){
   renderSub(); renderChips(); if(isFs()) fitWrap(); setHL(); updateTag(); updateOverlay();
   if(quizId) positionQ();
 }
+function langPills(){ const q=$('#qin'); if(q) q.placeholder=`พิมพ์เป็นภาษา${LANGS[S.lang].name}…`; document.querySelectorAll('.langpill').forEach(b=>{ const L=LANGS[S.lang]; b.textContent=L.flag+' '+L.name; b.setAttribute('aria-label','ภาษาที่ฝึก: '+L.name+' — เปลี่ยน'); }); }
+function setLang(l){
+  if(!langOk(l) || l===S.lang) return;
+  apReset(); closeQuiz(true); try{ speechSynthesis.cancel(); }catch(e){}
+  S.lang=l; store.set('pv-lang',l); fillAccent(); langPills();
+  help={}; used={}; qMiss={}; selId=null;
+  if(S.view==='play'){ fullRender(); if(S.mode==='find' && ids().length) startFind(); }
+  else { refresh(); renderGallery(); }
+  toast(`${LANGS[l].flag} ตอนนี้ฝึกภาษา${LANGS[l].name} — ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา`, 3500);
+}
+function openLangPicker(){
+  openModal(m=>{
+    m.append(el('h3',{text:'🌍 ภาษาที่ฝึก'}),
+      el('p',{class:'note',text:'ฉากเดิมใช้ได้ทุกภาษา — กรอบในรูปเหมือนเดิม เปลี่ยนแค่คำศัพท์ ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา'}));
+    const list=el('div',{class:'langlist'});
+    Object.entries(LANGS).forEach(([k,L])=>{
+      const n=allWords(k).length;
+      list.append(el('button',{class:'langopt'+(k===S.lang?' on':''),onclick:()=>{ closeModal(); setLang(k); }},
+        el('span',{class:'fl',text:L.flag}), el('span',{}, el('b',{text:L.name+' · '+L.native}), el('small',{text: n ? `มี ${n} คำในฉากของคุณ` : 'ยังไม่มีคำในภาษานี้'})),
+        k===S.lang ? el('span',{class:'ok',text:'✓'}) : null));
+    });
+    m.append(list, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
+  });
+}
+document.querySelectorAll('.langpill').forEach(b=>b.addEventListener('click',openLangPicker));
+langPills();
 function fullRender(){ closeQuiz(true); hoverId=pinnedId=null; flash=null; renderScene(); if(S.mode==='find' && find.target && !items()[find.target]) find={...find,queue:[],target:null,total:0,score:0}; renderSelect(); refresh(); }
 
 function setHL(){
@@ -1941,7 +2094,7 @@ function updateTag(){
   tag.innerHTML='';
   const txt=el('div');
   if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
-  txt.append(el('b',{text:it.word}));
+  txt.append(wordEl(it));
   if(it.th) txt.append(el('small',{text:it.th}));
   const kept=isKept(scene().id,id);
   tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
@@ -1969,9 +2122,9 @@ function updateOverlay(){
     const at=(x,y)=>{ const p=svg.createSVGPoint(); p.x=x; p.y=y; const q=p.matrixTransform(ctm); return {x:q.x-wr.left, y:q.y-wr.top}; };
     if(selId && sc.items[selId]){
       // Only the selected box: its word + a small action bar.
-      const it=sc.items[selId], top=at(it.x+it.w/2, it.y), bot=at(it.x+it.w/2, it.y+it.h);
+      const it=itemIn(sc.items[selId],S.lang), top=at(it.x+it.w/2, it.y), bot=at(it.x+it.w/2, it.y+it.h);
       const bar=el('div',{class:'selbar'},
-        el('b',{text:it.word}),
+        el('b',{text:labelOf(it)}),
         el('button',{class:'primary',text:'✏️ แก้ไขคำ',onclick:e=>{e.stopPropagation(); openItemForm(selId);}}),
         el('button',{class:'danger',text:'🗑 ลบ','aria-label':'ลบกรอบนี้',onclick:e=>{e.stopPropagation(); delete sc.items[selId]; selId=null; saveScenes(); renderScene(); refresh();}}),
         el('button',{text:'✕','aria-label':'ยกเลิกการเลือก',onclick:e=>{e.stopPropagation(); selectBox(null);}}));
@@ -1982,10 +2135,10 @@ function updateOverlay(){
       bar.style.left=clampX(bar, top.x, W)+'px';
       if(!S.allBoxes) return;
     }
-    for(const [id,it] of Object.entries(sc.items)){
+    for(const [id,it] of Object.entries(itemsOf(sc))){
       if(id===selId) continue;
       const q=at(it.x+it.w/2, it.y);
-      const m=el('div',{class:'mini edit',text:it.word,onclick:e=>{e.stopPropagation(); selectBox(id);}});
+      const m=el('div',{class:'mini edit'+(it.word?'':' unk'),text:labelOf(it),onclick:e=>{e.stopPropagation(); selectBox(id);}});
       overlay.append(m); m.style.top=Math.max(m.offsetHeight+2, q.y-2)+'px'; m.style.left=clampX(m,q.x,W)+'px';
     }
     return;
@@ -2042,6 +2195,15 @@ function renderSub(){
     return;
   }
   if(!n){
+    const sc=scene(), boxes=Object.keys(sc.items||{}).length;
+    if(S.lang!=='en' && boxes){
+      const L=LANGS[S.lang];
+      put(el('span',{class:'hint',text:`ฉากนี้ยังไม่มีคำภาษา${L.name} (${boxes} กรอบมีคำภาษาอังกฤษแล้ว)`}),
+        (!sc.builtin && aiReady) ? el('button',{class:'ai',text:`✨ แปลเป็นภาษา${L.name}ด้วย AI`,onclick:()=>translateScene(sc,S.lang)}) : null,
+        !sc.builtin ? el('button',{text:'✏️ ใส่คำเอง',onclick:()=>{ S.editing=true; selId=null; renderScene(); refresh(); }}) : null,
+        el('button',{text:'🇬🇧 ฝึกภาษาอังกฤษแทน',onclick:()=>setLang('en')}));
+      return;
+    }
     put(el('span',{class:'hint',text:'ฉากนี้ยังไม่มีคำศัพท์ — กด ✏️ แก้ไขฉาก แล้วลากกรอบรอบสิ่งของในรูป'}));
     return;
   }
@@ -2080,7 +2242,7 @@ function renderSub(){
     const p=prog(), d=ids().filter(i=>p.done[i]).length, st=ids().filter(i=>p.star[i]).length;
     const bar=el('span',{class:'bar'+(d===n?' full':'')},el('i')); bar.firstChild.style.width=(d/n*100)+'%';
     put(
-      el('span',{class:'hint'+(d===n?'':' tip'),text: d===n ? '🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!' : 'แตะสิ่งของ แล้วพิมพ์ว่ามันคืออะไรเป็นภาษาอังกฤษ'}),
+      el('span',{class:'hint'+(d===n?'':' tip'),text: d===n ? '🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!' : `แตะสิ่งของ แล้วพิมพ์ว่ามันคืออะไรเป็นภาษา${LANGS[S.lang].name}`+(S.lang==='de'?' (ใส่ der/die/das ด้วยจะได้ ★)':'')}),
       el('span',{class:'grow'}),
       el('span',{class:'pill'}, bar, `${d}/${n}`, el('span',{title:'ตอบถูกโดยไม่ใช้ตัวช่วย',text:`★ ${st}`})),
       listBtn(),
@@ -2123,7 +2285,7 @@ function renderChips(){
   const its=items(), p=prog();
   ids().forEach((id,i)=>{
     const b=el('button',{class:'chip'});
-    if(S.editing){ b.textContent=its[id].word; if(id===selId) b.classList.add('on'); }
+    if(S.editing){ b.textContent=labelOf(its[id]); if(!its[id].word) b.classList.add('unk'); if(id===selId) b.classList.add('on'); }
     else if(S.mode==='learn'){ b.textContent=its[id].word; if(id===pinnedId) b.classList.add('on'); }
     else{
       if(p.done[id]){ b.textContent=(p.star[id]?'★ ':'✓ ')+its[id].word; b.classList.add('done'); }
@@ -2147,7 +2309,7 @@ function openWordSheet(){
     const list=el('div',{class:'wlist'});
     ids().forEach((id,i)=>{
       const it=its[id]; let main, sub2=null, cls='wrow';
-      if(learn){ main=it.word; sub2=it.th||null; }
+      if(learn){ main=S.editing?labelOf(it):it.word; sub2=it.th||null; }
       else if(p.done[id]){ main=(p.star[id]?'★ ':'✓ ')+it.word; sub2=it.th||null; cls+=' done'; }
       else { main='คำที่ '+(i+1); cls+=' unk'; }
       list.append(el('button',{class:cls+(id===cur?' on':''),onclick:()=>{ closeModal(); select(id); }},
@@ -2229,7 +2391,7 @@ function positionQ(){
   y=Math.max(6, Math.min(H-ch-6, y));
   qcard.style.left=x+'px'; qcard.style.top=y+'px';
 }
-function pattern(word,n){ let k=0; return [...word].map(c=>/[a-z0-9]/i.test(c)?(k++<n?c:'_'):(c===' '?' ':c)).join(' '); }
+function pattern(word,n){ let k=0; return [...word].map(c=>/[\p{L}\p{N}]/u.test(c)?(k++<n?c:'_'):(c===' '?' ':c)).join(' '); }
 function renderClue(){
   const c=$('#qclue'); c.innerHTML='';
   const it=items()[quizId], lvl=help[quizId]||0;
@@ -2244,26 +2406,28 @@ $('#qform').addEventListener('submit', e=>{
   e.preventDefault();
   const id=quizId; if(!id) return;
   const v=$('#qin').value; if(!v.trim()) return;
-  const it=items()[id];
-  if(matches(v,it)){
-    const p=prog(); srsAnswer(p, scene().id, id, !used[id] && !qMiss[id]); if(!used[id]) p.star[id]=true; saveProg(); markActive(1);
-    setMsg('ok', (used[id]?'ถูกต้อง! ✓ ':'ถูกต้อง! เก่งมาก ★ ')+it.word);
+  const it=items()[id], res=check(v,it);
+  if(res.ok){
+    const rp=progRaw(), key=pk(id), clean=!used[id] && !qMiss[id] && res.art!=='missing';
+    srsAnswer(rp, scene().id, key, clean); if(clean) rp.star[key]=true; saveProg(); markActive(1);
+    setMsg('ok', (clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+it.word+artNote(res));
     speak(sayOf(id));
     updateOverlay(); renderSub();
     setTimeout(()=>{ if(quizId===id){ closeQuiz(); } const pp=prog(); if(ids().every(i=>pp.done[i])) toast('🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!'); }, 1100);
     return;
   }
   qMiss[id]=true;
-  const other=ids().find(o=>o!==id && matches(v,items()[o]));
-  const d=lev(norm(v), norm(it.word));
+  if(res.art==='wrong'){ setMsg('bad',`คำถูกแล้ว แต่ไม่ใช่ “${res.said}” — ลองเปลี่ยน der/die/das หรือพิมพ์แค่คำนาม`); shakeCard(); return; }
+  const other=ids().find(o=>o!==id && check(v,items()[o]).ok);
+  const goal=it.base||it.word, d=lev(normFor(v.replace(/^(der|die|das)\s+/i,''),it), normFor(goal,it));
   if(other) setMsg('bad','คำนี้มีในภาพ แต่เป็นของอีกชิ้นนะ ลองดูใหม่');
-  else if(d<=2 && norm(it.word).length>3) setMsg('bad','เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด');
+  else if(d<=2 && normFor(goal,it).length>3) setMsg('bad','เกือบถูกแล้ว! ลองเช็คตัวสะกดอีกนิด');
   else setMsg('bad','ยังไม่ใช่ ลองอีกครั้ง หรือกด 💡 คำใบ้');
   shakeCard();
 });
 $('#qhint').addEventListener('click',()=>{
   const id=quizId; if(!id) return;
-  const max=norm(items()[id].word).length;
+  const max=normFor(items()[id].word, items()[id]).length;
   const lvl=help[id]||0;
   if(lvl>=max){ setMsg('info','เปิดคำใบ้หมดแล้ว ลองพิมพ์ดูนะ'); return; }
   help[id]=lvl+1; used[id]=true; renderClue(); setMsg('',''); positionQ(); $('#qin').focus();
@@ -2337,9 +2501,16 @@ $('#renameBtn').addEventListener('click',()=>{
   });
 });
 $('#importBtn').addEventListener('click',openImport);
-$('#accent').value=store.get('pv-accent','en-GB');
+// voice choices follow the language being practised (remembered per language)
+const accentKey=()=>S.lang==='en' ? 'pv-accent' : 'pv-accent-'+S.lang;
+function fillAccent(){
+  const a=$('#accent'), L=LANGS[S.lang]; a.innerHTML='';
+  L.voices.forEach(([v,label])=>a.append(el('option',{value:v,text:label})));
+  const want=store.get(accentKey(), L.voices[0][0]); a.value=L.voices.some(x=>x[0]===want)?want:L.voices[0][0];
+}
+fillAccent();
 $('#slow').checked=!!store.get('pv-slow',false);
-$('#accent').addEventListener('change',e=>{ store.set('pv-accent',e.target.value); speak('Hello! Shall we have some tea?'); });
+$('#accent').addEventListener('change',e=>{ store.set(accentKey(),e.target.value); speak(LANGS[S.lang].hello); });
 $('#slow').addEventListener('change',e=>store.set('pv-slow',e.target.checked));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) apPause(); else if(!$('#modal').hidden) closeModal(); else if(drawMode) setDrawMode(false); else if(S.editing && selId) selectBox(null); else if(quizId) closeQuiz(); else if(isFs()) exitFs(); } });
 
@@ -2412,8 +2583,9 @@ svg.addEventListener('pointerdown', e=>{
 });
 function boxesAt(p){
   // ids of boxes containing point p, smallest first
+  const live=S.editing ? null : new Set(ids());          // while playing: only words in this language
   return Object.entries(scene().items)
-    .filter(([,it])=>p.x>=it.x && p.x<=it.x+it.w && p.y>=it.y && p.y<=it.y+it.h)
+    .filter(([id,it])=>(!live || live.has(id)) && p.x>=it.x && p.x<=it.x+it.w && p.y>=it.y && p.y<=it.y+it.h)
     .sort((a,b)=>a[1].w*a[1].h-b[1].w*b[1].h).map(([id])=>id);
 }
 function orderHs(){
@@ -2444,7 +2616,7 @@ svg.addEventListener('pointerup', ()=>{
     else if(d.mode==='move' && d.under.length>1){
       // Tapping the selected box where several boxes overlap → cycle to the next one underneath.
       const i=d.under.indexOf(selId), next=d.under[(i+1)%d.under.length];
-      selectBox(next); toast('สลับไปกรอบ “'+scene().items[next].word+'” — แตะซ้ำเพื่อสลับต่อ', 1800);
+      selectBox(next); toast('สลับไปกรอบ “'+labelOf(itemIn(scene().items[next],S.lang))+'” — แตะซ้ำเพื่อสลับต่อ', 1800);
     }
     else if(d.mode==='move') openItemForm(d.id); // second tap on a lone selected box → edit
     return;
@@ -2573,7 +2745,7 @@ async function runAI({count=20, level='mid', replace=true}={}){
     try{
       r=await fetch('/api/scan',{method:'POST', signal:aiCtl.signal,
         headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})},
-        body:JSON.stringify({image:sc.img, count, level, existing})});
+        body:JSON.stringify({image:sc.img, count, level, existing, ...(S.lang!=='en'?{lang:S.lang}:{})})});
     }catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
     const data=await r.json().catch(()=>({}));
     if(typeof data.credits_left==='number') aiLeft=data.credits_left;
@@ -2596,6 +2768,7 @@ async function runAI({count=20, level='mid', replace=true}={}){
         alts:Array.isArray(r.alts)?r.alts.filter(a=>typeof a==='string'&&a.trim()).slice(0,4).map(a=>a.trim().slice(0,60)):[],
         x:Math.round(x0/1000*sc.w), y:Math.round(y0/1000*sc.h), w:Math.round((x1-x0)/1000*sc.w), h:Math.round((y1-y0)/1000*sc.h)
       };
+      { const lw=cleanLang(r.l), keys=Object.keys(sc.items); if(lw) sc.items[keys[keys.length-1]].l=lw; }
       added++;
     }
     saveScenes(); help={}; used={}; if(replace){ progress[sc.id]={done:{},star:{}}; saveProg(); }
@@ -2615,7 +2788,42 @@ async function runAI({count=20, level='mid', replace=true}={}){
   }
 }
 
+// ✨ Add a language to a scene that has English words: one AI credit, no picture sent.
+async function translateScene(sc, lang){
+  if(!aiReady){ toast('ตอนนี้ใช้ AI ไม่ได้ — ใส่คำเองได้ด้วย ✏️'); return; }
+  if(aiCtl) return;
+  if(navigator.onLine===false){ toast('ต้องต่ออินเทอร์เน็ตก่อนใช้ AI', 4000); return; }
+  const tok=(aiCredits && user) ? await accessToken() : null;
+  const code=tok ? '' : store.get('pv-ai-code','');
+  if(aiCredits && !tok && !code){ openLogin(); toast('เข้าสู่ระบบเพื่อใช้ AI', 4000); return; }
+  if(tok && aiLeft===0){ toast(`เครดิต AI เดือนนี้หมดแล้ว — ใส่คำเองได้ด้วย ✏️`, 5000); return; }
+  const words=Object.entries(sc.items).filter(([k,it])=>it && it.word && !(it.l && it.l[lang] && it.l[lang].w)).map(([k,it])=>({k, en:it.word, th:it.th||''}));
+  if(!words.length){ toast('ทุกคำมีภาษานี้แล้ว'); return; }
+  aiCtl=new AbortController(); showBusy(true);
+  try{
+    let r;
+    try{ r=await fetch('/api/translate',{method:'POST', signal:aiCtl.signal, headers:{'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}), ...(code?{'x-piccab-code':code}:{})}, body:JSON.stringify({lang, words})}); }
+    catch(e){ throw {code: e && e.name==='AbortError' ? 'cancelled' : 'offline'}; }
+    const data=await r.json().catch(()=>({}));
+    if(typeof data.credits_left==='number') aiLeft=data.credits_left;
+    if(!r.ok) throw {code:data.error||'error'};
+    let n=0;
+    for(const t of (Array.isArray(data.items)?data.items:[])){
+      const it=sc.items[t.k]; const lw=cleanLang({[lang]:t}); if(!it || !lw) continue;
+      it.l={...(it.l||{}), ...lw}; n++;
+    }
+    saveScenes();
+    if(scene()===sc){ renderScene(); refresh(); }
+    toast(n ? `✨ แปลเป็นภาษา${LANGS[lang].name}แล้ว ${n} คำ — ตรวจดูได้ด้วย ✏️ แก้ไขฉาก`+(typeof data.credits_left==='number'?` · เครดิต AI เหลือ ${data.credits_left}`:'') : 'AI แปลไม่สำเร็จ ลองใหม่อีกครั้ง', 5000);
+  }catch(e){
+    const c=e && e.code;
+    if(c==='login_required'){ openLogin(); toast('เข้าสู่ระบบเพื่อใช้ AI', 4000); }
+    else if(c==='no_credits'){ aiLeft=0; toast('เครดิต AI เดือนนี้หมดแล้ว — ใส่คำเองได้ด้วย ✏️', 5000); }
+    else if(c!=='cancelled') toast(aiErr(c), 5000);
+  }finally{ aiCtl=null; showBusy(false); }
+}
 function openItemForm(id, rect, draftEl){
+  if(S.lang!=='en') return openItemFormLang(id, rect, draftEl, S.lang);
   const sc=scene(); if(sc.builtin) return;
   const it=id?sc.items[id]:null;
   modalClose=()=>{ if(draftEl) draftEl.remove(); };
@@ -2645,6 +2853,45 @@ function openItemForm(id, rect, draftEl){
         el('button',{class:'primary',text:'บันทึก',onclick:save})
       )
     );
+  });
+}
+function openItemFormLang(id, rect, draftEl, lang){
+  const sc=scene(); if(sc.builtin) return;
+  const it=id?sc.items[id]:null, cur=(it && it.l && it.l[lang]) || {}, L=LANGS[lang];
+  modalClose=()=>{ if(draftEl) draftEl.remove(); };
+  openModal(m=>{
+    const w=el('input',{class:'word',value:cur.w||'',placeholder:L.ph,autocapitalize:'none',spellcheck:'false'});
+    let art=cur.a||'';
+    const arts=L.articles ? el('div',{class:'seg artseg',role:'group','aria-label':'คำนำหน้านาม'}) : null;
+    const drawArts=()=>{ if(!arts) return; arts.innerHTML=''; ['der','die','das',''].forEach(a=>arts.append(el('button',{type:'button',class:(a===art?'on ':'')+(a?'art-'+a:''),text:a||'ไม่มี',onclick:()=>{ art=a; drawArts(); }}))); };
+    drawArts();
+    w.addEventListener('input',()=>{ const mm=/^(der|die|das)\s+(.+)$/i.exec(w.value); if(mm && L.articles){ art=mm[1].toLowerCase(); w.value=mm[2]; drawArts(); } });
+    const th=el('input',{value:it?(it.th||''):'',placeholder:'เช่น กาน้ำชา'});
+    const en=el('input',{value:it?(it.word||''):'',placeholder:'เช่น teapot',autocapitalize:'none',spellcheck:'false'});
+    const al=el('input',{value:(cur.alts||[]).join(', '),placeholder:'คั่นด้วย ,',autocapitalize:'none',spellcheck:'false'});
+    const save=()=>{
+      const word=w.value.trim().replace(/\s+/g,' ');
+      if(!word){ w.focus(); toast(`พิมพ์คำภาษา${L.name}ก่อนนะ`); return; }
+      const lw={w:word, a:art, alts:al.value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,4)};
+      if(it){ it.l={...(it.l||{}), [lang]:lw}; it.th=th.value.trim(); it.word=en.value.trim().replace(/\s+/g,' '); }
+      else{ const nid='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); sc.items[nid]=Object.assign({word:en.value.trim().replace(/\s+/g,' '), th:th.value.trim(), alts:[], l:{[lang]:lw}}, rect); selId=nid; }
+      saveScenes(); closeModal(); renderScene(); refresh();
+    };
+    [w,th,en,al].forEach(i=>i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } }));
+    m.append(
+      el('h3',{text:(it && cur.w ? 'แก้ไขคำศัพท์' : 'เพิ่มคำศัพท์')+' · '+L.flag+' '+L.name}),
+      el('label',{},`คำภาษา${L.name}`, w),
+      arts ? el('div',{class:'artrow'}, el('span',{class:'lbl',text:'คำนำหน้านาม'}), arts) : null,
+      el('label',{},'ความหมายภาษาไทย (ไม่บังคับ)', th),
+      el('label',{},'คำภาษาอังกฤษ (ไม่บังคับ)', en),
+      el('label',{},'คำตอบอื่นที่ให้ถือว่าถูก (ไม่บังคับ)', al),
+      el('div',{class:'row'},
+        el('button',{text:'🔊 ลองฟัง',onclick:()=>speak((art?art+' ':'')+w.value.trim())}),
+        el('span',{class:'sp'}),
+        it?el('button',{class:'danger',text:'ลบกรอบ',onclick:()=>{ delete sc.items[id]; if(selId===id) selId=null; saveScenes(); closeModal(); renderScene(); refresh(); }}):null,
+        el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'บันทึก',onclick:save})));
+    setTimeout(()=>w.focus(),40);
   });
 }
 function loadImageFile(file){
@@ -2718,7 +2965,9 @@ function importData(text){
   for(const [k,v] of Object.entries(o.items)){
     if(!v || typeof v.word!=='string') continue;
     const n=x=>Number.isFinite(+x)?+x:0;
-    its['h'+Math.random().toString(36).slice(2,9)]={word:v.word.slice(0,80), th:String(v.th||'').slice(0,120), alts:Array.isArray(v.alts)?v.alts.filter(a=>typeof a==='string').slice(0,4).map(a=>a.slice(0,60)):[], x:n(v.x), y:n(v.y), w:n(v.w), h:n(v.h)};
+    const nk='h'+Math.random().toString(36).slice(2,9);
+    its[nk]={word:v.word.slice(0,80), th:String(v.th||'').slice(0,120), alts:Array.isArray(v.alts)?v.alts.filter(a=>typeof a==='string').slice(0,4).map(a=>a.slice(0,60)):[], x:n(v.x), y:n(v.y), w:n(v.w), h:n(v.h)};
+    const lw=cleanLang(v.l); if(lw) its[nk].l=lw;
   }
   const sc={id:'s'+Date.now().toString(36), name:String(o.name||'ฉากที่นำเข้า').slice(0,50), img:o.img, w:+o.w, h:+o.h, items:its};
   customs.push(sc); saveScenes(); S.sceneId=sc.id; store.set('pv-scene',sc.id); help={}; used={};
