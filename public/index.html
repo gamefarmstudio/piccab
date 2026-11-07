@@ -519,6 +519,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  /* tidy play screen: picture → word card → word strip → controls */
  #playView:not([hidden]){display:flex;flex-direction:column}
  #modes{order:1} #playView>main{order:2} #sub{order:3;margin-top:6px}
+ body.fs:not(.fsside) #modes{margin-top:auto} body.fs:not(.fsside) #sub{margin-bottom:auto}   /* full screen, upright phone: centre vertically when there is room */
  .sub .tip{display:none}
  .sub{gap:6px}
  .sub .seg button{padding:8px 9px;font-size:14.5px}
@@ -3992,8 +3993,13 @@ function fitWrap(){
     availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-2;
     availW=pv.querySelector('main').clientWidth;
   } else {
-    availH=window.innerHeight-(pv.scrollHeight-wrap.offsetHeight)-6;   // minus tabs, controls, word chips, padding
-    availW=pv.clientWidth;
+    // Height of everything except the picture (tabs, controls, word chips), measured from the boxes themselves:
+    // #playView fills the screen, so its scrollHeight would include the picture's current size and it could never grow.
+    const cs=getComputedStyle(pv); let top=Infinity, bot=-Infinity;
+    for(const c of pv.children){ const b=c.getBoundingClientRect(); if(!b.height) continue; top=Math.min(top,b.top); bot=Math.max(bot,b.bottom); }
+    const other=Math.max(0, (bot-top) - wrap.getBoundingClientRect().height);
+    availH=window.innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-other-6;
+    availW=pv.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
   }
   wrap.style.maxWidth=Math.max(200, Math.min(availW, Math.max(160,availH)*r))+'px';
 }
