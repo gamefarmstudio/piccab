@@ -1,11 +1,11 @@
 // Lists any Thai text in the app that would still show in Thai with English menus.
-//   npm i --no-save acorn acorn-walk && node tools/i18n-check.mjs
+//   npm ci --prefix tests && node tests/i18n-check.mjs   (also runs on every pull request)
 // Fix a line it prints by adding the Thai → English pair to public/i18n/en.js.
 import fs from 'fs';
 const root=new URL('..', import.meta.url).pathname;
 let acorn, walk;
 try{ acorn=await import('acorn'); walk=await import('acorn-walk'); }
-catch(e){ console.error('Needs acorn: npm i --no-save acorn acorn-walk'); process.exit(2); }
+catch(e){ console.error('Needs acorn: npm ci --prefix tests'); process.exit(2); }
 const html=fs.readFileSync(root+'public/app.html','utf8');
 const TH=/[฀-๿]/;
 const found=new Set();
