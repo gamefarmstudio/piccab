@@ -1,5 +1,5 @@
 // Piccab service worker: lets the app open and run without a connection.
-//  - Pages (the landing page /, the app /app, /privacy, /terms): network first, so updates show up straight away;
+//  - Pages (the landing pages / and /en/, the app /app, /privacy, /terms and their English /en/… versions): network first, so updates show up straight away;
 //    the saved copy is used when offline or when the network takes too long.
 //  - Static files (fonts, icons, supabase-js, CSS): served from the cache, refreshed in the background.
 //  - English menus (/i18n/*): network first, like pages, so new words show up straight away.
@@ -7,7 +7,8 @@
 // Scenes, pictures and progress already live in the browser (localStorage / IndexedDB), so
 // practising works offline; sync and AI resume when the connection is back.
 const VERSION = 'piccab-v1';
-const PAGES = ['/', '/app', '/privacy', '/terms'];
+const PAGES = ['/', '/app', '/privacy', '/terms', '/en', '/en/privacy', '/en/terms'];
+const PAGE_URL = { '/en': '/en/' };   // fetched at this address (no redirect), saved under the page's key
 const ASSETS = [
   '/vendor/supabase-2.119.0.js', '/fonts/fonts.css', '/legal.css', '/manifest.webmanifest',
   '/favicon.svg', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
@@ -22,7 +23,9 @@ self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(VERSION);
     // one failed file must not stop the install
-    await Promise.all(PAGES.concat(ASSETS).map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})));
+    await Promise.all(PAGES.map(u => fetch(new Request(PAGE_URL[u] || u, { cache: 'reload' }))
+      .then(r => { if (r.ok && !r.redirected) return c.put(u, r); }).catch(() => {})));
+    await Promise.all(ASSETS.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})));
     await self.skipWaiting();
   })());
 });
@@ -54,7 +57,7 @@ async function pageFirstNetwork(req, key) {
   } catch (e) { /* offline */ }
   const saved = await c.match(key);
   if (saved) return saved;
-  return net.catch(() => c.match('/app').then(r => r || new Response('ออฟไลน์อยู่ — เปิด Piccab ครั้งแรกต้องต่ออินเทอร์เน็ต', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } })));
+  return net.catch(() => c.match('/app').then(r => r || new Response('ออฟไลน์อยู่ — เปิด Piccab ครั้งแรกต้องต่ออินเทอร์เน็ต\nYou\'re offline — open Piccab once with internet first', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } })));
 }
 
 async function netFirst(req) {

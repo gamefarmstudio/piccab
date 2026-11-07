@@ -13,13 +13,21 @@
     var ls=window.localStorage, used=ls.getItem('pv-seen')||ls.getItem('pv-progress')||ls.getItem('pv-scenes2')||ls.getItem('pv-recent');
     if(!used) for(var i=0;i<ls.length;i++){ if(/^sb-.+-auth-token$/.test(ls.key(i)||'')){ used=1; break; } }
     var app=window.matchMedia && matchMedia('(display-mode: standalone)').matches;
-    if(used||app) l.replace('/app'+q);
+    if(used||app){ l.replace('/app'+q); return; }
+    // English page for browsers without Thai (or people who chose English); ?hl=th stays here
+    if(/[?&]hl=th\b/.test(q)) return;
+    var ui=null; try{ ui=JSON.parse(ls.getItem('pv-ui')); }catch(e){}
+    var langs=(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language||'']).join(',').toLowerCase();
+    if(ui==='en' || (ui!=='th' && !/(^|,)th/.test(langs))) l.replace('/en/'+h);
   }catch(e){}
 })();
 </script>
 <title>Piccab — ฝึกศัพท์อังกฤษจากภาพ เริ่มใช้ฟรี สำหรับคนไทยทุกวัย</title>
 <meta name="description" content="แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์ ฟังแล้วหา และทบทวนตามรอบเวลา ถ่ายรูปรอบตัวให้ AI หาคำศัพท์ให้ เริ่มใช้ฟรีบนมือถือและคอมพิวเตอร์">
 <link rel="canonical" href="https://piccab.com/">
+<link rel="alternate" hreflang="th" href="https://piccab.com/">
+<link rel="alternate" hreflang="en" href="https://piccab.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://piccab.com/">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -78,6 +86,11 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
 .nav a{text-decoration:none;color:#4a4660;font-size:15px;padding:8px 10px;border-radius:10px}
 .nav a:hover{background:var(--lav);color:var(--ink)}
 .top .act{display:flex;gap:8px;align-items:center}
+.top .langsw{text-decoration:none;font:600 13px/1 Fredoka,Sarabun,sans-serif;color:var(--ink3);padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:#fff}
+.top .langsw:hover{background:var(--lav)}
+.dlang{margin-left:auto;display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff;flex:none}
+.dlang button{border:0;background:transparent;font:600 12.5px/1 Sarabun,sans-serif;padding:6px 10px;cursor:pointer;color:var(--muted)}
+.dlang button.on{background:var(--ink2);color:#fff}
 .top .login{text-decoration:none;font-weight:600;color:var(--ink);padding:8px 12px;font-size:15px}
 @media (max-width:1020px){ .nav{display:none} .top .act{margin-left:auto} }
 @media (max-width:480px){ .top .login{display:none} .brand small{font-size:11px} .brand b{font-size:20px} .top .btn.small{padding:9px 12px;font-size:14px} }
@@ -277,7 +290,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
     <nav class="nav" aria-label="ส่วนต่าง ๆ ของหน้า">
       <a href="#why">จุดเด่น</a><a href="#modes">3 โหมดฝึก</a><a href="#review">ทบทวนตามรอบ</a><a href="#ai">ถ่ายรูปด้วย AI</a><a href="#class">ห้องเรียน</a><a href="#faq">คำถามที่พบบ่อย</a>
     </nav>
-    <div class="act"><a class="login" href="/app?login">เข้าสู่ระบบ</a><a class="btn primary small" href="/app">เริ่มฝึกฟรี 🎉</a></div>
+    <div class="act"><a class="langsw" href="/en/" hreflang="en" lang="en" title="English">EN</a><a class="login" href="/app?login&amp;hl=th">เข้าสู่ระบบ</a><a class="btn primary small" href="/app?hl=th">เริ่มฝึกฟรี 🎉</a></div>
   </div>
 </header>
 
@@ -288,7 +301,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
     <h1>จำศัพท์อังกฤษได้นานขึ้น<br>ด้วย<em>ภาพ</em>และการทบทวนตามรอบ</h1>
     <p class="sub">ไม่ต้องนั่งท่องตารางศัพท์ แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์สะกด ฟังแล้วชี้หา แล้วให้ Piccab ชวนกลับมาทบทวนในวันที่ใกล้ลืม</p>
     <div class="cta">
-      <a class="btn primary" href="/app">เริ่มฝึกฟรีบนเว็บ 🚀</a>
+      <a class="btn primary" href="/app?hl=th">เริ่มฝึกฟรีบนเว็บ 🚀</a>
       <a class="btn ghost" href="#demo">👆 ลองแตะฉากตัวอย่าง</a>
     </div>
     <div class="trust">
@@ -304,7 +317,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
         <div class="stage" id="stage">
           <svg class="pic" viewBox="0 0 1000 680" role="img" aria-label="ภาพวาดชุดน้ำชายามบ่าย"><use href="#tea"/></svg>
         </div>
-        <div class="fbot"><span class="prog"><i></i><span id="heard">ฟังแล้ว 0/6 คำ · ทั้งฉากมี 24 คำ</span></span><span class="tip">💡 แตะป้ายคำในภาพเพื่อฟังเสียง</span><a class="btn dark small" href="/app">เล่นฉากนี้ในแอป ›</a></div>
+        <div class="fbot"><span class="prog"><i></i><span id="heard">ฟังแล้ว 0/6 คำ · ทั้งฉากมี 24 คำ</span></span><span class="tip">💡 แตะป้ายคำในภาพเพื่อฟังเสียง</span><a class="btn dark small" href="/app?hl=th">เล่นฉากนี้ในแอป ›</a></div>
       </div>
     </div>
   </div>
@@ -410,7 +423,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
       <div class="feat"><span class="e">🔎</span><div><b>หาได้สูงสุด 20 คำต่อรูป</b><span>เลือกระดับคำได้ ง่าย · กลาง · ยาก</span></div></div>
       <div class="feat"><span class="e">✏️</span><div><b>แก้ไขเองได้ทุกคำ</b><span>ตีกรอบคำใหม่ แก้คำ ย้ายหรือลบกรอบ จะไม่ใช้ AI แล้วตีกรอบเองทั้งหมดก็ได้</span></div></div>
       <div class="feat"><span class="e">🎁</span><div><b>มีเครดิต AI ฟรีให้ทุกเดือน</b><span>สำหรับบัญชีที่เข้าสู่ระบบด้วยอีเมลหรือ Google (จำนวนเครดิตอาจปรับเปลี่ยนได้)</span></div></div>
-      <div class="cta" style="justify-content:flex-start;margin-top:22px"><a class="btn dark" href="/app">📷 ลองสร้างฉากจากรูป</a></div>
+      <div class="cta" style="justify-content:flex-start;margin-top:22px"><a class="btn dark" href="/app?hl=th">📷 ลองสร้างฉากจากรูป</a></div>
     </div>
     <div class="shot reveal">
       <div class="stage" style="position:relative">
@@ -478,8 +491,8 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
       <h2>พร้อมเปลี่ยนสิ่งรอบตัว ให้เป็นภาษาอังกฤษแล้วหรือยัง?</h2>
       <p>เปิดฉากตัวอย่างแล้วแตะของชิ้นแรก หรือถ่ายรูปห้องของคุณเพื่อสร้างฉากแรกของตัวเอง</p>
       <div class="cta">
-        <a class="btn primary" href="/app">เริ่มใช้งานฟรีทันที</a>
-        <a class="btn ghost" href="/app?install">📲 ติดตั้งเป็นแอป</a>
+        <a class="btn primary" href="/app?hl=th">เริ่มใช้งานฟรีทันที</a>
+        <a class="btn ghost" href="/app?install&amp;hl=th">📲 ติดตั้งเป็นแอป</a>
       </div>
       <div class="ok"><span>ไม่ต้องใช้บัตร</span><span>ไม่ต้องสมัครก็เริ่มได้</span><span>ภาษาไทยทั้งแอป</span></div>
     </div>
@@ -496,8 +509,8 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
         <div class="tags"><span>✓ สำหรับผู้เรียนไทย</span><span>ทุกวัย</span></div>
       </div>
       <div><h4>ฝึกฝน</h4><ul><li><a href="#modes">👀 ดูคำศัพท์</a></li><li><a href="#modes">✍️ ทบทวน (พิมพ์)</a></li><li><a href="#modes">👂 ฟังแล้วหา</a></li><li><a href="#review">🔁 ทบทวนตามรอบ</a></li></ul></div>
-      <div><h4>ใช้งาน</h4><ul><li><a href="/app">เปิดแอป</a></li><li><a href="#ai">ถ่ายรูปด้วย AI</a></li><li><a href="#class">ห้องเรียน &amp; เพื่อน</a></li><li><a href="#faq">คำถามที่พบบ่อย</a></li></ul></div>
-      <div><h4>ติดต่อ</h4><ul><li><a href="mailto:contact@piccab.com">contact@piccab.com</a></li><li><a href="/privacy">นโยบายความเป็นส่วนตัว</a></li><li><a href="/terms">ข้อตกลงการใช้งาน</a></li></ul></div>
+      <div><h4>ใช้งาน</h4><ul><li><a href="/app?hl=th">เปิดแอป</a></li><li><a href="#ai">ถ่ายรูปด้วย AI</a></li><li><a href="#class">ห้องเรียน &amp; เพื่อน</a></li><li><a href="#faq">คำถามที่พบบ่อย</a></li></ul></div>
+      <div><h4>ติดต่อ</h4><ul><li><a href="mailto:contact@piccab.com">contact@piccab.com</a></li><li><a href="/privacy">นโยบายความเป็นส่วนตัว</a></li><li><a href="/terms">ข้อตกลงการใช้งาน</a></li><li><a href="/en/" lang="en">English</a></li></ul></div>
     </div>
     <div class="bot"><span>© <span id="yr">2026</span> Piccab · ทำด้วย ❤️ สำหรับคนไทยที่อยากเก่งอังกฤษ</span><span><a href="/privacy">ความเป็นส่วนตัว</a><a href="/terms">ข้อตกลง</a></span></div>
   </div>

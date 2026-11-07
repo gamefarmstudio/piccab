@@ -34,3 +34,5 @@ th{background:#faf6f1}
   table,thead,tbody,tr,th,td{font-size:14.5px}
   th,td{padding:6px 7px}
 }
+
+.note{background:var(--soft,#efeaf7);border-radius:12px;padding:10px 14px;font-size:14.5px;color:#4a4660;margin:0 0 18px}
