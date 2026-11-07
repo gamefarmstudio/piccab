@@ -93,7 +93,9 @@ export default {
     if (/^\/s\/[A-Za-z0-9]{8,16}\/?$/.test(url.pathname)) return sharePage(request, env, url);
     if (/^\/c\/[A-Za-z2-9]{6}\/?$/.test(url.pathname)) return classPage(request, env, url);
     if (url.pathname === '/admin' || url.pathname === '/admin/') return appPageWith(request, env, url, 'Piccab — ดูแลระบบ', 'Piccab');
-    if (/^\/f\/[A-Za-z2-9]{8}\/?$/.test(url.pathname)) return appPageWith(request, env, url, 'เพิ่มเพื่อนบน Piccab', 'มีคนชวนคุณเป็นเพื่อนฝึกคำศัพท์อังกฤษบน Piccab — กดเพื่อเปิดแล้วยืนยัน');
+    if (/^\/f\/[A-Za-z2-9]{8}\/?$/.test(url.pathname)) return pageLang(url) === 'en'
+      ? appPageWith(request, env, url, 'Add a friend on Piccab', 'Someone invited you to be vocabulary practice friends on Piccab — tap to open')
+      : appPageWith(request, env, url, 'เพิ่มเพื่อนบน Piccab', 'มีคนชวนคุณเป็นเพื่อนฝึกคำศัพท์อังกฤษบน Piccab — กดเพื่อเปิดแล้วยืนยัน');
     return env.ASSETS.fetch(request);
   },
 };
@@ -706,10 +708,13 @@ async function sharePage(request, env, url) {
   if (row) {
     const scenes = row.data.scenes || [];
     const n = row.kind === 'deck' ? (row.data.words || []).length : Object.keys((scenes[0] && scenes[0].items) || {}).length;
-    const title = row.kind === 'deck' ? `ชุดคำ “${row.name}” · ${n} คำ — Piccab` : `ฉาก “${row.name}” · ${n} คำ — Piccab`;
+    const en = pageLang(url) === 'en';
+    const title = en
+      ? (row.kind === 'deck' ? `Word set “${row.name}” · ${n} ${n === 1 ? 'word' : 'words'} — Piccab` : `Scene “${row.name}” · ${n} ${n === 1 ? 'word' : 'words'} — Piccab`)
+      : (row.kind === 'deck' ? `ชุดคำ “${row.name}” · ${n} คำ — Piccab` : `ฉาก “${row.name}” · ${n} คำ — Piccab`);
     const pic = scenes.find(s => !s.builtin);
     const img = pic ? `${url.origin}/api/share/${id}/img/${pic.id}` : `${url.origin}/icon-512.png`;
-    const desc = 'ฝึกคำศัพท์ภาษาอังกฤษจากภาพ — กดเพื่อเปิดใน Piccab แล้วเก็บไว้ฝึกได้เลย';
+    const desc = en ? 'Learn words from a picture — tap to open it in Piccab and save it to practise' : 'ฝึกคำศัพท์ภาษาอังกฤษจากภาพ — กดเพื่อเปิดใน Piccab แล้วเก็บไว้ฝึกได้เลย';
     const tags = `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
@@ -995,6 +1000,10 @@ async function admin(request, env, url) {
 }
 
 // The app page with a generic preview (no personal details).
+// Link previews (Line, Facebook…) follow the sharer's menu language: the app adds ?hl=en to links made in English.
+// No hl → Thai, as links always were.
+export const pageLang = url => url.searchParams.get('hl') === 'en' ? 'en' : 'th';
+
 async function appPageWith(request, env, url, title, desc) {
   const page = await env.ASSETS.fetch(new Request(`${url.origin}/app`, { headers: request.headers }));
   let html = await page.text();
@@ -1184,10 +1193,11 @@ async function classPage(request, env, url) {
   let html = await page.text();
   const c = env.SUPABASE_SECRET_KEY && CLASS_CODE.test(code) ? (await q(env, `classes?code=eq.${code}&select=name`).catch(() => null) || [])[0] : null;
   if (c) {
-    const title = `เข้าห้องเรียน “${c.name}” — Piccab`;
+    const en = pageLang(url) === 'en';
+    const title = en ? `Join the class “${c.name}” — Piccab` : `เข้าห้องเรียน “${c.name}” — Piccab`;
     const tags = `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
-<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc('กดลิงก์ ใส่ชื่อเล่น แล้วเริ่มฝึกคำศัพท์ที่ครูมอบหมายได้เลย')}">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(en ? 'Tap the link, enter a nickname and start practising the words your teacher assigned' : 'กดลิงก์ ใส่ชื่อเล่น แล้วเริ่มฝึกคำศัพท์ที่ครูมอบหมายได้เลย')}">
 <meta property="og:image" content="${esc(url.origin + '/icon-512.png')}"><meta property="og:url" content="${esc(url.origin + '/c/' + code)}">`;
     html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
   }
@@ -1195,7 +1205,7 @@ async function classPage(request, env, url) {
 }
 
 // ---------- sign-in e-mails (Supabase "Send Email" auth hook → Resend) ----------
-// Supabase calls POST /api/auth-email for every auth e-mail; we send our own Thai e-mail through Resend.
+// Supabase calls POST /api/auth-email for every auth e-mail; we send our own e-mail (Thai or English) through Resend.
 // Secrets: SEND_EMAIL_HOOK_SECRET ("v1,whsec_…" from the hook settings), RESEND_API_KEY ("re_…").
 // The request is signed with Standard Webhooks (headers webhook-id / webhook-timestamp / webhook-signature).
 const b64ToBytes = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
@@ -1220,26 +1230,47 @@ const MAIL_TEXT = {
   email_change:     { subject: 'ยืนยันอีเมลใหม่ของ Piccab', title: 'ยืนยันอีเมลใหม่', lead: 'ใส่รหัสนี้ในแอปเพื่อยืนยันอีเมลใหม่', button: 'ยืนยันอีเมลใหม่' },
   reauthentication: { subject: 'รหัสยืนยันตัวตน Piccab', title: 'ยืนยันตัวตน', lead: 'ใส่รหัสนี้ในแอปเพื่อยืนยันว่าเป็นคุณ', button: '' },
 };
+const MAIL_TEXT_EN = {
+  signup:           { subject: 'Confirm your Piccab email', title: 'Welcome to Piccab 👋', lead: 'Enter this code in the app to confirm your email and sign in', button: 'Confirm and sign in' },
+  magiclink:        { subject: 'Your Piccab sign-in code', title: 'Your Piccab sign-in code', lead: 'Enter this code in the app to sign in', button: 'Sign in to Piccab' },
+  email:            { subject: 'Your Piccab sign-in code', title: 'Your Piccab sign-in code', lead: 'Enter this code in the app to sign in', button: 'Sign in to Piccab' },
+  recovery:         { subject: 'Your Piccab account reset code', title: 'Reset your account', lead: 'Enter this code in the app to continue', button: 'Continue' },
+  invite:           { subject: "You're invited to Piccab", title: "You're invited to Piccab", lead: 'Tap the button below to get started', button: 'Get started' },
+  email_change:     { subject: 'Confirm your new Piccab email', title: 'Confirm your new email', lead: 'Enter this code in the app to confirm your new email', button: 'Confirm new email' },
+  reauthentication: { subject: 'Your Piccab verification code', title: 'Verify it\'s you', lead: 'Enter this code in the app to confirm it\'s you', button: '' },
+};
+const MAIL_MORE = {
+  th: { or: 'หรือกดปุ่มนี้ (เปิดในเบราว์เซอร์เดียวกับที่ใช้ Piccab)', once: 'รหัสนี้ใช้ได้ครั้งเดียวและจะหมดอายุในไม่ช้า · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร', onceText: 'รหัสนี้ใช้ได้ครั้งเดียว · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร' },
+  en: { or: 'Or tap this button (open it in the same browser you use Piccab in)', once: "This code works once and expires soon · If you didn't ask for it, you can ignore this email", onceText: "This code works once · If you didn't ask for it, you can ignore this email" },
+};
+// The e-mail's language: the app asks with emailRedirectTo …/app?hl=en and saves lang in a new account's metadata.
+export function mailLang(p) {
+  const d = (p && p.email_data) || {}, meta = (p && p.user && p.user.user_metadata) || {};
+  if (/[?&]hl=en\b/.test(String(d.redirect_to || ''))) return 'en';
+  if (/[?&]hl=th\b/.test(String(d.redirect_to || ''))) return 'th';
+  return meta.lang === 'en' ? 'en' : 'th';
+}
 export function buildAuthEmail(p, supabaseUrl) {
-  const d = p.email_data || {}, type = d.email_action_type || 'magiclink', t = MAIL_TEXT[type] || MAIL_TEXT.magiclink;
+  const lang = mailLang(p), M = MAIL_MORE[lang], TXT = lang === 'en' ? MAIL_TEXT_EN : MAIL_TEXT;
+  const d = p.email_data || {}, type = d.email_action_type || 'magiclink', t = TXT[type] || TXT.magiclink;
   const code = d.token || '';
   const redirect = d.redirect_to || d.site_url || 'https://piccab.com/';
   const link = d.token_hash && t.button
     ? `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(d.token_hash)}&type=${encodeURIComponent(type === 'email' ? 'magiclink' : type)}&redirect_to=${encodeURIComponent(redirect)}`
     : '';
   const subject = code ? `${t.subject}: ${code}` : t.subject;
-  const html = `<!doctype html><html lang="th"><body style="margin:0;background:#f6f0e8;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
+  const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#f6f0e8;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:18px;padding:28px">
 <tr><td style="font-size:22px;font-weight:700;padding-bottom:6px">Pic<span style="color:#c2405c">cab</span></td></tr>
 <tr><td style="font-size:20px;font-weight:700;padding:10px 0 6px">${esc(t.title)}</td></tr>
 ${code ? `<tr><td style="font-size:15px;color:#77728c">${esc(t.lead)}</td></tr>
 <tr><td style="padding:16px 0"><div style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;background:#efeaf7;border-radius:12px;padding:14px 0">${esc(code)}</div></td></tr>` : ''}
-${link ? `<tr><td style="font-size:14px;color:#77728c;padding-bottom:10px">${code ? 'หรือกดปุ่มนี้ (เปิดในเบราว์เซอร์เดียวกับที่ใช้ Piccab)' : ''}</td></tr>
+${link ? `<tr><td style="font-size:14px;color:#77728c;padding-bottom:10px">${code ? M.or : ''}</td></tr>
 <tr><td><a href="${esc(link)}" style="display:inline-block;background:#2d2a5a;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:12px">${esc(t.button)}</a></td></tr>` : ''}
-<tr><td style="font-size:13px;color:#77728c;padding-top:22px">รหัสนี้ใช้ได้ครั้งเดียวและจะหมดอายุในไม่ช้า · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร</td></tr>
+<tr><td style="font-size:13px;color:#77728c;padding-top:22px">${esc(M.once)}</td></tr>
 </table></td></tr></table></body></html>`;
-  const text = [t.title, code ? `${t.lead}: ${code}` : '', link ? `${t.button}: ${link}` : '', 'รหัสนี้ใช้ได้ครั้งเดียว · ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร'].filter(Boolean).join('\n\n');
+  const text = [t.title, code ? `${t.lead}: ${code}` : '', link ? `${t.button}: ${link}` : '', M.onceText].filter(Boolean).join('\n\n');
   return { subject, html, text };
 }
 

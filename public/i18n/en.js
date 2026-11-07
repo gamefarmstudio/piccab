@@ -65,7 +65,7 @@ const D={
   "อีก {0} วันมี {1} คำ": "{1} words in {0} days",
   " · จำได้แล้ว {0} คำ": " · {0} words remembered",
   "จำได้แล้ว {0} คำ": "{0} words remembered",
-  "คำที่ต้องทบทวนวันนี้ ": "Words to review today: ",
+  "คำที่ต้องทบทวนวันนี้ ": "Due for review today: ",
   "ทบทวนวันนี้เพื่อรักษา 🔥 {0} วันติดกัน · ": "Review today to keep your 🔥 {0}-day streak · ",
   "คำที่ใกล้ลืมแล้ว ทบทวนตอนนี้จะจำได้นานขึ้น · ": "These words are about to slip — reviewing now helps them stick · ",
   "ครั้งละ 10 คำ": "10 words at a time",
@@ -736,6 +736,7 @@ const D={
   "ยังไม่มีรายงาน": "No reports yet",
   "🎉 ไม่มีรายงานที่ต้องจัดการ": "🎉 No reports to handle",
   "(ไม่มีชื่อเล่น)": "(no nickname)",
+  "(ไม่มีชื่อ)": "(no name)",
   " · รหัส {0}": " · code {0}",
   " · บัญชีนักเรียน": " · student account",
   " · (ลบบัญชีแล้ว)": " · (account deleted)",
@@ -904,9 +905,11 @@ for(const k of Object.keys(D)){
   }
 }
 byFirst.forEach(a=>a.sort((x,y)=>y.length-x.length));
+const digitFrags=[...exact.keys()].filter(k=>/\d/.test(k)).sort((x,y)=>y.length-x.length);
 pats.sort((a,b)=>b.lit-a.lit);   // the most specific pattern first
 numPats.sort((a,b)=>b.len-a.len);
-const fill=(p,m)=>p.v.replace(/\{(\d)\}/g,(_,n)=>{ const i=p.order.indexOf(+n); const s=i<0?'':m[i+1]; return TH.test(s)?T(s):s; });
+// a value that is itself Thai must translate fully, otherwise the pattern was the wrong fit (→ null)
+const fill=(p,m)=>{ let ok=true; const r=p.v.replace(/\{(\d)\}/g,(_,n)=>{ const i=p.order.indexOf(+n); let s=i<0?'':m[i+1]; if(TH.test(s)){ s=T(s); if(TH.test(s)) ok=false; } return s; }); return ok?r:null; };
 // "1 words" → "1 word"
 const ONE={words:'word',scenes:'scene',students:'student',days:'day',weeks:'week',months:'month',items:'item',classes:'class',times:'time',pictures:'picture',stars:'star',assignments:'assignment',seconds:'second',sets:'set'};
 const plural=s=>s.replace(/(^|[^\d.,])1 (words|scenes|students|days|weeks|months|items|classes|times|pictures|stars|assignments|seconds|sets)\b/g,(_,a,w)=>a+'1 '+ONE[w]);
@@ -915,10 +918,15 @@ const alnum=c=>!!c && /[A-Za-z0-9]/.test(c);
 // Pieces of text glued together by the app ("เพิ่มคำที่แล้ว “" + name + "” ลงชุดคำ"):
 // swap each known Thai piece, but never cut into a Thai word that isn't ours.
 function pieces(s){
+  // fixed phrases with numbers first ("ครั้งละ 10 คำ"), so a pattern doesn't take them apart
+  for(const f of digitFrags){ let i=s.indexOf(f);
+    while(i>=0){ const j=i+f.length;
+      if(!(thai(f[0]) && thai(s[i-1]||'')) && !(thai(f[f.length-1]) && thai(s[j]||''))){ const v=exact.get(f); s=s.slice(0,i)+v+s.slice(j); i=s.indexOf(f,i+v.length); }
+      else i=s.indexOf(f,j); } }
   for(const p of numPats) s=s.replace(p.re,(...m)=>{
     const at=m[m.length-2], str=m[m.length-1], end=at+m[0].length;
     if((thai(m[0][0]) && thai(str[at-1]||'')) || (thai(m[0].slice(-1)) && thai(str[end]||''))) return m[0];   // inside someone's Thai text
-    return fill(p,m); });
+    const r=fill(p,m); return r==null ? m[0] : r; });
   let out='', i=0, lastEnd=-1;
   while(i<s.length){
     const a=byFirst.get(s[i]); let hit=null;
@@ -938,7 +946,7 @@ const cache=new Map();
 function T(core){
   if(cache.has(core)) return cache.get(core);
   let r=exact.get(core);
-  if(r==null) for(const p of pats){ const m=p.re.exec(core); if(m){ r=fill(p,m); break; } }
+  if(r==null) for(const p of pats){ const m=p.re.exec(core); if(m){ r=fill(p,m); if(r!=null) break; } }
   if(r==null) r=pieces(core);
   r=plural(r);
   if(cache.size>5000) cache.clear();
@@ -957,7 +965,9 @@ function doText(n){ const v=n.nodeValue; if(!v || !TH.test(v) || skipEl(n.parent
   // "<b>1</b> days in a row" → "1 day in a row"
   const pv=n.previousSibling; if(pv && /(^|[^\d.,])1$/.test((pv.textContent||'').trim())) t=t.replace(/^(\s*)(words|scenes|students|days|weeks|months|items|classes|times|pictures|stars|assignments|seconds|sets)\b/,(_,sp,w)=>sp+ONE[w]);
   if(t!==v) n.nodeValue=t; }
-function doAttrs(e){ for(const a of ATTRS){ const v=e.getAttribute && e.getAttribute(a); if(v && TH.test(v)){ const t=tr(v); if(t!==v) e.setAttribute(a,t); } } }
+const LEGAL=/^\/(privacy|terms)(#.*)?$/;   // the policy pages have English versions under /en/
+function doAttrs(e){ if(e.nodeName==='A'){ const h=e.getAttribute('href'); if(h && LEGAL.test(h)) e.setAttribute('href','/en'+h); }
+  for(const a of ATTRS){ const v=e.getAttribute && e.getAttribute(a); if(v && TH.test(v)){ const t=tr(v); if(t!==v) e.setAttribute(a,t); } } }
 function walk(root){
   if(root.nodeType===3){ doText(root); return; }
   if(root.nodeType!==1 && root.nodeType!==9 && root.nodeType!==11) return;
@@ -971,7 +981,7 @@ new MutationObserver(list=>{
     else if(m.type==='attributes') doAttrs(m.target);
     else m.addedNodes.forEach(walk);
   }
-}).observe(document.documentElement,{subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:ATTRS});
+}).observe(document.documentElement,{subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:ATTRS.concat('href')});
 walk(document.documentElement);
 document.addEventListener('DOMContentLoaded',()=>walk(document.documentElement));
 // The browser's own pop-ups

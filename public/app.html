@@ -8,10 +8,13 @@
    Existing users keep Thai. New visitors get Thai if their browser speaks Thai, otherwise English. */
 (function(){
   var u=null, ls=null; try{ ls=window.localStorage; u=JSON.parse(ls.getItem('pv-ui')); }catch(e){}
+  // ?hl=en / ?hl=th from the landing pages and sign-in e-mails: a first choice only, never overrides one already made
+  var hl=/^\/app\/?$/.test(location.pathname) && (location.search.match(/[?&]hl=(th|en)\b/)||[])[1];
+  if(hl){ try{ history.replaceState(null,'',location.pathname+(location.search.replace(/([?&])hl=(th|en)\b&?/,'$1').replace(/[?&]$/,''))+location.hash); }catch(e){} }
   if(u!=='th' && u!=='en'){
     var had=false; try{ for(var i=0;i<ls.length;i++){ var k=ls.key(i); if(/^(pv-|sb-)/.test(k)){ had=true; break; } } }catch(e){}
     var langs=(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language||'']).join(',').toLowerCase();
-    u = had || /(^|,)th/.test(langs) ? 'th' : 'en';
+    u = had ? 'th' : hl || (/(^|,)th/.test(langs) ? 'th' : 'en');
     window.PV_UI_NEW = !had && u==='en';   // ask once: menus + language to practise
     try{ ls.setItem('pv-ui', JSON.stringify(u)); }catch(e){}
   }
@@ -1025,6 +1028,7 @@ const store = {
 const UI = window.PV_UI==='en' ? 'en' : 'th';
 const tx = s => window.PV_T ? window.PV_T(s) : s;   // for text that never reaches the screen: files, share text
 const LOC = UI==='en' ? 'en-GB' : 'th-TH';
+const HL = UI==='en' ? '?hl=en' : '';   // link previews (Line, Facebook…) in the sharer's language
 function el(tagName, props, ...kids){
   const e=document.createElement(tagName);
   if(props) for(const k in props){
@@ -3216,7 +3220,7 @@ function openLogin(prefill){
       go.disabled=true; go.textContent='กำลังส่ง…'; err.textContent='';
       let captchaToken;
       try{ captchaToken=await hc.token(); }catch(e){ go.disabled=false; go.textContent='ส่งรหัสเข้าอีเมล'; err.textContent=capErr(e); return; }
-      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/app', captchaToken } });
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/app?hl='+UI, data:{ lang:UI }, captchaToken } });
       if(error){ go.disabled=false; go.textContent='ส่งรหัสเข้าอีเมล'; err.textContent=authErr(error); return; }
       hc.remove(); openCode(email);
     };
@@ -3265,7 +3269,7 @@ function openCode(email){
       wait=60; tick(); clearInterval(timer); timer=setInterval(()=>{ if(wait>0){ wait--; tick(); } else clearInterval(timer); },1000);
       let captchaToken;
       try{ captchaToken=await hc.token(); }catch(e){ err.textContent=capErr(e); wait=0; tick(); return; }
-      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/app', captchaToken } });
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true, emailRedirectTo: location.origin+'/app?hl='+UI, data:{ lang:UI }, captchaToken } });
       err.textContent = error ? authErr(error) : ''; if(!error) toast('ส่งรหัสใหม่แล้ว');
     });
     m.append(el('h3',{text:'📩 ใส่รหัสจากอีเมล'}),
@@ -3545,7 +3549,7 @@ async function startAssignment(it, btn){
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='▶ ลองอีกครั้ง'; } toast('โหลดงานไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่'); }
 }
 function renderTeacher(v,d){
-  const link=location.origin+'/c/'+d.code;
+  const link=location.origin+'/c/'+d.code+HL;
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🧑‍🏫 '+d.name}), el('p',{text:`นักเรียน ${d.members.length} คน · งาน ${d.items.length} รายการ`})),
     el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ CL.detail=null; renderClassDetail(); }})));
   v.append(el('div',{class:'clinvite'},
@@ -3856,7 +3860,7 @@ function renderFriends(){
       el('div',{class:'row'}, go)));
     return;
   }
-  const link=location.origin+'/f/'+d.me.code;
+  const link=location.origin+'/f/'+d.me.code+HL;
   // my card
   const qrBox=el('div',{class:'frqr'});
   v.append(el('div',{class:'clinvite frme'},
@@ -4106,7 +4110,7 @@ var adminLinkWanted=/^\/admin\/?$/.test(location.pathname);
 // A link is a snapshot: the server copies the words and pictures when you share (or update) it.
 let myShares=store.get('pv-shares',{}); if(typeof myShares!=='object'||!myShares) myShares={};
 const shareKey=t=>t.kind+':'+(t.kind==='scene'?t.sc.id:t.deck.id);
-const shareUrl=id=>location.origin+'/s/'+id;
+const shareUrl=id=>location.origin+'/s/'+id+HL;
 function sceneForShare(sc){
   if(sc.builtin) return { id:sc.id, builtin:true, n:Object.keys(sc.items).length };
   return { id:sc.id, name:sc.name, w:sc.w, h:sc.h, items:sc.items };

@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+// Returning learners (or the installed app) go straight to the app; sign-in returns are passed on with their tokens.
+(function(){
+  try{
+    var l=location, q=l.search, h=l.hash;
+    if(/(access_token|refresh_token|error_description|type=recovery)/.test(h) || /[?&](code|error)=/.test(q)){ l.replace('/app'+q+h); return; }
+    if(/[?&]home\b/.test(q)) return;
+    var ls=window.localStorage, used=ls.getItem('pv-seen')||ls.getItem('pv-progress')||ls.getItem('pv-scenes2')||ls.getItem('pv-recent');
+    if(!used) for(var i=0;i<ls.length;i++){ if(/^sb-.+-auth-token$/.test(ls.key(i)||'')){ used=1; break; } }
+    var app=window.matchMedia && matchMedia('(display-mode: standalone)').matches;
+    if(used||app) l.replace('/app');
+  }catch(e){}
+})();
+</script>
+<title>Piccab — Learn English or German words from pictures. Free to start</title>
+<meta name="description" content="Tap things in a picture to hear the word, practise typing it, listen and find it, and review just before you forget. Take a photo and AI finds the words. Free on phone and computer.">
+<link rel="canonical" href="https://piccab.com/en/">
+<link rel="alternate" hreflang="th" href="https://piccab.com/">
+<link rel="alternate" hreflang="en" href="https://piccab.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://piccab.com/">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#232046">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Piccab">
+<meta property="og:title" content="Piccab — Learn words from pictures">
+<meta property="og:description" content="Tap things in a picture to hear the word, practise typing it, listen and find it, and review just before you forget. Free to start.">
+<meta property="og:image" content="https://piccab.com/icon-512.png">
+<meta property="og:locale" content="en_GB">
+<link rel="preload" href="/fonts/sarabun-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/sarabun-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+:root{
+  --ink:#0d0930; --ink2:#232046; --ink3:#2d2a5a; --crimson:#b22546; --crimson2:#d63a5c; --bg:#fdf9f3; --bg2:#f7f3ed; --card:#fff;
+  --line:#e4dacd; --muted:#77728c; --text:#2b2840; --lav:#efeaf7; --lav2:#e4dfff; --violet:#6b4fd8; --mint:#e5f5eb; --green:#24a164;
+  --gold:#fcbc2b; --peach:#ffdea6; --pink:#ffd9dc; --r:20px;
+  --shadow:0 18px 40px -18px rgba(35,32,70,.28); --shadow2:0 8px 24px -10px rgba(35,32,70,.22);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 17px/1.65 Sarabun,system-ui,sans-serif;overflow-x:hidden}
+a{color:inherit}
+img,svg{display:block;max-width:100%}
+.en{font-family:Fredoka,Sarabun,sans-serif}
+h1,h2,h3{color:var(--ink);line-height:1.25;margin:0}
+h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
+.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+.sec{padding:84px 0}
+.sec.alt{background:var(--bg2)}
+.kicker{display:inline-block;font:600 12.5px/1 Fredoka,Sarabun,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:7px 12px;border-radius:999px;background:var(--pink);color:var(--crimson);margin-bottom:14px}
+.kicker.lav{background:var(--lav2);color:var(--ink3)}
+.kicker.mint{background:var(--mint);color:#17683f}
+.kicker.gold{background:var(--peach);color:#7a5200}
+.lead{color:var(--muted);font-size:18px;max-width:720px;margin:12px auto 0}
+.center{text-align:center}
+.btn{display:inline-flex;align-items:center;gap:10px;justify-content:center;padding:15px 26px;border-radius:14px;font-weight:700;font-size:17px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .15s, box-shadow .15s, background .15s;font-family:inherit}
+.btn:hover{transform:translateY(-1px)}
+.btn.primary{background:var(--crimson);color:#fff;box-shadow:0 12px 26px -10px rgba(178,37,70,.6)}
+.btn.primary:hover{background:#9c1d3c}
+.btn.ghost{background:#fff;color:var(--ink);border-color:var(--line);box-shadow:var(--shadow2)}
+.btn.dark{background:var(--ink2);color:#fff}
+.btn.small{padding:10px 16px;font-size:15px;border-radius:12px}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:rgba(253,249,243,.86);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid transparent;transition:border-color .2s}
+.top.scrolled{border-color:var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand img{width:38px;height:38px}
+.brand b{font:600 22px/1 Fredoka,sans-serif;color:var(--ink)}
+.brand b span{color:var(--crimson2)}
+.brand small{display:block;font-size:12px;color:var(--muted);line-height:1.2;margin-top:2px}
+.nav{display:flex;gap:4px;margin-left:auto}
+.nav a{text-decoration:none;color:#4a4660;font-size:15px;padding:8px 10px;border-radius:10px}
+.nav a:hover{background:var(--lav);color:var(--ink)}
+.top .act{display:flex;gap:8px;align-items:center}
+.top .langsw{text-decoration:none;font:600 13px/1 Fredoka,Sarabun,sans-serif;color:var(--ink3);padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:#fff}
+.top .langsw:hover{background:var(--lav)}
+.dlang{margin-left:auto;display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff;flex:none}
+.dlang button{border:0;background:transparent;font:600 12.5px/1 Sarabun,sans-serif;padding:6px 10px;cursor:pointer;color:var(--muted)}
+.dlang button.on{background:var(--ink2);color:#fff}
+.top .login{text-decoration:none;font-weight:600;color:var(--ink);padding:8px 12px;font-size:15px}
+@media (max-width:1020px){ .nav{display:none} .top .act{margin-left:auto} }
+@media (max-width:480px){ .top .login{display:none} .brand small{font-size:11px} .brand b{font-size:20px} .top .btn.small{padding:9px 12px;font-size:14px} }
+@media (max-width:360px){ .brand small{display:none} }
+
+/* hero */
+.hero{padding:56px 0 30px;text-align:center;position:relative}
+.hero:before{content:"";position:absolute;inset:-120px 0 auto;height:620px;background:radial-gradient(600px 300px at 20% 30%,rgba(255,217,220,.55),transparent 70%),radial-gradient(560px 300px at 80% 20%,rgba(228,223,255,.7),transparent 70%);z-index:-1}
+.pill{display:inline-flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14.5px;color:#4a4660;box-shadow:var(--shadow2)}
+.hero h1{font-size:clamp(32px,5.4vw,58px);font-weight:700;margin:22px auto 0;max-width:900px;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--crimson);position:relative;white-space:nowrap}
+.hero h1 em:after{content:"";position:absolute;left:0;right:0;bottom:-.08em;height:.32em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12'%3E%3Cpath d='M2 8c18-6 30-6 46 0s30 6 46 0 18-4 24-2' fill='none' stroke='%23fcbc2b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.hero p.sub{font-size:clamp(17px,2vw,20px);color:#5d5970;max-width:760px;margin:20px auto 0}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+.trust{display:flex;gap:10px 26px;justify-content:center;flex-wrap:wrap;margin-top:24px;color:#5d5970;font-size:15px}
+.trust span{display:inline-flex;gap:7px;align-items:center}
+
+/* demo */
+.demo{max-width:1000px;margin:42px auto 0;position:relative}
+.frame{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;text-align:left}
+.fbar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #efe7dc;background:#fcfaf6}
+.dots{display:flex;gap:6px}.dots i{width:11px;height:11px;border-radius:50%;background:#f0a3a3}.dots i+i{background:#f4cf7a}.dots i+i+i{background:#9fd6a8}
+.url{flex:1;max-width:420px;background:#f3eee6;border-radius:9px;padding:5px 12px;font-size:13.5px;color:#6b6780;font-family:Fredoka,Sarabun,sans-serif}
+.live{margin-left:auto;font-size:13px;color:#17683f;background:var(--mint);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.stage{position:relative;aspect-ratio:1000/680;background:#e9eef3}
+.stage svg.pic{width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,calc(-100% - 10px));display:flex;align-items:center;gap:8px;background:#fff;border:0;border-radius:14px;padding:7px 8px 7px 12px;box-shadow:0 10px 22px -8px rgba(35,32,70,.45);cursor:pointer;font:inherit;text-align:left;white-space:nowrap;transition:transform .15s, box-shadow .15s;animation:pop .5s backwards}
+.pin:hover{transform:translate(-50%,calc(-100% - 13px));box-shadow:0 14px 26px -8px rgba(35,32,70,.5)}
+.pin:after{content:"";position:absolute;left:50%;bottom:-13px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--gold);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.pin .w{display:block;font:600 16px/1.1 Fredoka,sans-serif;color:var(--ink)}
+.pin .t{display:block;font-size:12.5px;color:var(--muted);line-height:1.2;margin-top:2px}
+.pin .s{width:30px;height:30px;border-radius:50%;background:var(--lav);display:grid;place-items:center;font-size:14px;flex:none}
+.pin.heard .s{background:var(--mint)}
+.pin.on{outline:3px solid var(--gold)}
+.pin .n{position:absolute;left:-8px;top:-8px;width:22px;height:22px;border-radius:50%;background:var(--ink2);color:#fff;font:600 12px/22px Fredoka,sans-serif;text-align:center}
+@keyframes pop{from{opacity:0;transform:translate(-50%,calc(-100% + 4px))}}
+.fbot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid #efe7dc;background:#fcfaf6;font-size:14.5px}
+.fbot .prog{display:inline-flex;align-items:center;gap:8px;color:#4a4660}
+.fbot .prog i{width:9px;height:9px;border-radius:50%;background:var(--green)}
+.fbot .tip{margin-left:auto;color:var(--muted)}
+.float{position:absolute;right:-12px;top:-22px;background:var(--ink2);color:#fff;border-radius:999px;padding:9px 16px;font-size:14px;box-shadow:var(--shadow2)}
+@media (max-width:700px){
+  .pin{padding:5px 6px 5px 9px;gap:6px;border-radius:11px}
+  .pin .w{font-size:13.5px}.pin .t{display:none}.pin .s{width:22px;height:22px;font-size:11px}.pin .n{display:none}
+  .pin.mhide{display:none}
+  .float{display:none}
+  .fbot .tip{display:none}
+  .url{font-size:12px}
+}
+
+/* facts band */
+.band{background:var(--ink2);color:#fff;padding:46px 0}
+.band .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.band .f{padding:6px 22px;text-align:center;border-left:1px solid rgba(255,255,255,.12)}
+.band .f:first-child{border-left:0}
+.band b{display:block;font:600 clamp(30px,3.8vw,44px)/1.1 Fredoka,Sarabun,sans-serif}
+.band .c1{color:#ffd27a}.band .c2{color:#ff8fa6}.band .c3{color:#b9adff}.band .c4{color:#7fe0a9}
+.band span{display:block;font-weight:600;margin-top:6px}
+.band small{display:block;color:#b8b4d6;font-size:14px;margin-top:2px}
+@media (max-width:820px){ .band .grid{grid-template-columns:1fr 1fr;gap:26px 0} .band .f:nth-child(3){border-left:0} }
+
+/* compare */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:44px}
+.col{border-radius:24px;padding:28px;border:1px solid var(--line)}
+.col.old{background:#f1ede7}
+.col.new{background:#fff;border-color:#bfe5cd;box-shadow:var(--shadow)}
+.col h3{font-size:22px;margin:4px 0 18px;display:flex;gap:12px;align-items:center}
+.col h3 .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
+.col.old h3 .ic{background:#ffdad6}.col.new h3 .ic{background:var(--mint)}
+.col .lbl{font-size:13px;font-weight:700;letter-spacing:.04em}
+.col.old .lbl{color:var(--crimson)}.col.new .lbl{color:var(--green)}
+.pt{display:flex;gap:14px;background:rgba(255,255,255,.7);border-radius:16px;padding:16px;margin-top:12px}
+.col.new .pt{background:#f4fbf6}
+.pt .e{font-size:20px;line-height:1.4}
+.pt b{display:block;color:var(--ink)}
+.pt p{margin:2px 0 0;color:#5d5970;font-size:15.5px}
+.res{margin-top:16px;border-radius:14px;padding:13px;text-align:center;font-weight:600;font-size:15.5px}
+.col.old .res{background:#e6e2dc;color:#5d5970}.col.new .res{background:var(--mint);color:#17683f}
+@media (max-width:820px){ .cmp{grid-template-columns:1fr} }
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+.mode{background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;display:flex;flex-direction:column;box-shadow:var(--shadow2)}
+.mode .no{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font:600 17px Fredoka,sans-serif;color:var(--ink3)}
+.mode:nth-child(1) .no{background:var(--lav2)}.mode:nth-child(2) .no{background:var(--pink)}.mode:nth-child(3) .no{background:var(--peach)}
+.mode .st{font-size:13px;font-weight:700;color:var(--crimson);margin-top:18px}
+.mode h3{font-size:21px;margin:4px 0 10px}
+.mode p{margin:0;color:#5d5970;font-size:15.5px;flex:1}
+.mock{margin-top:20px;background:var(--bg2);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;min-height:72px}
+.mock .ic{width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex:none;box-shadow:var(--shadow2)}
+.mock b{display:block;font:600 16px/1.2 Fredoka,sans-serif;color:var(--ink)}
+.mock small{color:var(--muted);font-size:13px}
+.mock .tag{margin-left:auto;font-size:12px;background:var(--mint);color:#17683f;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.mock .pat{font:600 18px/1 Fredoka,monospace;letter-spacing:.18em;background:#fff;border-radius:10px;padding:9px 12px;color:var(--ink)}
+.mock .hint{margin-left:auto;font-size:13px;color:var(--crimson)}
+.mock .score{margin-left:auto;font:600 20px Fredoka,sans-serif;color:var(--crimson)}
+.mock .play{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:14px;flex:none}
+@media (max-width:900px){ .modes{grid-template-columns:1fr} }
+
+/* review */
+.rev{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.ladder{display:flex;align-items:flex-end;gap:8px;margin:28px 0 8px}
+.ladder div{flex:1;text-align:center}
+.ladder i{display:block;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#b9adff,#6b4fd8)}
+.ladder span{display:block;font:600 15px Fredoka,Sarabun,sans-serif;color:var(--ink);margin-top:6px}
+.ladder small{display:block;font-size:12px;color:var(--muted);line-height:1.2}
+.checks{list-style:none;padding:0;margin:22px 0 0}
+.checks li{display:flex;gap:12px;margin-top:12px;color:#4a4660}
+.checks li:before{content:"✓";flex:none;width:24px;height:24px;border-radius:50%;background:var(--mint);color:#17683f;display:grid;place-items:center;font-weight:700;font-size:13px;margin-top:2px}
+.phones{display:flex;gap:18px;justify-content:center;align-items:flex-start}
+.phone{width:min(46%,250px);border-radius:34px;background:#1d1a35;padding:9px;box-shadow:var(--shadow)}
+.phone img{border-radius:26px;width:100%;height:auto;background:#f6f0e8}
+.phone.b{margin-top:46px}
+@media (max-width:900px){ .rev{grid-template-columns:1fr} }
+
+/* ai */
+.ai{display:grid;grid-template-columns:.95fr 1.05fr;gap:48px;align-items:center}
+.feat{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:12px}
+.feat .e{width:38px;height:38px;border-radius:11px;background:var(--lav);display:grid;place-items:center;flex:none;font-size:18px}
+.feat b{display:block;color:var(--ink)}
+.feat span{color:#5d5970;font-size:15px}
+.shot{background:#fff;border:1px solid var(--line);border-radius:24px;padding:14px;box-shadow:var(--shadow)}
+.shot .stage{border-radius:16px;overflow:hidden}
+.shot .badge{position:absolute;left:12px;top:12px;background:rgba(35,32,70,.88);color:#fff;border-radius:999px;padding:6px 12px;font-size:13px;z-index:2}
+.box{position:absolute;border:3px dashed;border-radius:10px}
+.box b{position:absolute;left:-3px;top:-28px;font:600 13px/1 Fredoka,sans-serif;color:#fff;padding:6px 8px;border-radius:8px;white-space:nowrap}
+.box small{position:absolute;right:-3px;bottom:-26px;font-size:11.5px;background:var(--ink2);color:#fff;padding:3px 7px;border-radius:7px;white-space:nowrap}
+.box.c1{border-color:#b22546}.box.c1 b{background:#b22546}
+.box.c2{border-color:#6b4fd8}.box.c2 b{background:#6b4fd8}
+.box.c3{border-color:#24a164}.box.c3 b{background:#24a164}
+.box.c4{border-color:#c98a00}.box.c4 b{background:#c98a00}
+.shot .cap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);padding:12px 4px 2px}
+.shot .cap b{color:var(--green);font-weight:600}
+@media (max-width:900px){ .ai{grid-template-columns:1fr} .ai .shot{order:-1} }
+@media (max-width:560px){ .box small{display:none} .box b{font-size:11.5px;top:-24px} }
+
+/* class */
+.who{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+.card{background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;box-shadow:var(--shadow2)}
+.card .em{font-size:34px}
+.card h3{font-size:20px;margin:12px 0 8px}
+.card p{margin:0;color:#5d5970;font-size:15.5px}
+.card ul{margin:12px 0 0;padding-left:20px;color:#4a4660;font-size:15.5px}
+.card ul li{margin-top:4px}
+.card.hl{background:linear-gradient(160deg,#f3eeff,#fff 60%);border-color:#d6cbfa}
+.code{display:inline-flex;gap:6px;margin-top:14px}
+.code i{font:600 18px/1 Fredoka,monospace;font-style:normal;background:var(--ink2);color:#fff;border-radius:8px;padding:8px 9px}
+@media (max-width:900px){ .who{grid-template-columns:1fr} }
+
+/* faq */
+.faq{max-width:820px;margin:36px auto 0}
+.faq details{background:#fff;border:1px solid var(--line);border-radius:16px;margin-top:12px;overflow:hidden}
+.faq summary{cursor:pointer;list-style:none;padding:18px 54px 18px 22px;font-weight:600;color:var(--ink);position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary:after{content:"";position:absolute;right:22px;top:50%;width:10px;height:10px;border-right:2.5px solid var(--muted);border-bottom:2.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);transition:transform .2s}
+.faq details[open] summary:after{transform:translateY(-30%) rotate(-135deg)}
+.faq details p{margin:0;padding:0 22px 18px;color:#5d5970}
+
+/* final */
+.final{padding:30px 0 90px}
+.final .box2{background:radial-gradient(500px 260px at 10% 0%,rgba(178,37,70,.55),transparent 70%),linear-gradient(135deg,#130e3a,#0d0930 55%,#271a46);border-radius:32px;color:#fff;text-align:center;padding:64px 24px;box-shadow:var(--shadow)}
+.final .chip{display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 14px;font-size:14px;color:#ffd27a}
+.final h2{color:#fff;margin:18px auto 0;max-width:760px}
+.final p{color:#c9c5e6;max-width:640px;margin:14px auto 0}
+.final .btn.ghost{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.22);box-shadow:none}
+.final .ok{display:flex;gap:8px 22px;justify-content:center;flex-wrap:wrap;margin-top:22px;font-size:14px;color:#c9c5e6}
+.final .ok span:before{content:"✓ ";color:#7fe0a9;font-weight:700}
+
+/* footer */
+.foot{border-top:1px solid var(--line);padding:50px 0 34px;background:#f9f5ef}
+.foot .grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:28px}
+.foot p{color:var(--muted);font-size:15px;margin:12px 0 0;max-width:340px}
+.foot h4{margin:0 0 10px;font-size:15px;color:var(--ink)}
+.foot ul{list-style:none;margin:0;padding:0}
+.foot li{margin-top:7px}
+.foot li a{text-decoration:none;color:#5d5970;font-size:15px}
+.foot li a:hover{color:var(--crimson)}
+.foot .tags{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.foot .tags span{font-size:12.5px;border-radius:999px;padding:4px 10px;background:var(--mint);color:#17683f}
+.foot .tags span+span{background:var(--lav2);color:var(--ink3)}
+.foot .bot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:34px;padding-top:20px;font-size:14px;color:var(--muted)}
+.foot .bot a{color:var(--muted);text-decoration:none;margin-left:16px}
+@media (max-width:820px){ .foot .grid{grid-template-columns:1fr 1fr} .foot .grid>div:first-child{grid-column:1/-1} }
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s, transform .6s}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){ .reveal{opacity:1;transform:none;transition:none} .pin{animation:none} html{scroll-behavior:auto} }
+@media (max-width:600px){ .sec{padding:64px 0} body{font-size:16px} .btn{padding:14px 20px} .cta .btn{flex:1 1 100%} }
+</style>
+<style>.top .btn.small{white-space:nowrap} @media (max-width:420px){ .brand small{max-width:120px} .top .langsw{padding:6px 8px} }</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="tea" viewBox="0 0 1000 680"><defs>
+  <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6d5e7"/><stop offset="1" stop-color="#e9eef3"/></linearGradient>
+  <linearGradient id="tshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a5a48" stop-opacity=".12"/><stop offset=".22" stop-color="#7a5a48" stop-opacity="0"/><stop offset="1" stop-color="#7a5a48" stop-opacity=".07"/></linearGradient>
+  <pattern id="lace" width="30" height="30" patternUnits="userSpaceOnUse"><rect width="30" height="30" fill="#fbf7f3"/><path d="M0 15h30M15 0v30" stroke="#f2e8e2"/><circle cx="7.5" cy="7.5" r="2.4" fill="#e6b3b8"/><circle cx="22.5" cy="22.5" r="2.4" fill="#e6b3b8"/><circle cx="22.5" cy="7.5" r="1.2" fill="#efd0d2"/><circle cx="7.5" cy="22.5" r="1.2" fill="#efd0d2"/></pattern>
+  <linearGradient id="silver" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f98a2"/><stop offset=".5" stop-color="#f1f3f6"/><stop offset="1" stop-color="#868f99"/></linearGradient>
+  <linearGradient id="silverV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef1f4"/><stop offset="1" stop-color="#99a2ac"/></linearGradient>
+  <linearGradient id="china" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e3ded7"/><stop offset=".42" stop-color="#ffffff"/><stop offset="1" stop-color="#d6d0c8"/></linearGradient>
+  <radialGradient id="scone" cx=".45" cy=".3" r=".78"><stop offset="0" stop-color="#f5dfad"/><stop offset=".68" stop-color="#d9a35e"/><stop offset="1" stop-color="#b47538"/></radialGradient>
+  <linearGradient id="knit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a71c0"/><stop offset=".45" stop-color="#5c98e2"/><stop offset="1" stop-color="#3466ae"/></linearGradient>
+  <g id="rose"><circle r="6" fill="#d8475d"/><circle r="3.6" fill="#b52f47"/><path d="M-4.5 1.5q4.5-6 9 0" fill="none" stroke="#f39aa8" stroke-width="1.2"/></g>
+  <g id="leaf"><path d="M0 0q6-6 12 0q-6 6-12 0z" fill="#6aa158"/></g>
+  <filter id="glow" x="-25%" y="-25%" width="150%" height="150%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feFlood flood-color="#ffc928"/><feComposite in2="d" operator="in" result="o"/><feGaussianBlur in="o" stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="glowGreen" x="-25%" y="-25%" width="150%" height="150%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feFlood flood-color="#2fbf73"/><feComposite in2="d" operator="in" result="o"/><feGaussianBlur in="o" stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="glowRed" x="-25%" y="-25%" width="150%" height="150%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feFlood flood-color="#ef4b4b"/><feComposite in2="d" operator="in" result="o"/><feGaussianBlur in="o" stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+
+<!-- background -->
+<rect width="1000" height="440" fill="url(#wall)"/>
+<g opacity=".5"><rect x="30" y="30" width="200" height="270" rx="10" fill="#f4f7fa"/><rect x="250" y="30" width="110" height="270" rx="10" fill="#eef3f8"/><rect x="610" y="50" width="330" height="170" rx="12" fill="#f4f7fa"/></g>
+<rect x="0" y="300" width="1000" height="140" fill="#b4c5d8" opacity=".35"/>
+<rect y="430" width="1000" height="250" fill="url(#lace)"/>
+<rect y="430" width="1000" height="250" fill="url(#tshade)"/>
+<path d="M0 431H1000" stroke="#e0d0c6" stroke-width="2"/>
+
+<!-- vase -->
+<g class="item" data-id="vase">
+  <path d="M896 364L884 296M904 364L908 286M912 364L934 302M900 364L866 312" stroke="#4e8b47" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <use href="#leaf" transform="translate(872 330) rotate(-35)"/><use href="#leaf" transform="translate(922 330) rotate(-145)"/><use href="#leaf" transform="translate(902 318) rotate(-80) scale(.9)"/>
+  <use href="#rose" transform="translate(884 292) scale(1.9)"/><use href="#rose" transform="translate(908 280) scale(1.8)"/><use href="#rose" transform="translate(935 298) scale(1.7)"/><use href="#rose" transform="translate(864 310) scale(1.6)"/>
+  <path d="M878 362Q862 404 872 440Q904 452 936 440Q946 404 930 362Z" fill="#8cc3ea" stroke="#6aa8d6"/>
+  <ellipse cx="904" cy="362" rx="27" ry="6" fill="#a9d4f2" stroke="#6aa8d6"/>
+  <path d="M884 380Q878 405 884 428" stroke="#fff" stroke-width="4" opacity=".5" fill="none" stroke-linecap="round"/>
+</g>
+
+<!-- sugar bowl -->
+<g class="item" data-id="sugar-bowl">
+  <ellipse cx="115" cy="482" rx="40" ry="7" fill="#ddd6ce"/>
+  <path d="M66 426Q68 478 115 479Q162 478 164 426Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M70 440Q115 452 160 440" stroke="#d6ae55" stroke-width="2" fill="none"/>
+  <use href="#leaf" transform="translate(130 454) rotate(-20) scale(.9)"/><use href="#leaf" transform="translate(96 466) rotate(160) scale(.9)"/>
+  <use href="#rose" transform="translate(104 458) scale(1.3)"/><use href="#rose" transform="translate(125 463) scale(1.1)"/>
+  <ellipse cx="115" cy="426" rx="50" ry="9" fill="#f6f3ee" stroke="#cbc3b9"/>
+  <path d="M72 424Q115 386 158 424Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M86 416Q115 402 144 416" stroke="#d6ae55" stroke-width="1.5" fill="none"/>
+  <ellipse cx="115" cy="396" rx="7" ry="9" fill="#fff" stroke="#cbc3b9"/>
+</g>
+
+<!-- milk jug -->
+<g class="item" data-id="milk-jug">
+  <ellipse cx="216" cy="481" rx="28" ry="5" fill="#ddd6ce"/>
+  <path d="M240 414Q266 414 262 440Q258 462 238 462" fill="none" stroke="#cbc3b9" stroke-width="10" stroke-linecap="round"/>
+  <path d="M240 414Q266 414 262 440Q258 462 238 462" fill="none" stroke="#fbfaf8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M192 404L240 404Q252 444 240 479L192 479Q180 444 192 404Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M193 404L174 395L190 417Z" fill="#f7f5f1" stroke="#cbc3b9"/>
+  <ellipse cx="216" cy="404" rx="24" ry="5" fill="#fffef8" stroke="#cbc3b9"/>
+  <path d="M187 436Q216 444 245 436" stroke="#8fb6d9" stroke-width="2.5" fill="none"/>
+  <circle cx="206" cy="458" r="3" fill="#8fb6d9"/><circle cx="216" cy="462" r="3" fill="#8fb6d9"/><circle cx="226" cy="458" r="3" fill="#8fb6d9"/>
+</g>
+
+<!-- 3-tier cake stand -->
+<g class="item" data-id="cake-stand">
+  <circle cx="430" cy="90" r="19" fill="none" stroke="#a9b2bb" stroke-width="6"/>
+  <circle cx="430" cy="90" r="19" fill="none" stroke="#eef1f4" stroke-width="2"/>
+  <rect x="426" y="107" width="8" height="433" rx="3" fill="url(#silver)"/>
+  <circle cx="430" cy="110" r="6" fill="#c3cad1"/>
+  <ellipse cx="430" cy="257" rx="118" ry="16" fill="#d9d2c9"/>
+  <ellipse cx="430" cy="251" rx="118" ry="15" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="430" cy="251" rx="107" ry="11" fill="none" stroke="#d6ae55" stroke-width="1.5"/>
+  <ellipse cx="430" cy="399" rx="156" ry="17" fill="#d9d2c9"/>
+  <ellipse cx="430" cy="392" rx="156" ry="16" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="430" cy="392" rx="144" ry="12" fill="none" stroke="#d6ae55" stroke-width="1.5"/>
+  <ellipse cx="430" cy="546" rx="186" ry="20" fill="#d9d2c9"/>
+  <ellipse cx="430" cy="538" rx="186" ry="19" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="430" cy="538" rx="172" ry="15" fill="none" stroke="#d6ae55" stroke-width="1.5"/>
+</g>
+
+<!-- top tier -->
+<g class="item" data-id="sponge-cake">
+  <rect x="330" y="211" width="82" height="39" rx="4" fill="#a9442e"/>
+  <rect x="330" y="203" width="82" height="10" fill="#fbf2e2"/>
+  <rect x="330" y="179" width="82" height="26" rx="3" fill="#b5503a"/>
+  <path d="M328 182Q371 170 414 182V188Q371 180 328 188Z" fill="#fff6ea"/>
+  <g fill="#8a3322" opacity=".55"><circle cx="342" cy="222" r="2"/><circle cx="360" cy="236" r="1.6"/><circle cx="384" cy="226" r="2"/><circle cx="400" cy="240" r="1.6"/><circle cx="348" cy="195" r="1.6"/><circle cx="398" cy="197" r="2"/></g>
+  <g fill="#e2324a"><rect x="336" y="178" width="5" height="2"/><rect x="398" y="177" width="5" height="2" transform="rotate(30 400 178)"/><rect x="404" y="181" width="4" height="2"/><rect x="340" y="184" width="4" height="2" transform="rotate(-25 342 185)"/></g>
+</g>
+<g class="item" data-id="macaron">
+  <ellipse cx="371" cy="170" rx="24" ry="7.5" fill="#efa292"/>
+  <rect x="350" y="159" width="42" height="9" rx="4" fill="#fff3e3"/>
+  <ellipse cx="371" cy="151" rx="25" ry="11" fill="#f6b4a5"/>
+  <path d="M348 161.5h46" stroke="#e48d80" stroke-width="3" stroke-dasharray="2 2"/>
+  <ellipse cx="363" cy="146" rx="9" ry="3" fill="#fff" opacity=".5"/>
+</g>
+<g class="item" data-id="lemon-drizzle-cake">
+  <rect x="448" y="200" width="70" height="50" rx="3" fill="#f3d36d" stroke="#d9b24a"/>
+  <g fill="#ddb447"><circle cx="458" cy="226" r="1.8"/><circle cx="476" cy="238" r="1.8"/><circle cx="494" cy="222" r="1.8"/><circle cx="508" cy="240" r="1.8"/><circle cx="466" cy="244" r="1.5"/></g>
+  <path d="M445 196H521V205q-4 9-8 0q-5 13-10 0q-4 7-8 0q-5 12-10 0q-4 8-8 0q-5 11-10 0q-4 6-8 0q-4 8-8 0Z" fill="#fffcf2" stroke="#ece2cb"/>
+  <g fill="#b5c93a"><rect x="458" y="194" width="5" height="2" rx="1"/><rect x="480" y="192" width="5" height="2" rx="1" transform="rotate(30 482 193)"/><rect x="503" y="194" width="5" height="2" rx="1"/></g>
+</g>
+<g class="item" data-id="cocktail-umbrella">
+  <line x1="505" y1="206" x2="489" y2="112" stroke="#d2b07c" stroke-width="3" stroke-linecap="round"/>
+  <path d="M454 128Q489 92 526 126q-6 6-12 2q-6 7-12 1q-6 7-12 0q-6 7-12 0q-6 6-12-1q-6 5-12-2Z" fill="#79d0cb" stroke="#46aaa4" stroke-width="1.5"/>
+  <path d="M489 110L466 130M489 110L478 130M489 110L490 130M489 110L502 130M489 110L514 128" stroke="#46aaa4" stroke-width="1"/>
+  <circle cx="489" cy="109" r="3" fill="#46aaa4"/>
+</g>
+<g class="item" data-id="shortbread">
+  <g transform="rotate(10 432 224)">
+    <rect x="419" y="196" width="27" height="56" rx="5" fill="#ecc988" stroke="#cfa45a"/>
+    <g fill="#c4954a"><circle cx="427" cy="210" r="1.6"/><circle cx="438" cy="210" r="1.6"/><circle cx="427" cy="224" r="1.6"/><circle cx="438" cy="224" r="1.6"/><circle cx="427" cy="238" r="1.6"/><circle cx="438" cy="238" r="1.6"/></g>
+  </g>
+</g>
+
+<!-- middle tier -->
+<g class="item" data-id="fruit-scone">
+  <path d="M352 390Q348 356 362 344Q394 328 426 344Q440 356 436 390Q394 396 352 390Z" fill="url(#scone)"/>
+  <path d="M354 372Q394 380 434 372" stroke="#f0d29a" stroke-width="2" fill="none"/>
+  <g fill="#5a2c1f"><ellipse cx="372" cy="358" rx="3.5" ry="2.5"/><ellipse cx="398" cy="350" rx="3" ry="2.2"/><ellipse cx="418" cy="362" rx="3.5" ry="2.5"/><ellipse cx="386" cy="384" rx="3" ry="2.2"/><ellipse cx="412" cy="382" rx="3.5" ry="2.5"/><ellipse cx="404" cy="366" rx="2.5" ry="2"/><ellipse cx="364" cy="378" rx="3" ry="2.2"/></g>
+</g>
+<g class="item" data-id="scone">
+  <path d="M280 396Q275 362 290 352Q322 336 354 352Q369 362 364 396Q322 402 280 396Z" fill="url(#scone)"/>
+  <path d="M290 352Q322 336 354 352Q352 364 322 366Q292 364 290 352Z" fill="#f7e5bd"/>
+  <path d="M282 378Q322 388 362 378" stroke="#f0d29a" stroke-width="2" fill="none"/>
+  <g fill="#fff"><circle cx="308" cy="352" r="1.4"/><circle cx="322" cy="348" r="1.2"/><circle cx="336" cy="353" r="1.4"/><circle cx="316" cy="358" r="1"/><circle cx="330" cy="358" r="1"/></g>
+</g>
+<g class="item" data-id="jam">
+  <rect x="446" y="352" width="42" height="40" rx="7" fill="#8f1b29"/>
+  <rect x="451" y="357" width="7" height="30" rx="3.5" fill="#fff" opacity=".22"/>
+  <rect x="453" y="366" width="28" height="13" rx="2" fill="#f7efdf"/>
+  <rect x="459" y="371" width="16" height="3" rx="1.5" fill="#c9425a"/>
+  <rect x="443" y="340" width="48" height="14" rx="3" fill="url(#silverV)" stroke="#98a1ab"/>
+</g>
+<g class="item" data-id="clotted-cream">
+  <path d="M500 356L574 356Q571 388 548 393L526 393Q503 388 500 356Z" fill="#c4e6c5" stroke="#97c79b"/>
+  <path d="M512 374q8-8 16 0t16 0t16 0" stroke="#e7f5e7" stroke-width="2" fill="none"/>
+  <ellipse cx="537" cy="356" rx="37" ry="6" fill="#aedab1" stroke="#97c79b"/>
+  <path d="M508 356Q508 334 537 332Q566 334 566 356Q537 362 508 356Z" fill="#fff6dc"/>
+  <path d="M520 346q17-8 34 0" stroke="#efe2b8" stroke-width="2" fill="none"/>
+  <circle cx="537" cy="327" r="7.5" fill="#d33a59"/>
+  <g fill="#f07d93"><circle cx="534" cy="325" r="1.4"/><circle cx="540" cy="329" r="1.4"/><circle cx="538" cy="323" r="1.2"/></g>
+  <path d="M533 320l4 3l4-3" stroke="#5c9a4b" stroke-width="2" fill="none"/>
+</g>
+
+<!-- bottom tier -->
+<g class="item" data-id="savoury-croissant">
+  <path d="M262 532Q262 492 300 480Q318 474 336 480Q374 492 374 532Q356 522 318 522Q280 522 262 532Z" fill="#c97a31" stroke="#a65f22"/>
+  <path d="M286 486Q296 506 292 524M318 476Q322 500 318 522M350 486Q340 506 344 524" stroke="#e8a157" stroke-width="3" fill="none"/>
+  <path d="M272 528Q318 510 364 528L362 536Q318 528 274 536Z" fill="#f2907c"/>
+  <path d="M280 535q10-8 20 0q10-8 20 0q10-8 20 0q10-8 20 0" stroke="#7bb35a" stroke-width="3" fill="none"/>
+</g>
+<g class="item" data-id="wholemeal-roll">
+  <rect x="388" y="522" width="66" height="15" rx="7" fill="#946338"/>
+  <path d="M384 518h72v5q-9 7-18 0q-9 7-18 0q-9 7-18 0q-9 7-18 0Z" fill="#7cb35a"/>
+  <path d="M388 520Q384 488 421 482Q458 488 454 520Z" fill="#8a5a31"/>
+  <g fill="#dcc48e"><ellipse cx="406" cy="498" rx="2.6" ry="1.4" transform="rotate(-20 406 498)"/><ellipse cx="420" cy="492" rx="2.6" ry="1.4"/><ellipse cx="436" cy="499" rx="2.6" ry="1.4" transform="rotate(25 436 499)"/><ellipse cx="414" cy="507" rx="2.6" ry="1.4" transform="rotate(10 414 507)"/><ellipse cx="430" cy="510" rx="2.6" ry="1.4" transform="rotate(-15 430 510)"/></g>
+</g>
+<g class="item" data-id="tea-sandwich">
+  <rect x="472" y="512" width="112" height="10" rx="2" fill="#f7ecd6" stroke="#d8bd8c"/>
+  <rect x="472" y="521" width="112" height="5" fill="#8cc46a"/>
+  <rect x="472" y="526" width="112" height="11" rx="2" fill="#f7ecd6" stroke="#d8bd8c"/>
+  <rect x="482" y="484" width="104" height="10" rx="2" fill="#f7ecd6" stroke="#d8bd8c"/>
+  <rect x="482" y="493" width="104" height="5" fill="#f2a3a0"/>
+  <rect x="482" y="498" width="104" height="11" rx="2" fill="#f7ecd6" stroke="#d8bd8c"/>
+</g>
+
+<!-- teapot (under the cosy) -->
+<g class="item" data-id="teapot">
+  <ellipse cx="722" cy="486" rx="64" ry="6" fill="#ddd6ce"/>
+  <path d="M650 444Q626 438 616 404Q610 386 598 378L604 368Q622 374 630 392Q640 412 654 412Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M792 388Q842 388 838 426Q834 456 794 458" fill="none" stroke="#cbc3b9" stroke-width="15" stroke-linecap="round"/>
+  <path d="M792 388Q842 388 838 426Q834 456 794 458" fill="none" stroke="#fbfaf8" stroke-width="11" stroke-linecap="round"/>
+  <path d="M654 460Q722 486 790 460L784 478Q722 498 660 478Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <use href="#rose" transform="translate(708 484)"/><use href="#rose" transform="translate(738 482) scale(.9)"/>
+</g>
+<g class="item" data-id="tea-cosy">
+  <path d="M646 468Q634 384 664 352Q722 318 780 352Q810 384 798 468Q722 478 646 468Z" fill="url(#knit)"/>
+  <g stroke="#2f5fa6" stroke-width="3" fill="none" stroke-dasharray="7 5" opacity=".7"><path d="M676 360Q666 410 670 466"/><path d="M698 346Q694 410 696 470"/><path d="M748 346Q752 410 750 470"/><path d="M770 360Q780 410 776 466"/></g>
+  <path d="M722 354V472" stroke="#2f5fa6" stroke-width="2"/>
+  <circle cx="714" cy="392" r="6" fill="#e4edf9" stroke="#9fb9df"/><circle cx="714" cy="430" r="6" fill="#e4edf9" stroke="#9fb9df"/>
+  <rect x="736" y="410" width="40" height="34" rx="4" fill="#4f8bd8" stroke="#2f5fa6" stroke-width="2"/>
+  <path d="M648 458Q722 470 798 458" stroke="#2f5fa6" stroke-width="6" stroke-dasharray="3 3" fill="none"/>
+  <path d="M672 346Q722 300 772 346Q760 362 722 356Q684 362 672 346Z" fill="#6aa3ea" stroke="#2f5fa6" stroke-width="2"/>
+</g>
+<g class="item" data-id="teapot"><ellipse cx="722" cy="322" rx="9" ry="11" fill="url(#china)" stroke="#cbc3b9"/></g>
+
+<!-- side plate -->
+<g class="item" data-id="side-plate">
+  <ellipse cx="150" cy="617" rx="112" ry="28" fill="#d9d2c9"/>
+  <ellipse cx="150" cy="610" rx="112" ry="26" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="150" cy="610" rx="98" ry="21" fill="none" stroke="#d6ae55" stroke-width="1.5"/>
+  <ellipse cx="150" cy="609" rx="64" ry="13" fill="#f2efea"/>
+  <use href="#leaf" transform="translate(70 600) rotate(-30) scale(.8)"/><use href="#leaf" transform="translate(222 606) rotate(200) scale(.8)"/>
+  <use href="#rose" transform="translate(66 606) scale(.9)"/><use href="#rose" transform="translate(234 606) scale(.9)"/><use href="#rose" transform="translate(150 630) scale(.9)"/><use href="#rose" transform="translate(150 591) scale(.8)"/>
+</g>
+
+<!-- napkin + table bell -->
+<g class="item" data-id="napkin">
+  <path d="M822 586L978 570L994 646L834 662Z" fill="#dde3ea" stroke="#bec7d1"/>
+  <path d="M830 592L972 578L986 640L840 655Z" fill="none" stroke="#b3bdc9" stroke-dasharray="4 3"/>
+  <path d="M828 624L986 608" stroke="#c9d1db" stroke-width="2"/>
+</g>
+<g class="item" data-id="table-bell">
+  <ellipse cx="905" cy="616" rx="40" ry="7" fill="#b8c1cb" opacity=".7"/>
+  <path d="M870 610Q872 566 891 550Q905 541 919 550Q938 566 940 610Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="905" cy="610" rx="35" ry="6.5" fill="#f4f1ec" stroke="#cbc3b9"/>
+  <path d="M874 598Q905 606 936 598" stroke="#d6ae55" stroke-width="1.5" fill="none"/>
+  <use href="#leaf" transform="translate(904 576) rotate(-30) scale(.8)"/>
+  <use href="#rose" transform="translate(895 580) scale(1.15)"/><use href="#rose" transform="translate(917 586) scale(1)"/>
+  <path d="M899 549L897 522Q890 512 896 502Q905 494 914 502Q920 512 913 522L911 549Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M905 499V520M900 505L903 520M910 505L907 520" stroke="#d9d0c5" stroke-width="1"/>
+</g>
+
+<!-- saucer, teacup, teaspoon -->
+<g class="item" data-id="saucer">
+  <ellipse cx="690" cy="623" rx="102" ry="24" fill="#d9d2c9"/>
+  <ellipse cx="690" cy="616" rx="102" ry="22" fill="url(#china)" stroke="#cbc3b9"/>
+  <ellipse cx="690" cy="616" rx="92" ry="18" fill="none" stroke="#8fb6d9" stroke-width="2"/>
+  <ellipse cx="690" cy="615" rx="48" ry="9" fill="#efebe5"/>
+</g>
+<g class="item" data-id="teacup">
+  <path d="M752 552Q790 548 786 574Q782 598 744 596" fill="none" stroke="#cbc3b9" stroke-width="13" stroke-linecap="round"/>
+  <path d="M752 552Q790 548 786 574Q782 598 744 596" fill="none" stroke="#fbfaf8" stroke-width="9" stroke-linecap="round"/>
+  <path d="M622 540Q624 598 668 612L712 612Q756 598 758 540Z" fill="url(#china)" stroke="#cbc3b9"/>
+  <path d="M632 578Q656 562 676 576Q700 560 724 574Q740 566 752 572Q748 590 724 602Q690 612 656 602Q638 594 632 578Z" fill="#cfe5b0" opacity=".9"/>
+  <use href="#rose" transform="translate(660 584)"/><use href="#rose" transform="translate(700 590) scale(1.1)"/><use href="#rose" transform="translate(729 580) scale(.9)"/>
+  <ellipse cx="690" cy="540" rx="68" ry="12" fill="#f7f4ef" stroke="#cbc3b9"/>
+  <ellipse cx="690" cy="542" rx="61" ry="9" fill="#9b5524"/>
+  <ellipse cx="672" cy="540" rx="20" ry="3" fill="#c07a40" opacity=".6"/>
+  <path d="M623 550Q690 568 757 550" stroke="#d6ae55" stroke-width="1.5" fill="none"/>
+</g>
+<g class="item" data-id="teaspoon">
+  <path d="M548 644L634 630" stroke="#a7b0b9" stroke-width="6" stroke-linecap="round"/>
+  <path d="M548 644L634 630" stroke="#e6eaee" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="650" cy="627" rx="17" ry="8" transform="rotate(-9 650 627)" fill="url(#silverV)" stroke="#8f98a2"/>
+</g></symbol></svg>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="/en/?home" aria-label="Piccab home"><img src="/favicon.svg" alt="" width="38" height="38"><span><b>Pic<span>cab</span></b><small>Picture Vocab · Learn words from pictures</small></span></a>
+    <nav class="nav" aria-label="Sections of this page">
+      <a href="#why">Why pictures</a><a href="#modes">3 ways to practise</a><a href="#review">Spaced review</a><a href="#ai">AI photos</a><a href="#class">Classes</a><a href="#faq">FAQ</a>
+    </nav>
+    <div class="act"><a class="langsw" href="/?hl=th" hreflang="th" lang="th" title="ภาษาไทย">ไทย</a><a class="login" href="/app?login&amp;hl=en">Sign in</a><a class="btn primary small" href="/app?hl=en">Start free 🎉</a></div>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <span class="pill">✨ Picture vocabulary for every age · 🇬🇧 English · 🇩🇪 German</span>
+    <h1>Remember new words for longer<br>with <em>pictures</em> and spaced review</h1>
+    <p class="sub">No more word lists. Tap things in a picture to hear the word, type it from memory, listen and point to it — and Piccab brings each word back just before you'd forget it.</p>
+    <div class="cta">
+      <a class="btn primary" href="/app?hl=en">Start practising free 🚀</a>
+      <a class="btn ghost" href="#demo">👆 Try the sample scene</a>
+    </div>
+    <div class="trust">
+      <span>✅ Free to start — no sign-up needed</span>
+      <span>🔊 British, American and German voices</span>
+      <span>📱 Phone, tablet and computer</span>
+    </div>
+
+    <div class="demo reveal" id="demo">
+      <div class="float">🎯 Tap a word to hear it</div>
+      <div class="frame">
+        <div class="fbar"><span class="dots"><i></i><i></i><i></i></span><span class="url">piccab.com/app · Afternoon tea ☕</span>
+          <span class="dlang" role="group" aria-label="Language of the sample"><button type="button" class="on" data-l="en">🇬🇧 English</button><button type="button" data-l="de">🇩🇪 German</button></span></div>
+        <div class="stage" id="stage">
+          <svg class="pic" viewBox="0 0 1000 680" role="img" aria-label="Drawing of an afternoon tea table"><use href="#tea"/></svg>
+        </div>
+        <div class="fbot"><span class="prog"><i></i><span id="heard">Heard 0/6 words · 24 in the whole scene</span></span><span class="tip">💡 Tap a word label in the picture to hear it</span><a class="btn dark small" href="/app?hl=en">Play this scene in the app ›</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" aria-label="Piccab at a glance">
+  <div class="wrap grid">
+    <div class="f"><b class="c1">Free</b><span>Works straight away on the web</span><small>No card, no sign-up needed to try</small></div>
+    <div class="f"><b class="c2">3 modes</b><span>Explore · Type · Listen &amp; find</span><small>Learn by seeing, hearing and spelling</small></div>
+    <div class="f"><b class="c3">1→120 days</b><span>Automatic spaced review</span><small>Words you're about to forget come back</small></div>
+    <div class="f"><b class="c4">20 words</b><span>AI finds words in your photos</span><small>Per photo, at the level you choose</small></div>
+  </div>
+</section>
+
+<section class="sec" id="why">
+  <div class="wrap center">
+    <span class="kicker">Why learn from pictures</span>
+    <h2>Why do words learned from a list<br>vanish when you need them?</h2>
+    <p class="lead">A word learned with a picture and a place in a scene has something for your memory to hold on to. Review it at the right moments and you forget it far more slowly.</p>
+  </div>
+  <div class="wrap cmp">
+    <div class="col old reveal">
+      <span class="lbl">The usual way</span>
+      <h3><span class="ic">✕</span>Word lists &amp; single-word flashcards</h3>
+      <div class="pt"><span class="e">😕</span><div><b>Words without context</b><p>You can recite “whisk = Schneebesen”, but standing in a real kitchen it won't come — you've never seen it next to anything else.</p></div></div>
+      <div class="pt"><span class="e">🔁</span><div><b>Translating in your head every time</b><p>Foreign word → your language → picture. It's slow, and it never feels natural when you need it.</p></div></div>
+      <div class="pt"><span class="e">📉</span><div><b>Cram once, forget fast</b><p>Without review, most of what you learn fades within the first few days (Ebbinghaus's forgetting curve).</p></div></div>
+      <div class="res">Result: lots of time memorising, little you can actually use</div>
+    </div>
+    <div class="col new reveal">
+      <span class="lbl">The Piccab way</span>
+      <h3><span class="ic">✓</span>Learn from real scenes</h3>
+      <div class="pt"><span class="e">🖼️</span><div><b>Words tied to pictures and places</b><p>The teapot sits next to the cups and saucers, so your brain stores them as a set — recall one and the ones around it follow.</p></div></div>
+      <div class="pt"><span class="e">👀</span><div><b>See the thing, think the word</b><p>You practise from pictures, not translations, so you gradually stop translating in your head.</p></div></div>
+      <div class="pt"><span class="e">👂</span><div><b>Several senses at once</b><p>Eyes on the picture, ears on the sound, a finger to find it and typing to spell it — the same word from many directions.</p></div></div>
+      <div class="res">Result: see the real thing and the word comes — and it stays</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="modes">
+  <div class="wrap center">
+    <span class="kicker lav">3 ways to practise</span>
+    <h2>Three steps: recognise → spell it → hear it and find it</h2>
+    <p class="lead">Every scene works in all three modes — practise one at a time or mix them up.</p>
+  </div>
+  <div class="wrap modes">
+    <div class="mode reveal">
+      <span class="no en">01</span><span class="st">Step 1</span>
+      <h3>👀 Explore words</h3>
+      <p>Point at or tap something in the picture to see the word and its meaning and hear it read aloud. Choose an accent, slow it down, or tap ▶ Auto and let the app walk you through every word.</p>
+      <div class="mock"><span class="ic">🔊</span><span><b>das Croissant</b><small>croissant</small></span><span class="tag">DE / UK / US</span></div>
+    </div>
+    <div class="mode reveal">
+      <span class="no en">02</span><span class="st">Step 2</span>
+      <h3>✍️ Practise (type)</h3>
+      <p>The app points at something and you type the word. Stuck? Tap 💡 Hint to see the meaning and reveal letters one by one. Get it right without help and you earn a ★. In German, add der/die/das for the star.</p>
+      <div class="mock"><span class="pat en">T e e _ _ _ _ _</span><span class="hint">💡 Hint: teapot</span></div>
+    </div>
+    <div class="mode reveal">
+      <span class="no en">03</span><span class="st">Step 3</span>
+      <h3>👂 Listen &amp; find</h3>
+      <p>Hear a word, then tap that thing in the picture. It trains you to picture the meaning the moment you hear it — no translation in between.</p>
+      <div class="mock"><span class="play">▶</span><span><b>“teacup”</b><small>tap it in the picture</small></span><span class="score en">5/8</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="review">
+  <div class="wrap rev">
+    <div class="reveal">
+      <span class="kicker lav">Spaced review</span>
+      <h2>Words you're about to forget come back on their own</h2>
+      <p style="color:#5d5970;margin:14px 0 0">Every day the home screen tells you how many words are due for review. Answer by yourself and the next review moves further away; need a hint and the word comes back sooner.</p>
+      <div class="ladder" aria-label="Reviews after 1, 3, 7, 14, 30, 60 and 120 days">
+        <div><i style="height:18px"></i><span>1</span><small>day</small></div>
+        <div><i style="height:30px"></i><span>3</span><small>days</small></div>
+        <div><i style="height:44px"></i><span>7</span><small>days</small></div>
+        <div><i style="height:60px"></i><span>14</span><small>days</small></div>
+        <div><i style="height:80px"></i><span>30</span><small>days</small></div>
+        <div><i style="height:102px"></i><span>60</span><small>days</small></div>
+        <div><i style="height:126px"></i><span>120</span><small>days</small></div>
+      </div>
+      <ul class="checks">
+        <li>10 words at a time — a few minutes, most overdue first</li>
+        <li>🔥 Counts the days you practise in a row; review daily to keep your streak</li>
+        <li>Sign in and your progress syncs across all your devices</li>
+      </ul>
+    </div>
+    <div class="phones reveal">
+      <div class="phone"><img src="/landing/en-home.webp" alt="The Piccab app home screen on a phone, showing the words due for review today" width="520" height="1125" loading="lazy"></div>
+      <div class="phone b"><img src="/landing/en-words.webp" alt="The My words page in Piccab, showing when each word comes back for review" width="520" height="1125" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="ai">
+  <div class="wrap ai">
+    <div class="reveal">
+      <span class="kicker">AI photos</span>
+      <h2>📸 Turn the things around you into your own word scene</h2>
+      <p style="color:#5d5970;margin:14px 0 0">Take a photo of your bedroom, desk, a café or your dinner and tap ✨ to let AI find the words. It draws a box around each thing and adds the word and its meaning — then you can play all three modes straight away, in English or German.</p>
+      <div class="feat"><span class="e">🔎</span><div><b>Up to 20 words per photo</b><span>Choose the level: easy · medium · hard</span></div></div>
+      <div class="feat"><span class="e">✏️</span><div><b>Edit every word yourself</b><span>Draw new boxes, fix words, move or delete boxes — or skip AI and draw every box yourself</span></div></div>
+      <div class="feat"><span class="e">🎁</span><div><b>Free AI credits every month</b><span>For accounts signed in with email or Google (the number of credits may change)</span></div></div>
+      <div class="cta" style="justify-content:flex-start;margin-top:22px"><a class="btn dark" href="/app?hl=en">📷 Make a scene from a photo</a></div>
+    </div>
+    <div class="shot reveal">
+      <div class="stage" style="position:relative">
+        <span class="badge">✨ Example word boxes in a scene</span>
+        <svg class="pic" viewBox="0 0 1000 680" aria-hidden="true"><use href="#tea"/></svg>
+        <span class="box c1" style="left:59.8%;top:45.7%;width:24%;height:26.6%"><b>teapot</b><small>die Teekanne</small></span>
+        <span class="box c2" style="left:62.2%;top:77.6%;width:16.4%;height:12.4%"><b>teacup</b><small>die Teetasse</small></span>
+        <span class="box c3" style="left:85.4%;top:39.6%;width:9.1%;height:26%"><b>vase</b><small>die Vase</small></span>
+        <span class="box c4" style="left:6.5%;top:56.9%;width:10%;height:15%"><b>sugar bowl</b><small>die Zuckerdose</small></span>
+      </div>
+      <div class="cap"><span>Illustration: the Afternoon tea sample scene in the app</span><b>✓ Plays in all 3 modes</b></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="class">
+  <div class="wrap center">
+    <span class="kicker gold">For every age</span>
+    <h2>Great on your own, great in a classroom</h2>
+    <p class="lead">Piccab is made for children and adults alike. Teachers and parents can make scenes and share them with learners.</p>
+  </div>
+  <div class="wrap who">
+    <div class="card reveal">
+      <div class="em">🧑‍🎓</div>
+      <h3>Learners of every age</h3>
+      <p>Start with the sample scene, or photograph the things around you to learn words you'll really use every day.</p>
+      <ul><li>Keep words in “My words” and organise them into word sets</li><li>Install it as an app and practise even offline</li></ul>
+    </div>
+    <div class="card hl reveal">
+      <div class="em">🎓</div>
+      <h3>Teachers: classes in the app</h3>
+      <p>Create a class and get a 6-character code. Students join with the code and a nickname — no email needed.</p>
+      <ul><li>Assign scenes or word sets to the whole class</li><li>See each student's progress, plus a class ranking — export it to Excel</li></ul>
+      <div class="code" aria-label="Example class code"><i>K</i><i>7</i><i>Q</i><i>M</i><i>2</i><i>X</i></div>
+    </div>
+    <div class="card reveal">
+      <div class="em">👫</div>
+      <h3>Friends &amp; family</h3>
+      <p>Add friends with a code or QR, then send cheers and share scenes with each other.</p>
+      <ul><li>Send a link to a scene or word set to anyone</li><li>No chat with strangers — only ready-made cheers can be sent</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec alt" id="faq">
+  <div class="wrap center">
+    <span class="kicker lav">FAQ</span>
+    <h2>Questions about Piccab</h2>
+  </div>
+  <div class="wrap faq">
+    <details><summary>Do I need to sign up? Does it cost anything?</summary><p>No sign-up needed. Open piccab.com/app and start with the sample scene, or make a scene from a photo. Your progress is kept on your device. Sign in with email or Google to sync across devices and get monthly AI credits for finding words in photos.</p><p>Every feature is free right now. In the future we may offer paid plans for extras such as more AI credits or tools for teachers and schools, while keeping basic practice free. We'll tell you before anything changes, and we'll never charge you unless you choose to subscribe (see <a href="/en/terms#pricing">Terms of Use, section 1.1</a>).</p></details>
+    <details><summary>Which languages can I learn?</summary><p><strong>English</strong> and <strong>German</strong>. Tap the flag button at the top of the app to switch. The same scenes work in both languages; German nouns show der/die/das in colour, and you can type ae/oe/ue/ss instead of ä/ö/ü/ß. Progress and reviews are kept separately for each language. More languages are on the way.</p></details>
+    <details><summary>Can I use the app in my own language?</summary><p>The menus are in English or Thai, and the meaning under each word follows that choice — for example, practising German with English menus shows the English word under each German one. Change it any time under the flag button → “My language”.</p></details>
+    <details><summary>I'm a complete beginner. Can I start?</summary><p>Yes. Every word has a meaning and a voice. Start in 👀 Explore words and tap things in the picture to hear them, then try typing and Listen &amp; find. Hints help you one step at a time.</p></details>
+    <details><summary>What devices does it work on? Does it work offline?</summary><p>It runs in the browser on phones, tablets and computers, and you can install it on your home screen like an app. Once you've opened it, your scenes work without internet. AI and syncing need a connection.</p></details>
+    <details><summary>Where do my photos go when I use AI? Is it safe?</summary><p>Photos are sent to an AI service (Google Gemini) only to find the words. If you're signed in, your photos and scenes are kept in your account and you can delete them at any time. Details are in the <a href="/en/privacy">Privacy Policy</a>. Please don't photograph people's faces or personal information.</p></details>
+    <details><summary>Can children use it?</summary><p>Yes — Piccab is made for every age. Children can practise without an account. In a class, students join with the class code and a nickname, no email needed, and student accounts don't use AI. Anyone under 20 should ask a parent or guardian before creating an account.</p></details>
+    <details><summary>How does spaced review work?</summary><p>Words you've typed correctly come back after 1 day, then after 3, 7, 14, 30, 60 and 120 days as long as you answer without help. Use a hint or get it wrong and the word comes back sooner. There's nothing to set up.</p></details>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <div class="box2 reveal">
+      <span class="chip">🎉 Start right now</span>
+      <h2>Ready to turn the things around you into new words?</h2>
+      <p>Open the sample scene and tap your first word, or photograph your room to make your very own scene.</p>
+      <div class="cta">
+        <a class="btn primary" href="/app?hl=en">Start free now</a>
+        <a class="btn ghost" href="/app?install&amp;hl=en">📲 Install as an app</a>
+      </div>
+      <div class="ok"><span>No card needed</span><span>No sign-up to start</span><span>English or Thai menus</span></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <a class="brand" href="/en/?home"><img src="/favicon.svg" alt="" width="38" height="38"><span><b>Pic<span>cab</span></b><small>Picture Vocab · Learn words from pictures</small></span></a>
+        <p>Turn pictures of the things around you into vocabulary, and practise with pictures, sound, typing and spaced review.</p>
+        <div class="tags"><span>🇬🇧 English</span><span>🇩🇪 German</span><span>Every age</span></div>
+      </div>
+      <div><h4>Practise</h4><ul><li><a href="#modes">👀 Explore words</a></li><li><a href="#modes">✍️ Practise (type)</a></li><li><a href="#modes">👂 Listen &amp; find</a></li><li><a href="#review">🔁 Spaced review</a></li></ul></div>
+      <div><h4>Use it</h4><ul><li><a href="/app?hl=en">Open the app</a></li><li><a href="#ai">AI photos</a></li><li><a href="#class">Classes &amp; friends</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h4>Contact</h4><ul><li><a href="mailto:contact@piccab.com">contact@piccab.com</a></li><li><a href="/en/privacy">Privacy Policy</a></li><li><a href="/en/terms">Terms of Use</a></li><li><a href="/?hl=th" lang="th">ภาษาไทย</a></li></ul></div>
+    </div>
+    <div class="bot"><span>© <span id="yr">2026</span> Piccab · Made with ❤️ in Thailand</span><span><a href="/en/privacy">Privacy</a><a href="/en/terms">Terms</a></span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  $('#yr').textContent=new Date().getFullYear();
+  var top=$('#top'); var onS=function(){ top.classList.toggle('scrolled', scrollY>8); }; addEventListener('scroll',onS,{passive:true}); onS();
+  // hero demo: the sample scene with six words, in English or German
+  var W=[['macaron','das Macaron',350,134,0],['teapot','die Teekanne',594,354,0],['scone','der Scone',318,374,0],['teacup','die Teetasse',690,585,0],['vase','die Vase',904,410,1],['sugar bowl','die Zuckerdose',115,452,1]];
+  var stage=$('#stage'), heard={}, n=0, L='en', pins=[];
+  var voices={};
+  function pick(){ try{ var all=speechSynthesis.getVoices();
+    ['en','de'].forEach(function(k){ var re=k==='en'?/^en[-_](GB|US)/i:/^de[-_]DE/i, v=all.filter(function(x){return re.test(x.lang)});
+      voices[k]=v.find(function(x){return /google|samantha|natural|aria|jenny|anna|katja/i.test(x.name)})||v[0]||null; }); }catch(e){} }
+  if(window.speechSynthesis){ pick(); speechSynthesis.onvoiceschanged=pick; }
+  function say(t){ try{ if(!window.speechSynthesis) return; speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(t); u.lang=L==='de'?'de-DE':'en-GB'; if(voices[L]) u.voice=voices[L]; u.rate=.9; speechSynthesis.speak(u); }catch(e){} }
+  function label(b,w){ b.querySelector('.w').textContent=L==='de'?w[1]:w[0]; b.querySelector('.t').textContent=L==='de'?w[0]:''; b.setAttribute('aria-label','Hear '+(L==='de'?w[1]:w[0])); }
+  function count(){ $('#heard').textContent='Heard '+n+'/'+W.length+(n===1?' word':' words')+' · 24 in the whole scene'; }
+  W.forEach(function(w,i){
+    var b=document.createElement('button'); b.type='button'; b.className='pin'+(w[4]?' mhide':''); b.style.left=(w[2]/10)+'%'; b.style.top=(w[3]/6.8)+'%'; b.style.animationDelay=(.15+i*.09)+'s';
+    b.innerHTML='<span class="n">'+(i+1)+'</span><span><span class="w"></span><span class="t"></span></span><span class="s" aria-hidden="true">🔊</span>';
+    label(b,w);
+    b.addEventListener('click',function(){
+      say(L==='de'?w[1]:w[0]);
+      document.querySelectorAll('.pin.on').forEach(function(x){x.classList.remove('on')}); b.classList.add('on');
+      if(!heard[w[0]]){ heard[w[0]]=1; n++; b.classList.add('heard'); b.querySelector('.s').textContent='✓'; count(); }
+    });
+    stage.appendChild(b); pins.push([b,w]);
+  });
+  document.querySelectorAll('.dlang button').forEach(function(btn){ btn.addEventListener('click',function(){
+    L=btn.getAttribute('data-l'); document.querySelectorAll('.dlang button').forEach(function(x){ x.classList.toggle('on',x===btn); });
+    pins.forEach(function(p){ label(p[0],p[1]); });
+  }); });
+  // gentle reveal on scroll
+  var els=document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); },{rootMargin:'0px 0px -8% 0px'});
+    els.forEach(function(e){ io.observe(e); });
+  } else els.forEach(function(e){ e.classList.add('in'); });
+})();
+</script>
+</body>
+</html>
