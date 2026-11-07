@@ -827,17 +827,31 @@ async function q(env, path, init) {
   if (!r.ok) { const t = await r.text().catch(() => ''); const e = new Error(`db ${r.status} ${t.slice(0, 200)}`); e.status = r.status; e.body = t; throw e; }
   return r.status === 204 || r.headers.get('content-length') === '0' ? null : r.json().catch(() => null);
 }
-function shareTotal(sh) {
+// Words in a shared scene / word set — for another language, only the words that have it
+// (the sample scene has every language built in).
+export function shareTotal(sh, lang = 'en') {
   if (!sh || !sh.data) return 0;
-  if (sh.kind === 'deck') return (sh.data.words || []).length;
-  const sc = (sh.data.scenes || [])[0]; return sc ? (sc.builtin ? (sc.n || 0) : Object.keys(sc.items || {}).length) : 0;
+  const scenes = sh.data.scenes || [];
+  const has = (sc, k) => { if (!sc) return false; if (sc.builtin) return true; const it = (sc.items || {})[k]; return !!(it && (lang === 'en' ? it.word !== '' : it.l && it.l[lang] && it.l[lang].w)); };
+  if (sh.kind === 'deck') {
+    const words = sh.data.words || [];
+    if (lang === 'en') return words.length;
+    const by = new Map(scenes.map(x => [x.id, x]));
+    return words.filter(w => { const j = String(w).indexOf('|'); return has(by.get(String(w).slice(0, j)), String(w).slice(j + 1)); }).length;
+  }
+  const sc = scenes[0]; if (!sc) return 0;
+  if (sc.builtin) return sc.n || 0;
+  return lang === 'en' ? Object.keys(sc.items || {}).length : Object.keys(sc.items || {}).filter(k => has(sc, k)).length;
 }
+// Languages a class assignment can be practised in (English + those the AI can add)
+const CLASS_LANGS = new Set(['en', ...Object.keys(AI_LANGS)]);
 async function classItems(env, cid) {
-  const items = await q(env, `class_items?class_id=eq.${cid}&select=share_id,added_at&order=added_at.asc`) || [];
+  const items = await q(env, `class_items?class_id=eq.${cid}&select=*&order=added_at.asc`) || [];   // * : works before the lang column exists
   if (!items.length) return [];
   const shares = await q(env, `shares?id=${inList(items.map(i => i.share_id))}&select=id,kind,name,data`) || [];
   const by = new Map(shares.map(x => [x.id, x]));
-  return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id); return { share_id: i.share_id, kind: sh.kind, name: sh.name, total: shareTotal(sh), added_at: i.added_at }; });
+  return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id), lang = CLASS_LANGS.has(i.lang) ? i.lang : 'en';
+    return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at }; });
 }
 // Ranks by words passed (then ★), ties share a rank; only nicknames and scores, plus which row is "me".
 export function leaderboard(members, progress, itemIds, me) {
@@ -958,10 +972,15 @@ async function classes(request, env, url, ctx) {
       const sid = String(body.share_id || '');
       const sh = SHARE_ID.test(sid) ? await getShare(env, sid) : null;
       if (!sh || sh.owner !== uid) return error('bad_share', 400);
-      const have = await q(env, `class_items?class_id=eq.${id}&select=share_id`) || [];
-      if (!have.some(x => x.share_id === sid) && have.length >= MAX_ITEMS) return error('too_many_items', 429);
-      await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid }) });
-      return json({ ok: true });
+      const lang = body.lang === undefined ? 'en' : String(body.lang);
+      if (!CLASS_LANGS.has(lang)) return error('bad_request', 400);
+      const have = await q(env, `class_items?class_id=eq.${id}&select=*`) || [];
+      const same = have.find(x => x.share_id === sid);
+      if (same && (same.lang || 'en') !== lang) return error('other_lang', 409);           // already assigned in another language
+      if (!same && have.length >= MAX_ITEMS) return error('too_many_items', 429);
+      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}) }) }); }
+      catch (e) { if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // lang column not added yet
+      return json({ ok: true, lang });
     }
     if (sub === 'items' && m === 'DELETE' && parts[4]) {
       await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'DELETE' });

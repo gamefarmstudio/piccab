@@ -8,6 +8,14 @@
 (function(){
 'use strict';
 const D={
+  "งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา": "This is already assigned in another language — unassign it first to change the language",
+  "ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้": "Run the SQL 2026-11-class-lang.sql in Supabase first to assign other languages",
+  "ภาษาที่ให้นักเรียนฝึก": "Language students practise",
+  "นักเรียนฝึกเป็นภาษา": "Students practise in",
+  "มีคำภาษา{0} {1}/{2} คำ": "{1}/{2} words in {0}",
+  " · ที่เหลือจะแปลให้ตอนมอบหมาย": " · the rest will be translated when you assign",
+  "กำลังเตรียมคำภาษา{0}…": "Preparing {0} words…",
+  "ยังไม่มีคำภาษา{0}ในงานนี้ — เปิดฉากในโหมดภาษา{1}แล้วใส่คำก่อน": "There are no {0} words in this yet — open the scene in {1} mode and add words first",
   "🚩 รายงาน": "🚩 Reports",
   "✨ การใช้ AI": "✨ AI usage",
   "น้อยกว่า 1 บาท": "under 1 baht",
@@ -523,7 +531,7 @@ const D={
   " (ฉัน)": " (me)",
   "ครูยังไม่ได้มอบหมายงาน": "Your teacher hasn't assigned anything yet",
   "งานที่ได้รับมอบหมาย": "Assignments",
-  "{0} · ทบทวนแล้ว {1}/{2} คำ": "{0} · reviewed {1}/{2} words",
+  "{0} · ทบทวนแล้ว {1}/{2} คำ": "{0} · practised {1}/{2} words",
   "▶ ทำต่อ": "▶ Continue",
   "▶ เริ่ม": "▶ Start",
   "ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ": "Practise in ✍️ Practise (type) mode so your teacher can see your progress · Progress is sent to your teacher automatically",
