@@ -345,6 +345,29 @@ html[lang=en] .qtop .en,html[lang=en] .rv-q .en{display:none}   /* the Thai prom
 .admev{font-size:14px;margin:6px 0}
 .admev ul{margin:2px 0 8px;padding-left:20px}
 #adminView .seg{margin:0 0 6px}
+.admtabs{margin-bottom:12px}
+.aiverdict{border-radius:14px;padding:12px 16px;font-weight:600;margin:4px 0 12px;background:#e3f4ea;color:#17683f}
+.aiverdict.warn{background:#fff4d6;color:#7a5200}.aiverdict.bad{background:#fde4ea;color:#a83250}
+.aicards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.aicard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.aicard.wide{margin-top:12px}
+.aicard h4,.aih{margin:0 0 6px;font-size:15px}.aih{margin:18px 0 8px}
+.aicard p{margin:4px 0}
+.aibig b{font-size:30px;line-height:1.1}
+.aiq{display:grid;grid-template-columns:minmax(120px,190px) 1fr auto;gap:10px;align-items:center;margin:8px 0;font-size:14px}
+.aiqm{font-family:ui-monospace,monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.aibar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden}
+.aibar i{display:block;height:100%;background:var(--ok);border-radius:99px}.aibar i.hi{background:#e0a100}.aibar i.full{background:var(--bad)}
+.aitablewrap{overflow-x:auto}
+.aitable{border-collapse:collapse;width:100%;background:#fff;border-radius:12px;font-size:14px}
+.aitable th,.aitable td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.aitable th:first-child,.aitable td:first-child{text-align:left;font-family:ui-monospace,monospace;font-size:13px}
+.aichart{display:flex;align-items:flex-end;gap:3px;height:120px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 10px 22px;position:relative}
+.aicol{flex:1;height:100%;display:flex;flex-direction:column-reverse;position:relative;min-width:4px}
+.aicol i{display:block;width:100%}.aicol i.s{background:var(--ink)}.aicol i.t{background:#9b8cf0}.aicol i.b{background:#f0a3b5}
+.aicol small{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted)}
+.aileg .k{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-left:8px}
+.aileg .k.s{background:var(--ink)}.aileg .k.t{background:#9b8cf0}.aileg .k.b{background:#f0a3b5}
 .socialtabs{margin:16px 0 0}
 .socialtabs button{padding:8px 16px;position:relative}
 .nbadge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;margin-left:6px;line-height:1}
@@ -4034,7 +4057,7 @@ function openReportShare(id){
         closeModal(); toast(r && r.ok ? 'ส่งรายงานแล้ว ขอบคุณที่ช่วยดูแลความปลอดภัย' : 'ส่งรายงานไม่สำเร็จ ลองใหม่อีกครั้ง', 4000); }})));
   });
 }
-var ADM={ ok:false, all:false, data:null, open:{} };
+var ADM={ ok:false, all:false, data:null, open:{}, tab:'reports', ai:null };
 async function adminApi(method, path, body){
   const tok=await accessToken();
   const r=await fetch('/api/admin'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined });
@@ -4050,8 +4073,12 @@ async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?a
 function renderAdmin(){
   const v=$('#adminView'); v.innerHTML='';
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🛡️ ดูแลระบบ'}), el('p',{text:'รายงานจากผู้ใช้ · ระงับบัญชี · ลบลิงก์แชร์'})),
-    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=null; renderAdmin(); }})));
+    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=null; ADM.ai=null; renderAdmin(); }})));
   if(!user || !ADM.ok){ v.append(el('p',{class:'libempty',text: user ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน'})); return; }
+  v.append(el('div',{class:'seg admtabs'},
+    el('button',{class:ADM.tab==='ai'?'':'on',text:'🚩 รายงาน',onclick:()=>{ ADM.tab='reports'; renderAdmin(); }}),
+    el('button',{class:ADM.tab==='ai'?'on':'',text:'✨ การใช้ AI',onclick:()=>{ ADM.tab='ai'; ADM.ai=null; renderAdmin(); }})));
+  if(ADM.tab==='ai'){ renderAiUsage(v); return; }
   v.append(el('div',{class:'seg'},
     el('button',{class:ADM.all?'':'on',text:'ยังไม่จัดการ',onclick:()=>{ ADM.all=false; ADM.data=null; renderAdmin(); }}),
     el('button',{class:ADM.all?'on':'',text:'ทั้งหมด',onclick:()=>{ ADM.all=true; ADM.data=null; renderAdmin(); }})));
@@ -4079,6 +4106,83 @@ function renderAdmin(){
       el('button',{class:r.resolved_at?'':'primary',text:r.resolved_at?'เปิดเรื่องใหม่':'✓ ปิดเรื่อง',onclick:()=>adminResolve(r)}));
     card.append(ev, acts); v.append(card);
   });
+}
+// ✨ AI usage: pictures and translations today / this month, Google's free daily quota, and what the paid tier would cost.
+const THB=34;   // baht per US dollar, for rough estimates only
+async function loadAiUsage(){ const r=await adminApi('GET','/ai-usage').catch(()=>({ok:false})); ADM.ai = r.ok ? r.j : { error:'โหลดไม่สำเร็จ' }; }
+function aiTotals(rows){
+  const t={ scans:0, trans:0, quota:0, quotaLast:0, errors:0, tin:0, tout:0, cost:0, byModel:{} };
+  const last=(ADM.ai.gemini_models||[]).slice(-1)[0];
+  rows.forEach(r=>{ const n=Number(r.n)||0, q=/^(quota_|no_quota)/.test(r.outcome);
+    const m=t.byModel[r.model]||(t.byModel[r.model]={ ok:0, quota:0, errors:0, tin:0, tout:0, provider:r.provider });
+    if(r.outcome==='ok'){ if(r.kind==='scan') t.scans+=n; else t.trans+=n; m.ok+=n; }
+    else if(q){ t.quota+=n; m.quota+=n; if(r.model===last) t.quotaLast+=n; }
+    else { t.errors+=n; m.errors+=n; }
+    const ti=Number(r.tok_in)||0, to=Number(r.tok_out)||0; t.tin+=ti; t.tout+=to; m.tin+=ti; m.tout+=to;
+    const pr=(ADM.ai.paid_price||{})[r.model]; if(pr) t.cost+=(ti*pr[0]+to*pr[1])/1e6; });
+  return t;
+}
+const money=usd=>usd<0.01 ? 'น้อยกว่า 1 บาท' : `~${Math.round(usd*THB).toLocaleString('th-TH')} บาท ($${usd.toFixed(2)})`;
+function renderAiUsage(v){
+  if(!ADM.ai){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadAiUsage().then(()=>{ if(S.view==='admin' && ADM.tab==='ai') renderAdmin(); }); return; }
+  const A=ADM.ai;
+  if(A.error){ v.append(el('p',{class:'err',text:A.error})); return; }
+  if(A.setup){ v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังไม่ได้เปิดตัวนับการใช้ AI'})),
+    el('p',{text:'รันไฟล์ supabase/2026-11-ai-usage.sql ใน Supabase → SQL Editor ครั้งเดียว แล้วระบบจะเริ่มนับตั้งแต่การใช้ AI ครั้งถัดไป'}))); return; }
+  const T=aiTotals(A.today.rows), M=aiTotals(A.month.rows);
+  const hm=d=>new Date(d).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  const now=new Date(), dim=new Date(now.getFullYear(), now.getMonth()+1, 0).getDate(), dayNo=Math.max(1, (Date.now()-Date.parse(A.month.since))/86400e3);
+  // the verdict first
+  const lim=A.free_rpd||{}, models=A.gemini_models||[], gem=A.provider==='gemini';
+  const qRows=A.quota_day.rows.filter(r=>r.provider==='gemini' && !/^(quota_|no_quota)/.test(r.outcome));
+  const used=m=>qRows.filter(r=>r.model===m).reduce((a,r)=>a+Number(r.n),0);
+  const totalLim=models.reduce((a,m)=>a+(lim[m]||0),0), usedAll=models.reduce((a,m)=>a+used(m),0);
+  const peak=Math.max(0, ...Object.values((A.daily||[]).reduce((o,r)=>{ o[r.day]=(o[r.day]||0)+Number(r.n); return o; },{})));
+  let verdict, vcls='ok';
+  if(!A.provider){ verdict='ยังไม่ได้ตั้งค่า AI (ไม่มี GEMINI_API_KEY หรือ ANTHROPIC_API_KEY)'; vcls='warn'; }
+  else if(!gem) verdict='ใช้ Claude ('+A.claude_model+') แบบจ่ายตามใช้ ไม่มีโควตาฟรีรายวัน — ดูค่าใช้จ่ายด้านล่าง';
+  else if(M.quotaLast>0){ verdict=`⚠️ เดือนนี้โควตาฟรีหมดทุกรุ่น ${M.quotaLast} ครั้ง — ผู้ใช้เจอข้อความ “AI มีผู้ใช้งานมาก” ถึงเวลาพิจารณาแบบเสียเงิน`; vcls='bad'; }
+  else if(totalLim && peak>=totalLim*0.8){ verdict=`⚠️ วันที่ใช้มากที่สุดใช้ไป ${peak} จาก ${totalLim} ครั้ง ใกล้เต็มโควตาฟรีแล้ว`; vcls='warn'; }
+  else if(M.quota>0) verdict=`ℹ️ รุ่นที่แม่นกว่าหมดโควตาบ้าง (${M.quota} ครั้ง) ระบบสลับไปรุ่นถัดไปให้เอง ผู้ใช้ยังใช้ได้ — ยังไม่จำเป็นต้องจ่าย`;
+  else verdict='✅ โควตาฟรียังพอ ยังไม่ต้องเปลี่ยนเป็นแบบเสียเงิน';
+  v.append(el('div',{class:'aiverdict '+vcls,text:verdict}));
+  const card=(title,t,extra)=>el('div',{class:'aicard'}, el('h4',{text:title}),
+    el('div',{class:'aibig'}, el('b',{text:String(t.scans)}), el('span',{text:' รูปที่ AI หาคำให้'})),
+    el('p',{text:`แปลคำ ${t.trans} ฉาก · โควตาหมด ${t.quota} ครั้ง · ผิดพลาดอื่น ${t.errors} ครั้ง`}),
+    el('p',{class:'note small',text:`token เข้า ${t.tin.toLocaleString('th-TH')} · ออก ${t.tout.toLocaleString('th-TH')}`}), extra||null);
+  v.append(el('div',{class:'aicards'},
+    card('วันนี้',T),
+    card('เดือนนี้',M, el('div',{},
+      el('p',{class:'note small',text:`ถ้าจ่ายเงินตามราคาของรุ่นที่ใช้จริง: เดือนนี้ ${money(M.cost)} · ทั้งเดือนน่าจะ ${money(M.cost/dayNo*dim)}`}),
+      gem && (A.paid_price||{})['gemini-3.8-flash'] ? el('p',{class:'note small',text:(()=>{ const pr=A.paid_price['gemini-3.8-flash'], c=(M.tin*pr[0]+M.tout*pr[1])/1e6; return `ถ้าจ่ายเงินและใช้ gemini-3.8-flash ทุกครั้ง: เดือนนี้ ${money(c)} · ทั้งเดือนน่าจะ ${money(c/dayNo*dim)}`; })()}) : null))));
+  if(gem && models.length){
+    const box=el('div',{class:'aicard wide'}, el('h4',{text:'โควตาฟรีของ Google รอบนี้'}),
+      el('p',{class:'note small',text:`นับตั้งแต่ ${hm(A.quota_day.since)} น. · รีเซ็ตครั้งถัดไป ${hm(A.quota_day.resets)} น. (เที่ยงคืนเวลาแปซิฟิก) · ระบบลองรุ่นตามลำดับนี้`}));
+    models.forEach(m=>{ const u=used(m), l=lim[m]||0, pct=l?Math.min(100,Math.round(u/l*100)):0;
+      box.append(el('div',{class:'aiq'}, el('span',{class:'aiqm',text:m}),
+        el('span',{class:'aibar'}, el('i',{style:`width:${pct}%`,class:pct>=100?'full':pct>=80?'hi':''})),
+        el('span',{class:'aiqn',text: l ? `${u} / ${l}` : `${u} (ไม่ทราบโควตา)`}))); });
+    v.append(box);
+  }
+  // per model this month
+  const bm=Object.entries(M.byModel);
+  if(bm.length){
+    const tb=el('table',{class:'aitable'}, el('tr',{}, ...['รุ่น','สำเร็จ','โควตาหมด','ผิดพลาด','token เฉลี่ย (เข้า/ออก)'].map(h=>el('th',{text:h}))));
+    bm.sort((a,b)=>b[1].ok-a[1].ok).forEach(([m,x])=>{ const k=x.ok||1; tb.append(el('tr',{}, el('td',{text:m}), el('td',{text:String(x.ok)}), el('td',{text:String(x.quota)}), el('td',{text:String(x.errors)}),
+      el('td',{text: x.ok ? `${Math.round(x.tin/k).toLocaleString('th-TH')} / ${Math.round(x.tout/k).toLocaleString('th-TH')}` : '-'}))); });
+    v.append(el('h4',{class:'aih',text:'แยกตามรุ่น (เดือนนี้)'}), el('div',{class:'aitablewrap'}, tb));
+  }
+  // 30 days
+  const days=[]; for(let i=29;i>=0;i--){ const d=new Date(Date.now()+7*3600e3-i*86400e3); days.push(d.toISOString().slice(0,10)); }
+  const per=d=>{ const r=(A.daily||[]).filter(x=>x.day===d); return { scan:r.filter(x=>x.kind==='scan'&&x.ok).reduce((a,x)=>a+Number(x.n),0), tr:r.filter(x=>x.kind==='translate'&&x.ok).reduce((a,x)=>a+Number(x.n),0), bad:r.filter(x=>!x.ok).reduce((a,x)=>a+Number(x.n),0) }; };
+  const vals=days.map(per), mx=Math.max(1,...vals.map(x=>x.scan+x.tr+x.bad));
+  const chart=el('div',{class:'aichart'});
+  days.forEach((d,i)=>{ const x=vals[i]; chart.append(el('div',{class:'aicol',title:`${d.slice(8)}/${d.slice(5,7)}: รูป ${x.scan} · แปล ${x.tr} · ไม่สำเร็จ ${x.bad}`},
+    el('i',{class:'s',style:`height:${x.scan/mx*100}%`}), el('i',{class:'t',style:`height:${x.tr/mx*100}%`}), el('i',{class:'b',style:`height:${x.bad/mx*100}%`}),
+    el('small',{text:i%5===4||i===29?d.slice(8):''}))); });
+  v.append(el('h4',{class:'aih',text:'30 วันล่าสุด'}), chart,
+    el('p',{class:'note small aileg'}, el('span',{class:'k s'}),' รูป ', el('span',{class:'k t'}),' แปลคำ ', el('span',{class:'k b'}),' ไม่สำเร็จ (รวมโควตาหมด)'),
+    el('p',{class:'note small',text:`ราคาประมาณจากราคาแบบเสียเงิน ณ พ.ย. 2026 (1 ดอลลาร์ ≈ ${THB} บาท) · Gemini 3.8 Flash ขึ้นราคา 2 เท่าตั้งแต่ ม.ค. 2027 · เก็บแค่จำนวนครั้งและ token ไม่เก็บรูป คำ หรือผู้ใช้`}));
 }
 async function adminEvidence(r, box){
   box.innerHTML=''; box.append(el('p',{class:'note small',text:'กำลังโหลด…'}));
