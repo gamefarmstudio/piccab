@@ -345,6 +345,8 @@ html[lang=en] .qtop .en,html[lang=en] .rv-q .en{display:none}   /* the Thai prom
 .admev{font-size:14px;margin:6px 0}
 .admev ul{margin:2px 0 8px;padding-left:20px}
 #adminView .seg{margin:0 0 6px}
+.aslang{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:2px 0 10px}
+.aslang .lbl{font-size:14px;color:var(--muted)}
 .admtabs{margin-bottom:12px}
 .aiverdict{border-radius:14px;padding:12px 16px;font-weight:600;margin:4px 0 12px;background:#e3f4ea;color:#17683f}
 .aiverdict.warn{background:#fff4d6;color:#7a5200}.aiverdict.bad{background:#fde4ea;color:#a83250}
@@ -3430,7 +3432,7 @@ async function classApi(method, path, body){
 }
 const classErr=(r)=>({ bad_code:'ไม่พบห้องเรียนนี้ ตรวจรหัส 6 ตัวอีกครั้ง', bad_nickname:'ใส่ชื่อเล่นก่อนนะ', own_class:'นี่คือห้องที่คุณสอนอยู่แล้ว',
   class_full:'ห้องนี้เต็มแล้ว (200 คน)', rate_limited:'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', student_account:'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ — ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google',
-  too_many_classes:'สร้างห้องเรียนครบ 50 ห้องแล้ว', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
+  too_many_classes:'สร้างห้องเรียนครบ 50 ห้องแล้ว', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
   || (r.status===401 ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง'));
 async function loadClasses(){
   if(!user){ CL.list={teaching:[],learning:[]}; return; }
@@ -3472,18 +3474,23 @@ async function loadClassDetail(){
   if(!r.ok){ CL.detail={ error: r.status===404 ? 'ไม่พบห้องนี้ (อาจถูกลบหรือคุณออกจากห้องแล้ว)' : classErr(r) }; }
   else {
     CL.detail=r.j;
-    if(r.j.role==='student'){ const mp=classItemsMap(); mp[id]=r.j.items.map(i=>i.share_id); store.set('pv-class-items',mp); }
+    if(r.j.role==='student'){ const mp=classItemsMap(); mp[id]=r.j.items.map(i=>i.share_id); store.set('pv-class-items',mp);
+      const lg=classLangs(); r.j.items.forEach(i=>{ const k=id+'/'+i.share_id; if(i.lang && i.lang!=='en') lg[k]=i.lang; else delete lg[k]; }); store.set('pv-class-langs',lg); }
   }
   if(S.view==='class') renderClassDetail();
 }
-// progress of an assignment on this device (null if not started here)
-function localAssignmentProgress(shareId){
+// assignment language per class/share (English unless the teacher chose another)
+function classLangs(){ const v=store.get('pv-class-langs',{}); return v && typeof v==='object' ? v : {}; }
+// progress of an assignment on this device (null if not started here), in the assignment's language
+function localAssignmentProgress(shareId, lang){
+  lang=langOk(lang)?lang:'en';
   const rec=(store.get('pv-imported',{})||{})[shareId]; if(!rec) return null;
   let keys=[];
   if(rec.kind==='deck' || rec.deck){ const d=getDeck(rec.deck); if(!d) return null; keys=d.words; }
   else { const sc=scenes().find(x=>x.id===(rec.scenes||[])[0]); if(!sc) return null; keys=Object.keys(sc.items).map(k=>wkey(sc.id,k)); }
+  if(lang!=='en') keys=keys.filter(k=>{ const j=k.indexOf('|'), sc=scenes().find(x=>x.id===k.slice(0,j)), it=sc && sc.items[k.slice(j+1)]; return !!(it && it.l && it.l[lang] && it.l[lang].w); });
   let done=0, star=0;
-  for(const k of keys){ const j=k.indexOf('|'), p=progress[k.slice(0,j)], id=k.slice(j+1); if(p && p.done && p.done[id]){ done++; if(p.star && p.star[id]) star++; } }
+  for(const k of keys){ const j=k.indexOf('|'), p=progress[k.slice(0,j)], id=pk(k.slice(j+1),lang); if(p && p.done && p.done[id]){ done++; if(p.star && p.star[id]) star++; } }
   return { total:keys.length, done, star };
 }
 let classReportT=null;
@@ -3492,8 +3499,8 @@ async function reportClassProgress(){
   if(!user || navigator.onLine===false) return;
   const mp=classItemsMap(), sent=store.get('pv-class-sent',{})||{}, rows=[];
   for(const [cid, shares] of Object.entries(mp)) for(const sid of shares||[]){
-    const pr=localAssignmentProgress(sid); if(!pr) continue;
-    const key=cid+'/'+sid, sig=[pr.total,pr.done,pr.star].join(',');
+    const key=cid+'/'+sid, pr=localAssignmentProgress(sid, classLangs()[key]); if(!pr) continue;
+    const sig=[pr.total,pr.done,pr.star].join(',');
     if(sent[key]===sig) continue;
     rows.push({ class_id:cid, share_id:sid, ...pr, _k:key, _s:sig });
   }
@@ -3536,12 +3543,12 @@ function renderStudent(v,d){
     v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่ได้รับมอบหมาย'})));
     const box=el('div',{class:'liblist'});
     d.items.forEach(it=>{
-      const pr=localAssignmentProgress(it.share_id) || srv.get(it.share_id) || { total:it.total, done:0, star:0 };
+      const pr=localAssignmentProgress(it.share_id, it.lang) || srv.get(it.share_id) || { total:it.total, done:0, star:0 };
       const started=!!(store.get('pv-imported',{})||{})[it.share_id];
       box.append(el('div',{class:'lrow clitem'},
         el('span',{class:'clic',text:it.kind==='deck'?'📚':'🖼️'}),
         el('span',{class:'lb'}, el('b',{text:it.name}),
-          el('span',{class:'lm'+(pr.total&&pr.done===pr.total?' okc':'')}, `${it.kind==='deck'?'ชุดคำ':'ฉาก'} · ทบทวนแล้ว ${pr.done}/${pr.total||it.total} คำ`+(pr.star?` · ★ ${pr.star}`:'')),
+          el('span',{class:'lm'+(pr.total&&pr.done===pr.total?' okc':'')}, `${it.kind==='deck'?'ชุดคำ':'ฉาก'}${assignLang(it)} · ทบทวนแล้ว ${pr.done}/${pr.total||it.total} คำ`+(pr.star?` · ★ ${pr.star}`:'')),
           pctBar(pr.done, pr.total||it.total)),
         el('button',{class:started?'':'primary',text:started?'▶ ทำต่อ':'▶ เริ่ม',onclick:e=>startAssignment(it, e.currentTarget)})));
     });
@@ -3560,15 +3567,18 @@ function renderStudent(v,d){
   }})));
   reportClassProgress();
 }
+// " · 🇩🇪 เยอรมัน" for an assignment in a language other than English
+const assignLang=it=> it && it.lang && it.lang!=='en' && LANGS[it.lang] ? ` · ${LANGS[it.lang].flag} ${LANGS[it.lang].name}` : '';
 async function startAssignment(it, btn){
+  const lang=langOk(it.lang)?it.lang:'en';
   const done=(store.get('pv-imported',{})||{})[it.share_id];
-  if(done && (done.scenes||[]).every(id=>scenes().some(x=>x.id===id)) && (!done.deck || getDeck(done.deck))){ openImported(done); return; }
+  if(done && (done.scenes||[]).every(id=>scenes().some(x=>x.id===id)) && (!done.deck || getDeck(done.deck))){ setLang(lang); openImported(done); return; }
   if(btn){ btn.disabled=true; btn.textContent='กำลังโหลด…'; }
   try{
     const r=await fetch('/api/share/'+it.share_id,{cache:'no-store'}).then(x=>x.ok?x.json():null);
     if(!r) throw new Error('share');
     const rec=await importShare(it.share_id, r, (i,k)=>{ if(btn) btn.textContent=`กำลังโหลด ${i}/${k}`; });
-    reportClassProgressSoon(); openImported(rec);
+    reportClassProgressSoon(); setLang(lang); openImported(rec);
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='▶ ลองอีกครั้ง'; } toast('โหลดงานไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่'); }
 }
 function renderTeacher(v,d){
@@ -3595,7 +3605,7 @@ function renderTeacher(v,d){
   if(d.items.length){
     const wrap=el('div',{class:'cltablewrap'}), tb=el('table',{class:'cltable'});
     const head=el('tr',{}, el('th',{text:'นักเรียน'}));
-    d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:it.total+' คำ'}),
+    d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:(it.lang&&it.lang!=='en'&&LANGS[it.lang]?LANGS[it.lang].flag+' ':'')+it.total+' คำ'}),
       el('button',{class:'x',title:'เลิกมอบหมายงานนี้','aria-label':'เลิกมอบหมาย '+it.name,text:'✕',onclick:async()=>{
         if(!(await ask(`เลิกมอบหมาย “${it.name}”? ความคืบหน้าของงานนี้จะถูกลบ`,'เลิกมอบหมาย'))) return;
         const r=await classApi('DELETE',`/${d.id}/items/${it.share_id}`); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }}))));
@@ -3639,7 +3649,7 @@ function renderTeacher(v,d){
 function classExportData(d){
   const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
   const students=d.members.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname,'th'));
-  const items=d.items.map(it=>({...it, title:tx(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name}));
+  const items=d.items.map(it=>({...it, title:tx(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name+(it.lang&&it.lang!=='en'&&LANGS[it.lang]?` (${tx(LANGS[it.lang].name)})`:'')}));
   const rows=students.map((mb,i)=>{
     let done=0, star=0, total=0, last=0; const cells=[], long=[];
     items.forEach(it=>{
@@ -3736,26 +3746,53 @@ function exportClassXlsx(d){
 function openAssignPicker(d){
   const mine=customs.filter(sc=>Object.keys(sc.items).length);
   const live=liveKeys(), dks=deckList().filter(x=>!x.virtual && deckCount(x,live));
+  let alang=S.lang;   // the language students will practise it in
+  // scenes behind a scene / word set, and how many of its words have the language
+  const scenesOf=t=>t.kind==='scene' ? [t.sc] : [...new Set(t.deck.words.filter(k=>live.has(k)).map(k=>k.slice(0,k.indexOf('|'))))].map(id=>scenes().find(x=>x.id===id)).filter(Boolean);
+  const wordsIn=(t,lang)=>{
+    const keys=t.kind==='scene' ? Object.keys(t.sc.items).map(k=>wkey(t.sc.id,k)) : t.deck.words.filter(k=>live.has(k));
+    if(lang==='en') return [keys.length, keys.length];
+    const have=keys.filter(k=>{ const j=k.indexOf('|'), sc=scenes().find(x=>x.id===k.slice(0,j)), it=sc&&sc.items[k.slice(j+1)]; return !!(it && it.l && it.l[lang] && it.l[lang].w); });
+    return [have.length, keys.length];
+  };
   openModal(m=>{
     m.classList.add('dkbox');
     m.append(el('h3',{text:'มอบหมายงานให้ห้อง “'+d.name+'”'}), el('p',{class:'note',text:'เลือกฉากหรือชุดคำ ระบบจะสร้างลิงก์ (สำเนา ณ ตอนนี้) ให้นักเรียน'}));
+    const langSeg=el('div',{class:'aslang'}), segIn=el('div',{class:'seg',role:'group','aria-label':'ภาษาที่ให้นักเรียนฝึก'});
     const list=el('div',{class:'dk-list tall'});
-    const row=(icon,name,meta,t)=>el('button',{class:'dk-row asrow',onclick:e=>assign(t,e.currentTarget)}, el('span',{class:'dk-name'}, el('b',{text:icon+' '+name}), el('small',{text:meta})), el('span',{class:'dk-n',text:'มอบหมาย ›'}));
-    const tea=BUILTIN[0];
-    list.append(row('🖼️',tea.name,'ฉากตัวอย่าง · '+Object.keys(tea.items).length+' คำ',{kind:'scene',sc:tea}));
-    mine.forEach(sc=>list.append(row('🖼️',sc.name,'ฉาก · '+Object.keys(sc.items).length+' คำ',{kind:'scene',sc})));
-    dks.forEach(dk=>list.append(row('📚',deckName(dk),'ชุดคำ · '+deckCount(dk,live)+' คำ',{kind:'deck',deck:dk})));
+    const targets=[{kind:'scene',sc:BUILTIN[0],icon:'🖼️',meta:'ฉากตัวอย่าง · '}].concat(mine.map(sc=>({kind:'scene',sc,icon:'🖼️',meta:'ฉาก · '})), dks.map(dk=>({kind:'deck',deck:dk,icon:'📚',meta:'ชุดคำ · '})));
+    const draw=()=>{
+      langSeg.innerHTML=''; segIn.innerHTML=''; langSeg.append(el('span',{class:'lbl',text:'นักเรียนฝึกเป็นภาษา'}), segIn);
+      Object.entries(LANGS).forEach(([k,L])=>segIn.append(el('button',{type:'button',class:k===alang?'on':'',text:L.flag+' '+L.name,onclick:()=>{ alang=k; draw(); }})));
+      list.innerHTML='';
+      targets.forEach(t=>{
+        const [n,all]=wordsIn(t,alang), name=t.kind==='scene'?t.sc.name:deckName(t.deck);
+        // separate pieces of text, so each one translates on its own
+        const meta=el('small',{}, t.meta, n===all ? `${all} คำ` : `มีคำภาษา${LANGS[alang].name} ${n}/${all} คำ`, n===all ? '' : ' · ที่เหลือจะแปลให้ตอนมอบหมาย');
+        list.append(el('button',{class:'dk-row asrow',onclick:e=>assign(t,e.currentTarget)}, el('span',{class:'dk-name'}, el('b',{text:t.icon+' '+name}), meta), el('span',{class:'dk-n',text:'มอบหมาย ›'})));
+      });
+    };
     const err=el('p',{class:'err'});
+    if(Object.keys(LANGS).length>1) m.append(langSeg);
     m.append(list, err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
+    draw();
     const assign=async(t,btn)=>{
-      list.querySelectorAll('button').forEach(b=>b.disabled=true); btn.querySelector('.dk-n').textContent='กำลังสร้าง…'; err.textContent='';
-      const fail=msg=>{ err.textContent=msg; list.querySelectorAll('button').forEach(b=>b.disabled=false); btn.querySelector('.dk-n').textContent='มอบหมาย ›'; };
+      const lang=alang, all=m.querySelectorAll('.dk-list button, .aslang button'), lab=btn.querySelector('.dk-n');
+      all.forEach(b=>b.disabled=true); lab.textContent='กำลังสร้าง…'; err.textContent='';
+      const fail=msg=>{ err.textContent=msg; all.forEach(b=>b.disabled=false); lab.textContent='มอบหมาย ›'; };
+      if(lang!=='en'){
+        // students can't use AI: the words must be in the link already
+        const need=scenesOf(t).filter(sc=>!sc.builtin && missingIn(sc,lang).length);
+        if(need.length && autoLangState(need[0])==='ok'){ lab.textContent=`กำลังเตรียมคำภาษา${LANGS[lang].name}…`; for(const sc of need) await autoTranslate(sc,lang); }
+        if(!wordsIn(t,lang)[0]) return fail(`ยังไม่มีคำภาษา${LANGS[lang].name}ในงานนี้ — เปิดฉากในโหมดภาษา${LANGS[lang].name}แล้วใส่คำก่อน`);
+        lab.textContent='กำลังสร้าง…';
+      }
       const key=shareKey(t), body=sharePayload(t), cur=myShares[key]; if(cur) body.id=cur.id;
       if(!(await picturesUploaded(body))) return fail(shareErr(0,{error:'picture_missing'}));
       const r=await shareApi('POST','/api/share',body).catch(()=>({ok:false,status:0,j:{}}));
       if(!r.ok) return fail(shareErr(r.status,r.j));
       myShares[key]={ id:r.j.id, at:Date.now() }; store.set('pv-shares',myShares);
-      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id });
+      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id, ...(lang!=='en'?{lang}:{}) });
       if(!a.ok) return fail(classErr(a));
       closeModal(); toast('มอบหมายงานแล้ว ✓'); CL.detail=null; renderClassDetail();
     };
