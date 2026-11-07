@@ -62,6 +62,7 @@ npx wrangler dev
 | `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
 | `GEMINI_MODEL` | Text | – | รุ่นเดียว หรือหลายรุ่นคั่นด้วย , (ลองตามลำดับเมื่อโควตาหมด) ค่าเริ่มต้น `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite` |
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-haiku-5-5` (ถูกที่สุด) ถ้ากรอบไม่แม่นเปลี่ยนเป็น `claude-sonnet-5-5` |
+| `CLAUDE_EFFORT` | Text | – | `low` / `medium` / `high` (มี `xhigh`, `max` แต่ไม่แนะนำ) — ให้ Claude คิดมากแค่ไหนก่อนตอบ ยิ่งสูงยิ่งช้าและแพง · ไม่ตั้ง = ค่าเริ่มต้นของรุ่น (Haiku 5.5 = medium) |
 | `SUPABASE_SECRET_KEY` | Secret | แนะนำ | Supabase secret key (`sb_secret_…`) → สมาชิกที่ล็อกอินได้เครดิต AI รายเดือน |
 | `AI_MONTHLY_CREDITS` | Text | – | เครดิต AI ต่อคนต่อเดือน (ค่าเริ่มต้น 30) |
 | `GEMINI_FREE_RPD` | Text | – | โควตาฟรีต่อวันของแต่ละรุ่น สำหรับแถบในแท็บ ✨ การใช้ AI เมื่อ Google เปลี่ยนตัวเลข เช่น `gemini-3.8-flash:20,gemini-3.5-flash-lite:500` (ค่าเริ่มต้นตามที่ Google ประกาศ พ.ย. 2026) |
