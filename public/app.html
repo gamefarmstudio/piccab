@@ -894,7 +894,6 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .wslabel{display:flex;flex-direction:column;gap:5px;margin:10px 0 0;font-size:14px;color:var(--muted)}
 .wslabel>span{display:inline-flex;align-items:center;gap:5px}.wslabel>span .ico{width:17px;height:17px}
 .wslabel input{padding:9px 12px;border:1px solid #e4dacd;border-radius:12px;font-size:16px;color:var(--ink);background:#fff}
-.wsstyle{flex-wrap:wrap}
 .wsbox .row{margin-top:14px}
 .tile.exam{background:linear-gradient(135deg,#fff3cf,#fff 75%);border-color:#f5dc96}
 .tile.exam .ic{background:#fff;color:#b07800;box-shadow:0 1px 4px rgba(176,120,0,.15)}
@@ -2274,7 +2273,6 @@ function rvQuestion(){
       bar,
       el('div',{class:'rv-pic'}, wordThumb(w.sc,w.it,'rv-thumb',true)),
       dict==='listen' ? el('p',{class:'rv-q'}, el('b',{text:'ฟังแล้วเขียนคำที่ได้ยิน'}),' ',el('button',{type:'button',class:'rv-play','aria-label':'ฟังอีกครั้ง',onclick:()=>{ speak(sayWord(w.it)); $('#rvIn').focus(); }}, ic('volume_up')))
-      : dict==='meaning' ? el('p',{class:'rv-q'}, el('b',{text:`เขียนคำนี้เป็นภาษา${LANGS[S.lang].name}`}))
       : el('p',{class:'rv-q'}, el('b',{text:'นี่คืออะไร?'}),' ',el('span',{class:'en',text:'What is this?'})),
       el('div',{class:'clue',id:'rvClue',hidden:''}),
       form,
@@ -3544,9 +3542,10 @@ async function createSceneFromFile(f){
 // ---------- word sheets: a teacher's list of words for a dictation (spelling) test ----------
 // A sheet is an ordinary scene whose picture is drawn here: one card per word showing its Thai meaning.
 // So every mode, the review round, spaced review, sync, sharing and classes work just like for photo scenes.
-// sc.meta = {kind:'list', exam:'YYYY-MM-DD' or '', style:'listen' (teacher reads the English word) | 'meaning' (teacher gives the Thai meaning)}
+// sc.meta = {kind:'list', exam:'YYYY-MM-DD' or '', style:'listen'}: the app reads each word aloud, like the teacher's dictation.
+// (Sheets saved with the old style:'meaning' are practised the same way: one way of testing keeps it simple.)
 const isList=sc=>!!(sc && sc.meta && sc.meta.kind==='list');
-const listStyle=sc=>isList(sc) ? (sc.meta.style==='meaning'?'meaning':'listen') : null;
+const listStyle=sc=>isList(sc) ? 'listen' : null;
 function examIn(sc){ if(!isList(sc) || !sc.meta.exam) return null; const t=Date.parse(sc.meta.exam+'T12:00:00'); return isNaN(t) ? null : dayNo(t)-dayNo(); }
 const examLabel=n=> n===0 ? 'สอบวันนี้' : n===1 ? 'สอบพรุ่งนี้' : `สอบอีก ${n} วัน`;
 // "1. apple แอปเปิล", "apple = แอปเปิล", "apple (n.) - แอปเปิล", "apple" … one word per line
@@ -3654,8 +3653,7 @@ async function readSheetPhoto(file){
   return items;
 }
 function openSheetMaker(sc){
-  const meta=(sc && sc.meta) || {kind:'list', exam:'', style:'listen'};
-  let style=meta.style==='meaning' ? 'meaning' : 'listen';
+  const meta=(sc && sc.meta) || {kind:'list', exam:''};
   openModal(m=>{
     m.classList.add('wsbox');
     const ta=el('textarea',{rows:'8',spellcheck:'false','aria-label':'รายการคำศัพท์',placeholder:'apple แอปเปิล\nbanana กล้วย\nelephant ช้าง'});
@@ -3663,10 +3661,6 @@ function openSheetMaker(sc){
     const count=el('span',{class:'wscount'});
     const name=el('input',{maxlength:'40','aria-label':'ชื่อชุดคำ',value: sc ? sc.name : 'Dictation '+new Date().toLocaleDateString(LOC,{day:'numeric',month:'short'})});
     const date=el('input',{type:'date','aria-label':'วันสอบ',value:meta.exam||''});
-    const seg=el('div',{class:'fchips wsstyle',role:'group','aria-label':'ครูสอบแบบไหน'});
-    const styles=[['listen','volume_up','ครูอ่านคำอังกฤษ'],['meaning','translate','ครูบอกความหมายไทย']];
-    const drawSeg=()=>{ seg.replaceChildren(...styles.map(([k,icn,t])=>el('button',{type:'button',class:k===style?'on':'',onclick:()=>{ style=k; drawSeg(); }}, ic(icn), t))); };
-    drawSeg();
     const ok=el('button',{class:'primary'}, sc ? 'บันทึก' : 'สร้างชุดคำ');
     const upd=()=>{ const n=parseWordList(ta.value).length; count.textContent=n ? `${n} คำ` : ''; ok.disabled=!n; };
     ta.addEventListener('input',upd);
@@ -3687,7 +3681,7 @@ function openSheetMaker(sc){
       const words=parseWordList(ta.value); if(!words.length){ ta.focus(); return; }
       ok.disabled=true;
       const nm=(name.value.trim()||'Dictation').slice(0,40);
-      const s2=await saveWordSheet(sc, nm, words, {kind:'list', exam:date.value||'', style});
+      const s2=await saveWordSheet(sc, nm, words, {kind:'list', exam:date.value||'', style:'listen'});
       closeModal();
       if(sc){ if(S.view==='play') fullRender(); else renderGallery(); toast('บันทึกชุดคำแล้ว'); }
       else { openScene(s2.id,'learn'); toast(`สร้างชุดคำ ${words.length} คำแล้ว — แตะการ์ดเพื่อฟังคำ`, 4000); }
@@ -3699,7 +3693,6 @@ function openSheetMaker(sc){
       ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
       el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
       el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),
-      el('div',{class:'wslabel'}, el('span',{text:'ครูสอบแบบไหน'}), seg),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), ok));
     upd();
   });
