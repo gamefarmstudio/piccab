@@ -26,7 +26,8 @@ async def main():
         await pg.click('.hero .btn.primary'); await pg.wait_for_timeout(1500)
         out['app_url']=pg.url; out['app_lang']=await pg.evaluate('document.documentElement.lang'); out['welcome']=await pg.locator('#mbox h3').first.inner_text()
         await pg.click('#mbox button.primary'); await pg.wait_for_timeout(500)
-        out['privacy_href']=await pg.locator('nav.legal a').first.get_attribute('href')
+        out['privacy_href']=await pg.locator('nav.legal a[href*=privacy]').first.get_attribute('href')
+        out['about_en']=[await pg.locator('nav.legal a').first.inner_text(), await pg.locator('nav.legal a').first.get_attribute('href')]
         await pg.goto(B+'/'); await pg.wait_for_timeout(800); out['returning']=pg.url
         await ctx.close()
         # Thai browser stays on Thai landing; EN switch goes to /en/
@@ -46,6 +47,9 @@ async def main():
         await pg.goto(B+'/?home'); await pg.wait_for_timeout(600)
         await pg.click('.langsw'); await pg.wait_for_timeout(800); out['used_to_en']=[pg.url, await pg.evaluate('document.documentElement.lang')]
         await pg.click('.langsw'); await pg.wait_for_timeout(800); out['used_to_th']=[pg.url, await pg.evaluate('document.documentElement.lang')]
+        # …and the app's footer link "เกี่ยวกับ Piccab" brings them back to the landing page
+        await pg.goto(B+'/app'); await pg.wait_for_timeout(1200)
+        await pg.click('nav.legal a:has-text("เกี่ยวกับ Piccab")'); await pg.wait_for_timeout(800); out['about_th']=[pg.url, await pg.locator('.hero h1').count()]
         await ctx.close()
         # legal pages in English
         ctx,pg=await page('en-US',390,844,True)
@@ -66,6 +70,7 @@ async def main():
     check(out['th_url'].endswith(':8788/') or out['th_url'].rstrip('/').endswith(SERVER.split('//')[1]), 'Thai browser stays on the Thai page', out['th_url'])
     check(out['th_app_link']=='/app?hl=th' and out['th_to_en'].endswith('/en/?home'), 'Thai page links', (out['th_app_link'], out['th_to_en']))
     check(out['used_to_en'][0].endswith('/en/?home') and out['used_to_en'][1]=='en' and out['used_to_th'][0].endswith('/?hl=th&home') and out['used_to_th'][1]=='th', 'app users can switch the landing page language too', (out['used_to_en'], out['used_to_th']))
+    check(out['about_en']==['About Piccab','/en/?home'] and out['about_th'][0].endswith('/?home') and out['about_th'][1]==1, 'About Piccab link in the app goes to the landing page', (out['about_en'], out['about_th']))
     check(out['en_to_th'].endswith('/?hl=th&home') and out['en_to_th_app_lang']=='th', 'choosing ไทย on the English page', (out['en_to_th'], out['en_to_th_app_lang']))
     for u in ['/en/privacy','/en/terms']:
         check(out[u][1]==[], f'{u} has no Thai left', out[u])
