@@ -604,6 +604,12 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   const tr = W.parseTranslations('```json\n[{"k":"a1","w":"Stuhl","a":"der","alts":["Sessel"]},{"k":"bad key!","w":"x"},{"k":"a2","w":""},{"k":"a3","w":"Lampe","a":"DIE"}]\n```');
   assert.deepEqual(tr, [{ k: 'a1', w: 'Stuhl', a: 'der', alts: ['Sessel'] }, { k: 'a3', w: 'Lampe', a: 'die', alts: [] }]);
   assert.equal(W.parseTranslations('nope'), null);
+  // word lists (a teacher's dictation sheet)
+  assert.deepEqual(W.parseWordlist('```json\n[{"w":"1. Apple","th":"แอปเปิล"},{"w":"apple"},{"w":"ก"},{"w":"12) run (v.)","th":"วิ่ง"},{"w":"ice-cream"},{"x":1}]\n```'),
+    [{ w:'Apple', th:'แอปเปิล' }, { w:'run', th:'วิ่ง' }, { w:'ice-cream', th:'' }]);
+  assert.equal(W.parseWordlist('no list'), null);
+  assert.equal(W.parseWordlist(JSON.stringify(Array.from({length:80},(_,i)=>({w:'word'+i})))).length, 60);
+  assert.match(W.buildWordlistPrompt(), /dictation[\s\S]*"w"[\s\S]*"th"[\s\S]*names of students[\s\S]*At most 60/);
   assert.match(W.buildTranslatePrompt('de', [{ k: 'a1', en: 'chair', th: 'เก้าอี้' }]), /German[\s\S]*"der", "die" or "das"[\s\S]*"k":"a1"/);
   // shares keep German words; items with no word at all are dropped
   const scene = { id: 's1', name: 'Room', w: 100, h: 100, items: {
@@ -782,4 +788,23 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   // just adding the key switches from Gemini to Claude (unless AI_PROVIDER=gemini)
   r = await scan({ GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'k' }); assert.equal((await r.json()).provider, 'claude');
   console.log('claude settings tests passed');
+}
+
+// ---------- /api/wordlist: a photo of a teacher's word list → [{w, th}] ----------
+{
+  const saved = globalThis.fetch; let sentPrompt = '';
+  globalThis.fetch = async (url, init) => {
+    const b = JSON.parse(init.body); sentPrompt = JSON.stringify(b);
+    return new Response(JSON.stringify({ stop_reason:'end_turn', content:[{ type:'text', text:'[{"w":"elephant","th":"ช้าง"},{"w":"2. giraffe"}]' }], usage:{ input_tokens:900, output_tokens:40 } }), { status:200 });
+  };
+  const wl = (body, env) => worker.fetch(new Request('https://piccab.com/api/wordlist', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) }), { ASSETS: assets, ...env });
+  assert.equal((await wl({ image: img }, {})).status, 503);                                   // AI not set up
+  assert.equal((await (await wl({ image: 'data:text/html;base64,AAAA' }, KEY)).json()).error, 'bad_image');
+  assert.equal((await worker.fetch(new Request('https://piccab.com/api/wordlist'), { ASSETS: assets, ...KEY })).status, 405);
+  const r = await wl({ image: img }, KEY);
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).items, [{ w:'elephant', th:'ช้าง' }, { w:'giraffe', th:'' }]);
+  assert.match(sentPrompt, /dictation/);
+  globalThis.fetch = saved;
+  console.log('word list tests passed');
 }
