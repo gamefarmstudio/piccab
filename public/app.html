@@ -1645,6 +1645,7 @@ function renderScene(){
     const im=document.createElementNS(NS,'image');
     im.setAttribute('href', sceneImg(sc)); im.setAttribute('width', sc.w); im.setAttribute('height', sc.h); im.setAttribute('preserveAspectRatio','none');
     svg.appendChild(im);
+    if(isList(sc) && S.mode==='learn' && !S.editing) svg.appendChild(listCards(sc, ids().map(id=>items()[id])));
   }
   const spot=document.createElementNS(NS,'path'); spot.setAttribute('class','spot'); spot.setAttribute('fill-rule','evenodd');
   svg.appendChild(spot);
@@ -2360,6 +2361,31 @@ function rvDone(){
   });
   modalClose=()=>{ RV=null; if(S.view==='words') updateWords(); else if(S.view==='home') renderHome(); };
 }
+// Word sheet while learning: each card shows the English word big with the Thai meaning under it.
+// Drawn over the picture (which has only the Thai meaning), so tests and review rounds still hide the answer.
+let cardMeasure=null;
+function fitFont(text, weight, family, max, min, room){
+  cardMeasure=cardMeasure || document.createElement('canvas').getContext('2d');
+  let fs=max; for(;;){ cardMeasure.font=`${weight} ${fs}px ${family}`; if(cardMeasure.measureText(text).width<=room || fs<=min) break; fs-=2; }
+  return {fs, fit:cardMeasure.measureText(text).width>room};
+}
+function listCards(sc, list){
+  const g=document.createElementNS(NS,'g'); g.setAttribute('class','lcards'); g.setAttribute('pointer-events','none');
+  const put=(tag,attrs,text)=>{ const e=document.createElementNS(NS,tag); Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v)); if(text!=null) e.textContent=text; g.appendChild(e); return e; };
+  for(const it of list){ if(!it || !it.word || it.w==null) continue;
+    const x=it.x+76, y=it.y+5, w=it.w-82, h=it.h-10, cx=x+w/2, room=w-28, th=mean(it);
+    put('rect',{x,y,width:w,height:h,rx:14,fill:'#fff'});
+    const en=fitFont(it.word,600,'Fredoka',52,22,room);
+    const t=put('text',{x:cx,y:th ? y+h*0.38 : y+h/2+2,'text-anchor':'middle','dominant-baseline':'central','font-family':'Fredoka, Sarabun, sans-serif','font-weight':600,'font-size':en.fs,fill:'#2d2a5a'},it.word);
+    if(en.fit){ t.setAttribute('textLength',room); t.setAttribute('lengthAdjust','spacingAndGlyphs'); }
+    if(th){
+      const tf=fitFont(th,600,'Sarabun',32,20,room); let tt=th;
+      if(tf.fit){ while(tt.length>2){ cardMeasure.font=`600 ${tf.fs}px Sarabun`; if(cardMeasure.measureText(tt+'…').width<=room) break; tt=tt.slice(0,-1); } tt+='…'; }
+      put('text',{x:cx,y:y+h*0.77,'text-anchor':'middle','dominant-baseline':'central','font-family':'Sarabun, sans-serif','font-weight':600,'font-size':tf.fs,fill:'#8a84a3'},tt);
+    }
+  }
+  return g;
+}
 function previewSvg(sc, showLabels){
   const s=document.createElementNS(NS,'svg');
   s.setAttribute('viewBox',`0 0 ${sc.w} ${sc.h}`);
@@ -2367,6 +2393,7 @@ function previewSvg(sc, showLabels){
   im.setAttribute('href',sceneImg(sc)); im.setAttribute('width',sc.w); im.setAttribute('height',sc.h); im.setAttribute('preserveAspectRatio','none');
   s.appendChild(im);
   if(!showLabels) return s;
+  if(isList(sc)){ s.appendChild(listCards(sc, Object.values(itemsOf(sc)))); return s; }
   const fs=Math.max(sc.w,sc.h)*(sc.w>=sc.h?0.016:0.025);
   for(const it of Object.values(itemsOf(sc))){ if(!it.word) continue;
     let x,y;
@@ -2565,7 +2592,7 @@ function updateOverlay(){
     }
     return;
   }
-  if(S.mode==='learn' && S.showAll){
+  if(S.mode==='learn' && S.showAll && !isList(scene())){
     ids().forEach(id=>{
       const a=anchor(id); if(!a) return;
       const m=el('div',{class:'mini',text:items()[id].word,onclick:e=>{e.stopPropagation(); select(id);}});
@@ -3059,6 +3086,7 @@ function renderSpeakSub(put){
 document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListener('click',()=>{
   apReset(); spkStop(); S.mode=b.dataset.mode; pinnedId=hoverId=null; flash=null; closeQuiz(true);
   try{ speechSynthesis.cancel(); }catch(e){}
+  if(isList(scene())) renderScene();   // a word sheet shows the English words only while learning
   if(S.mode==='find' && ids().length) startFind();
   if(S.mode==='speak') startSpeak();
   refresh();

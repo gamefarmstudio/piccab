@@ -41,6 +41,11 @@ async def main():
         await pg.fill('.wsbox input[type=date]', in3)
         await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1200)
         out['cards']=await pg.locator('#scene .item').count()
+        # learning: the cards show the English word big with the meaning under it; the review modes hide it again
+        out['learn_cards']=await pg.evaluate("[...document.querySelectorAll('#scene .lcards text')].map(t=>t.textContent).slice(0,4)")
+        await pg.click('#modes button[data-mode=quiz]'); await pg.wait_for_timeout(400)
+        out['quiz_cards']=await pg.locator('#scene .lcards').count()
+        await pg.click('#modes button[data-mode=learn]'); await pg.wait_for_timeout(400)
         sh=(await pg.evaluate(SHEET))[0]
         out['words']=[it['word'] for it in sh['items'].values()]; out['th']=[it['th'] for it in sh['items'].values()]; out['meta']=sh['meta']
         out['img']=await pg.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); return a.length; })()")
@@ -102,6 +107,7 @@ async def main():
     check(out['th'][:3]==['ช้าง','ยีราฟ','ผีเสื้อ'] and out['th'][-1]=='', 'Thai meanings kept', out['th'])
     check(out['meta']=={'kind':'list','exam':in3,'style':'listen'}, 'test date and style saved with the scene', out['meta'])
     check('สอบอีก 3 วัน' in out['tile'] and '0/10' in out['tile'], 'home shows the test countdown', out['tile'])
+    check(out['learn_cards']==['elephant','ช้าง','giraffe','ยีราฟ'] and out['quiz_cards']==0, 'learning shows English + meaning on the cards; review hides the English', (out['learn_cards'], out['quiz_cards']))
     check(out['labels']=='', 'no answer labels on the sheet picture', out['labels'])
     check(out['rv_title']=='📝 เขียนตามคำบอก' and 'ฟังแล้วเขียน' in out['rv_q'] and out['rv_listen_btn']==0, 'dictation round: listen and write', (out['rv_title'], out['rv_q'], out['rv_listen_btn']))
     check(out['said'] in out['words'] and '★' in out['rv_msg'], 'the app reads the word; replaying it still earns a ★', (out['said'], out['rv_msg']))
