@@ -71,7 +71,7 @@ async def main():
         await pg.evaluate("""()=>{ const sc={id:'s1x',name:'Room',w:900,h:1200,img:'data:image/png;base64,iVBORw0KGgo=',items:{a1:{word:'chair',th:'เก้าอี้',alts:[],x:10,y:10,w:100,h:100},a2:{word:'lamp',th:'โคมไฟ',alts:[],x:200,y:10,w:100,h:100}}}; const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); a.push(sc); localStorage.setItem('pv-scenes2',JSON.stringify(a)); localStorage.setItem('pv-scene','s1x'); localStorage.setItem('pv-ai-code',JSON.stringify('x')); }""")
         await pg.reload(); await pg.wait_for_timeout(700)
         await pg.evaluate("document.querySelector('.mainnav button[data-view=library]').click()"); await pg.wait_for_timeout(300)
-        await pg.locator('.lrow:has-text("Room")').first.click(); await pg.wait_for_timeout(400)
+        await pg.locator('#libList .lcard:has-text("Room")').first.click(); await pg.wait_for_timeout(400)
         btn=pg.locator('.mbox button.primary').first
         if await btn.count(): await btn.click(); await pg.wait_for_timeout(500)
         if await pg.evaluate("document.body.classList.contains('editing')"):

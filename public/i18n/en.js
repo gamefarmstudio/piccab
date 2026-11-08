@@ -8,6 +8,27 @@
 (function(){
 'use strict';
 const D={
+  // cozy pages
+  "ถึงรอบ": "Due",
+  "จำได้": "Remembered",
+  "ตามฉาก": "By scene",
+  "ยังไม่ผ่านก่อน": "Not passed first",
+  "เก็บไว้": "Saved",
+  "สร้างชุด": "New set",
+  "เพิ่มคำเข้าชุดนี้": "Add words to this set",
+  "แชร์ชุดนี้": "Share this set",
+  "เปลี่ยนชื่อ": "Rename",
+  "ลบชุด": "Delete set",
+  "เข้าห้องด้วยรหัส": "Join with a code",
+  "นักเรียน · ใช้รหัสจากครู ไม่ต้องมีอีเมล": "Students · use your teacher's code, no email needed",
+  "ครู · มอบหมายฉากและชุดคำ": "Teachers · assign scenes and word sets",
+  "แก้ไขฉาก": "Edit scene",
+  "นำเข้า": "Import",
+  "ชื่อ A→Z": "Name A→Z",
+  "ยังทบทวนไม่จบ": "Review not finished",
+  "ทบทวน": "Practise",
+  "เปลี่ยนชื่อฉาก": "Rename scene",
+  "ค้นหาฉากหรือคำ เช่น teapot, กาน้ำชา": "Search scenes or words, e.g. teapot",
   // cozy home
   "พิมพ์คำให้ผ่าน แล้วคำจะกลับมาตอนใกล้ลืม": "Pass a word by typing it and it comes back just before you forget",
   "ทบทวนครบแล้ว": "All reviewed",

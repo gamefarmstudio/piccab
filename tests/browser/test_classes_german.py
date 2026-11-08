@@ -36,7 +36,7 @@ async def main():
         await S.screenshot(path=shot('cd2_student.png'))
         await S.locator('.clitem').first.locator('button').click(); await S.wait_for_timeout(1000)
         out['s_lang']=await S.evaluate("localStorage.getItem('pv-lang')")
-        out['s_pill']=await S.locator('#playBar .langpill').inner_text()
+        out['s_pill']=(await S.locator('#playBar .langpill').text_content()).strip()
         await S.click('#modes [data-mode=quiz]'); await S.wait_for_timeout(300)
         await S.locator('#scene .item[data-id="vase"]').click(force=True); await S.wait_for_timeout(500)
         await S.fill('#qin','die Vase'); await S.press('#qin','Enter'); await S.wait_for_timeout(600)

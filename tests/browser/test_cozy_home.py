@@ -1,4 +1,5 @@
-"""Home on a phone: icon-only bottom bar, stat chips, the mode sheet, and English menus with no Thai left."""
+"""Cozy look on a phone: home (icon bar, stat chips, mode sheet), library cards, My words chips, classroom tiles,
+the practice screen's icon mode bar — and English menus with no Thai left on any of them."""
 import asyncio, re
 from playwright.async_api import async_playwright
 from common import *
@@ -32,6 +33,23 @@ async def main():
         await pg.screenshot(path=shot('cozy2_modes.png'))
         await pg.click('.mopt[data-mode=find]'); await pg.wait_for_timeout(400)
         out['opened']=await pg.evaluate("[document.getElementById('playView').hidden?'home':'play', (document.querySelector('#modes button.on')||{dataset:{}}).dataset.mode]")
+        out['modebar']=await pg.evaluate("[...document.querySelectorAll('#modes button')].filter(b=>b.offsetParent).map(b=>[b.dataset.mode||b.id, !!b.querySelector('svg.ico'), b.innerText.trim()])")
+        out['playbar']=await pg.evaluate("[...document.querySelectorAll('#playBar > *')].filter(b=>b.offsetParent).map(b=>b.id||b.className)")
+        await pg.screenshot(path=shot('cozy4_play.png'))
+        await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
+        await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300)
+        out['lib']=await pg.evaluate("[...document.querySelectorAll('#libList .lcard')].map(c=>[c.querySelector('b').innerText, c.querySelector('.own').title, !!c.querySelector('.ago')])")
+        out['lib_chips']=await pg.evaluate("[...document.querySelectorAll('#libFilters button')].map(b=>b.innerText.replace(/\\s+/g,' ').trim())")
+        await pg.fill('#libSearch','macaron'); await pg.wait_for_timeout(200)
+        out['lib_hit']=await pg.locator('#libList .lcard .hit').all_inner_texts()
+        await pg.screenshot(path=shot('cozy5_library.png'))
+        await pg.click('#bnav [data-view=words]'); await pg.wait_for_timeout(300)
+        out['wd_chips']=await pg.evaluate("[...document.querySelectorAll('#wdFilters button')].map(b=>[b.dataset.f, b.innerText.replace(/\\s+/g,' ').trim(), b.title])")
+        out['wd_count']=await pg.evaluate("[...document.querySelectorAll('#wdCount .chip')].map(c=>c.getAttribute('aria-label'))")
+        await pg.screenshot(path=shot('cozy6_words.png'))
+        await pg.click('#bnav [data-view=class]'); await pg.wait_for_timeout(300)
+        out['class']=await pg.locator('#classView .cltiles').inner_text()
+        await pg.screenshot(path=shot('cozy7_class.png'))
         await pg.context.close()
         # English menus: nothing Thai on home, in the sheet, or in labels
         pg=await page('en')
@@ -42,6 +60,11 @@ async def main():
         left.update(await pg.evaluate(THAI_LEFT))
         out['en_sheet']=await pg.locator('#mbox').inner_text()
         await pg.screenshot(path=shot('cozy3_en_modes.png'))
+        await pg.click('.mopt[data-mode=learn]'); await pg.wait_for_timeout(400); left.update(await pg.evaluate(THAI_LEFT))
+        out['en_modes']=await pg.evaluate("[...document.querySelectorAll('#modes [data-mode]')].map(b=>b.innerText.trim())")
+        await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
+        for v in ['library','words','class']:
+            await pg.click(f'#bnav [data-view={v}]'); await pg.wait_for_timeout(400); left.update(await pg.evaluate(THAI_LEFT))
         await pg.context.close()
         await b.close()
     out['thai_left']=sorted(left)
@@ -54,6 +77,15 @@ async def main():
     check('macaron' in out['card_labels'] and out['pills_fit'], 'word pills fit on the picture', (out['card_labels'], out['pills_fit']))
     check(out['sheet']==[['learn',False],['quiz',True],['find',False],['speak',False]], 'mode sheet: 4 modes, last one marked', out['sheet'])
     check(out['opened']==['play','find'], 'picking a mode opens the scene', out['opened'])
+    check([m[0] for m in out['modebar']]==['learn','quiz','find','speak'] and all(m[1] for m in out['modebar']) and [m[2] for m in out['modebar']]==['ดูคำศัพท์','ทบทวน','ฟังแล้วหา','ฝึกพูด'], 'mode bar: icon + short name, no stray buttons', out['modebar'])
+    check(out['playbar'][:2]==['homeBtn','curName'], 'practice bar: back icon, scene name', out['playbar'])
+    check(len(out['lib'])==1 and out['lib'][0][1]=='ตัวอย่าง' and out['lib'][0][2], 'library card: who made it, when opened', out['lib'])
+    check(out['lib_chips'][0]=='ทั้งหมด 1' and out['lib_chips'][1]=='0' and out['lib_chips'][2]=='1', 'library filters: icons + counts on a phone', out['lib_chips'])
+    check(out['lib_hit']==['macaron'], 'search shows the word found', out['lib_hit'])
+    check([c[0] for c in out['wd_chips']]==['all','due','todo','done','star'] and out['wd_chips'][4][1]=='1' and out['wd_chips'][4][2]=='จำได้', 'My words filters: icons + counts', out['wd_chips'])
+    check(out['wd_count']==['24 คำ จาก 1 ฉาก','ผ่านแล้ว 2 คำ','จำได้ 1 ดาว'], 'My words counts as chips', out['wd_count'])
+    check('เข้าห้องด้วยรหัส' in out['class'] and 'สร้างห้องเรียน' in out['class'], 'classroom tiles', out['class'])
+    check(out['en_modes']==['Explore words','Practise','Listen & find','Speak'], 'English mode bar', out['en_modes'])
     check(out['en_button']=='Continue' and out['en_nav'][0]=='Home' and 'Listen, then tap the right one' in out['en_sheet'], 'English home and sheet', (out['en_button'], out['en_nav'], out['en_sheet']))
     check(out['thai_left']==[], 'no Thai left in English', out['thai_left'])
     finish('cozy home', out, errs)
