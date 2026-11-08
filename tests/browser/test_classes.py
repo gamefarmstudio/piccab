@@ -58,7 +58,8 @@ async def main():
         # student 2: desktop, types the code
         S2=await newpage(b, errs); await S2.goto(BASE+'/app'); await S2.wait_for_timeout(700)
         await S2.click('.mainnav button[data-view=class]'); await S2.wait_for_timeout(300); await S2.click('#classView button:has-text("เข้าห้องด้วยรหัส")')
-        await S2.fill('#mbox input.clcodein', code.lower()); await S2.fill('#mbox input[aria-label="ชื่อเล่น"]','พลอย'); await S2.click('#mbox button.primary'); await S2.wait_for_timeout(2500)
+        await S2.fill('#mbox input.clcodein', code.lower()); await S2.fill('#mbox input[aria-label="ชื่อเล่น"]','พลอย'); await S2.click('#mbox button.primary')
+        await S2.wait_for_selector('#classView h2', timeout=20000)   # joining can be slow on a busy CI machine
         out['s2_title']=await S2.inner_text('#classView h2')
         # teacher sees both and the progress
         await T.click('#classView .ghead button.ghost'); await T.wait_for_timeout(1500)
