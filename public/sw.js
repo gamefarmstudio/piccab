@@ -6,12 +6,12 @@
 //  - /api/* (AI, pictures, account) and other sites (Supabase): never cached — they always go to the network.
 // Scenes, pictures and progress already live in the browser (localStorage / IndexedDB), so
 // practising works offline; sync and AI resume when the connection is back.
-const VERSION = 'piccab-v1';
+const VERSION = 'piccab-v2';
 const PAGES = ['/', '/app', '/privacy', '/terms', '/en', '/en/privacy', '/en/terms'];
 const PAGE_URL = { '/en': '/en/' };   // fetched at this address (no redirect), saved under the page's key
 const ASSETS = [
   '/vendor/supabase-2.119.0.js', '/fonts/fonts.css', '/legal.css', '/manifest.webmanifest',
-  '/favicon.svg', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png',
+  '/favicon.svg', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/icon-maskable-192.png', '/icon-maskable-512.png', '/apple-touch-icon.png',
   '/fonts/sarabun-thai-400-normal.woff2', '/fonts/sarabun-thai-600-normal.woff2', '/fonts/sarabun-thai-700-normal.woff2',
   '/fonts/sarabun-latin-400-normal.woff2', '/fonts/sarabun-latin-600-normal.woff2', '/fonts/sarabun-latin-700-normal.woff2',
   '/fonts/fredoka-latin-500-normal.woff2', '/fonts/fredoka-latin-600-normal.woff2',
