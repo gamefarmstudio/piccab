@@ -2,7 +2,7 @@
 
 The mark is a picture (frame, mountains and a sun) with a big letter **A** stepping out of its corner: *a picture becomes a word*. It sits on a blue-to-purple tile.
 
-These files are not served by the site. The app's own copies are in `public/`: `favicon.svg`, `favicon.ico`, `icon-192.png`, `icon-512.png`, `icon-maskable-*.png`, `apple-touch-icon.png` and `og-image.png`.
+These files are not served by the site. The app's own copies are in `public/`: `icon.svg` (the tab icon), `favicon.ico`, `icon-192.png`, `icon-512.png`, `icon-maskable-*.png`, `apple-touch-icon.png` and `og-image.png`.
 
 ## Which file to use
 
