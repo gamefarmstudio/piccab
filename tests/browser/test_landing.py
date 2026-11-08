@@ -11,6 +11,7 @@ async def route(r):
     path=u.split('piccab.test')[1].split('#')[0]; pth=path.split('?')[0]
     if pth.endswith('.js') and 'supabase' in pth: return await r.fulfill(status=200, content_type='application/javascript', body=SBJS)
     if pth=='/api/health': return await r.fulfill(status=200, content_type='application/json', body='{"ai":false}')
+    if pth in ('/api/usage','/api/log'): return await r.fulfill(status=204)
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
     if pth=='/': return await r.fulfill(status=200, content_type='text/html', body=LAND)
     if pth=='/en/': return await r.fulfill(status=200, content_type='text/html', body=LAND_EN)

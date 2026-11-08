@@ -27,6 +27,7 @@ async def app_route(r, health='{"ai":false}', extra=None):
     if u.endswith('/vendor/supabase-2.119.0.js'): return await r.fulfill(status=200, content_type='application/javascript', body=SBJS)
     if u.endswith('/i18n/en.js'): return await r.fulfill(status=200, content_type='application/javascript', body=EN)
     if u.endswith('/api/health'): return await r.fulfill(status=200, content_type='application/json', body=health)
+    if u.endswith(('/api/usage', '/api/log')): return await r.fulfill(status=204)
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
     if 'piccab.test' not in u: return await r.abort()
     if '/fonts/' in u or u.endswith(('.svg', '.png', '.webp', '.ico', '.css')):

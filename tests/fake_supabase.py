@@ -1,10 +1,10 @@
 # A tiny fake of Supabase (Auth + PostgREST + the RPCs Piccab uses) for the browser tests: python3 tests/fake_supabase.py 54321
 import http.server, json, sys, uuid, base64, time, urllib.parse, re, threading
 LOCK=threading.Lock()
-DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage']}
+DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage','feedback','client_errors','usage_daily']}
 SEQ={'n':0}
 KEYS={'scenes':['user_id','id'],'progress':['user_id','scene_id'],'decks':['user_id','id'],'shares':['id'],'classes':['id'],
-      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id']}
+      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event']}
 USERS={}   # uid -> user
 TOKENS={}  # token -> uid
 def tok_for(uid):
@@ -100,6 +100,28 @@ class H(http.server.BaseHTTPRequestHandler):
             if path=='/auth/v1/token':
                 rt=(self.body() or {}).get('refresh_token',''); uid=rt[2:]
                 return self.send(200, session(uid)) if uid in USERS else self.send(400, {})
+            tr=re.match(r'/rest/v1/rpc/(client_error_add|usage_add|trial_stats|trial_cleanup)$', path)
+            if tr:
+                if not self.headers.get('apikey','').startswith('sb_secret'): return self.send(401, {})
+                fn=tr.group(1); b=self.body() or {}
+                if fn=='client_error_add':
+                    r=next((x for x in DB['client_errors'] if x['day']==b['p_day'] and x['sig']==b['p_sig']), None)
+                    if r: r['n']+=1; r['last_at']=time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())
+                    else: DB['client_errors'].append({'day':b['p_day'],'sig':b['p_sig'],'msg':b['p_msg'],'src':b['p_src'],'stack':b['p_stack'],'page':b['p_page'],'ua':b['p_ua'],'n':1,'last_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())})
+                    return self.send(204)
+                if fn=='usage_add':
+                    for k,v in (b.get('p_events') or {}).items():
+                        r=next((x for x in DB['usage_daily'] if x['day']==b['p_day'] and x['event']==k), None)
+                        if r: r['n']+=v
+                        else: DB['usage_daily'].append({'day':b['p_day'],'event':k,'n':v})
+                    return self.send(204)
+                if fn=='trial_stats':
+                    real=[u for u in USERS.values() if not u.get('is_anonymous')]
+                    return self.send(200, {'accounts':len(real),'accounts_7d':len(real),'students':len(USERS)-len(real),'signed_in_7d':len(USERS),
+                        'active_7d':len({r['user_id'] for r in DB['progress']}),'active_30d':len({r['user_id'] for r in DB['progress']}),
+                        'scenes':len(DB['scenes']),'scenes_7d':len(DB['scenes']),'scene_users':len({r['user_id'] for r in DB['scenes']}),
+                        'shares':len(DB['shares']),'classes':len(DB['classes']),'class_members':len(DB['class_members'])})
+                return self.send(204)
             rp=re.match(r'/rest/v1/rpc/(ai_usage_\w+)$', path)
             if rp:
                 if not self.headers.get('apikey','').startswith('sb_secret'): return self.send(401, {})
@@ -122,7 +144,7 @@ class H(http.server.BaseHTTPRequestHandler):
             if not mm: return self.send(404, {})
             t=mm.group(1); service=(self.headers.get('apikey','').startswith('sb_secret'))
             if t not in DB: return self.send(404, {'code':'PGRST205','message':'no table'})
-            if (t in ('shares','classes','class_members','class_items','class_progress') or t.startswith('friend')) and not service: return self.send(401, {'message':'permission denied'})
+            if (t in ('shares','classes','class_members','class_items','class_progress','feedback','client_errors','usage_daily') or t.startswith('friend')) and not service: return self.send(401, {'message':'permission denied'})
             uid=None if service else self.who()
             if not service and not uid: return self.send(401, {})
             rf=row_filter(qs)
@@ -145,6 +167,7 @@ class H(http.server.BaseHTTPRequestHandler):
                     if t=='classes' and any(c['code']==row['code'] for c in DB['classes']): return self.send(409, {'code':'23505'})
                     if t=='friend_profiles' and any(c['code']==row.get('code') and c['user_id']!=row['user_id'] for c in DB['friend_profiles']): return self.send(409, {'code':'23505'})
                     if t=='ai_usage': SEQ['n']+=1; row={**row,'id':SEQ['n'],'created_at':row.get('created_at') or time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}
+                    if t=='feedback': SEQ['n']+=1; row={'resolved_at':None,'note':None,**row,'id':SEQ['n'],'created_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}
                     if t in ('friend_events','friend_reports'): SEQ['n']+=1; row={**row,'id':SEQ['n'],'seen':row.get('seen',False),'created_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}
                     same=next((r for r in DB[t] if all(r.get(k)==row.get(k) for k in KEYS[t])), None)
                     if same:
