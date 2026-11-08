@@ -35,7 +35,7 @@ async def main():
         out['offline_scenes']=await pg.evaluate("JSON.parse(localStorage.getItem('pv-scenes2')||'[]').length")
         out['offline_font']=await pg.evaluate("document.fonts.check('16px Sarabun','ก')")
         await pg.click('.mainnav button[data-view=library]'); await pg.wait_for_timeout(300)
-        out['offline_lib_rows']=await pg.locator('#libList .lrow').count()
+        out['offline_lib_rows']=await pg.locator('#libList .lcard').count()
         await pg.screenshot(path=shot('pw2_offline.png'))
         p2=await ctx.new_page(); await p2.goto(BASE+'/privacy'); await p2.wait_for_timeout(500); out['offline_privacy']=await p2.inner_text('h1')
         await ctx.set_offline(False); await pg.wait_for_timeout(500)

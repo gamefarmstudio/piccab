@@ -92,7 +92,7 @@ async def main():
     check('ถูกต้อง' in out['teapot_apart'], '"tea cup" counts for teacup', out['teapot_apart'])
     check(out['de_lang']=='de-DE' and '★' in out['de_star'], 'German with the right article earns a star', (out['de_lang'], out['de_star']))
     check('der' in out['de_wrongart'], 'wrong German article is corrected', out['de_wrongart'])
-    check(out['m_modes'][-1]=='🎤 Speak', 'speak mode in English menus', out['m_modes'])
+    check(out['m_modes'][-1]=='Speak', 'speak mode in English menus', out['m_modes'])
     check('Chrome' in out['nosr'], 'browsers without speech recognition get advice', out['nosr'])
     finish('speak', out, errs)
 asyncio.run(main())
