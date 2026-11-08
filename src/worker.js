@@ -92,6 +92,9 @@ export default {
     if (url.pathname === '/api/classes' || url.pathname.startsWith('/api/classes/')) return classes(request, env, url, ctx);
     if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url, ctx);
     if (url.pathname === '/api/report/share') return reportShare(request, env, ctx);
+    if (url.pathname === '/api/feedback') return feedback(request, env, ctx);
+    if (url.pathname === '/api/log') return clientError(request, env);
+    if (url.pathname === '/api/usage') return usage(request, env);
     if (url.pathname.startsWith('/api/admin/')) return admin(request, env, url);
     if (url.pathname === '/api/share' || url.pathname.startsWith('/api/share/')) return share(request, env, url);
     if (url.pathname.startsWith('/api/')) return error('not_found', 404);
@@ -1052,21 +1055,95 @@ async function classes(request, env, url, ctx) {
     return error('db_error', 502);
   }
 }
+// ---------- trial tools: feedback, errors on people's devices, usage counts (supabase/2026-11-trial.sql) ----------
+const FEEDBACK_KINDS = ['problem', 'idea', 'other'];
+export function cleanFeedback(b) {
+  const kind = FEEDBACK_KINDS.includes(b && b.kind) ? b.kind : 'other';
+  const message = String((b && b.message) || '').replace(/\r/g, '').trim().slice(0, 2000);
+  const contact = String((b && b.contact) || '').trim().slice(0, 200);
+  return { kind, message, contact: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? contact : '',
+    page: String((b && b.page) || '').slice(0, 80), ui: (b && b.ui) === 'en' ? 'en' : 'th' };
+}
+async function feedback(request, env, ctx) {
+  if (request.method !== 'POST') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'fb:' + (request.headers.get('cf-connecting-ip') || 'x') }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+  const f = cleanFeedback(await request.json().catch(() => ({})));
+  if (!f.message) return error('empty', 400);
+  const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
+  const ua = String(request.headers.get('user-agent') || '').slice(0, 300);
+  try {
+    await q(env, 'feedback', { method: 'POST', headers: { prefer: 'return=minimal' },
+      body: JSON.stringify({ ...f, contact: f.contact || null, user_id: who ? who.uid : null, ua }) });
+  } catch (e) { console.log('feedback failed', e && e.message); return error(e.status === 404 ? 'not_configured' : 'db_error', e.status === 404 ? 503 : 502); }
+  const kindTh = { problem: 'แจ้งปัญหา', idea: 'ไอเดีย / อยากให้มี', other: 'อื่นๆ' }[f.kind];
+  notifyAdmin(env, ctx, `ความเห็นจากผู้ใช้: ${kindTh}`, [['ประเภท', kindTh], ['ข้อความ', f.message], ['ตอบกลับที่', f.contact || '-'],
+    ['หน้า', f.page || '-'], ['ผู้ส่ง', who ? (who.anon ? 'บัญชีนักเรียน' : who.email || 'ผู้ใช้ที่เข้าสู่ระบบ') : 'ไม่ได้เข้าสู่ระบบ'], ['อุปกรณ์', ua]],
+    new URL(request.url).origin, 'ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้ส่งความเห็น');
+  return json({ ok: true });
+}
+// Thai calendar day, as YYYY-MM-DD
+const thaiDay = (now = new Date()) => new Date(now.getTime() + 7 * 3600e3).toISOString().slice(0, 10);
+async function sha16(text) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// A JavaScript error on someone's device. Best effort: always answers 204, never says why.
+async function clientError(request, env) {
+  if (request.method !== 'POST') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return new Response(null, { status: 204 });
+  if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'log:' + (request.headers.get('cf-connecting-ip') || 'x') }); if (!success) return new Response(null, { status: 204 }); } catch (e) {} }
+  const b = await request.json().catch(() => null);
+  const msg = String((b && b.msg) || '').slice(0, 300);
+  if (!msg) return new Response(null, { status: 204 });
+  // only our own files (not browser extensions); keep the path, not the query
+  const src = String((b && b.src) || '').replace(/^https?:\/\/[^/]+/, '').replace(/[?#].*$/, '').slice(0, 200);
+  if (/^(chrome|moz|safari)-extension:/.test(String(b.src || ''))) return new Response(null, { status: 204 });
+  const line = Number.isFinite(b.line) ? b.line : 0;
+  const stack = String(b.stack || '').replace(/https?:\/\/[^/\s)]+/g, '').slice(0, 1500);
+  console.log('client error', msg, src + ':' + line);
+  try {
+    await sbRest(env, 'rpc/client_error_add', { method: 'POST', body: JSON.stringify({ p_day: thaiDay(), p_sig: await sha16(msg + '|' + src + '|' + line),
+      p_msg: msg, p_src: src ? `${src}:${line}` : '', p_stack: stack, p_page: String(b.page || '').slice(0, 80), p_ua: String(request.headers.get('user-agent') || '').slice(0, 300) }) });
+  } catch (e) {}
+  return new Response(null, { status: 204 });
+}
+// Usage counts: only names from this list, small numbers, no ids.
+export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
+  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback'];
+export function cleanUsage(b) {
+  const out = {};
+  const ev = (b && typeof b.events === 'object' && b.events) || {};
+  for (const k of USAGE_EVENTS) { const n = Math.floor(Number(ev[k])); if (n > 0) out[k] = Math.min(n, 50); }
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b && b.day)) ? b.day : null;
+  return { day, events: out };
+}
+async function usage(request, env) {
+  if (request.method !== 'POST') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return new Response(null, { status: 204 });
+  const u = cleanUsage(await request.json().catch(() => null));
+  const today = thaiDay(), yesterday = thaiDay(new Date(Date.now() - 86400e3));
+  const day = u.day === today || u.day === yesterday ? u.day : today;          // counts kept offline overnight still land on their day
+  if (!Object.keys(u.events).length) return new Response(null, { status: 204 });
+  try { await sbRest(env, 'rpc/usage_add', { method: 'POST', body: JSON.stringify({ p_day: day, p_events: u.events }) }); } catch (e) {}
+  return new Response(null, { status: 204 });
+}
+
 // ---------- reports → e-mail, and the admin API ----------
 // E-mail to the people who look after Piccab (ADMIN_NOTIFY_EMAIL, default contact@piccab.com) through Resend.
-export function adminMailHtml(title, rows, link) {
+export function adminMailHtml(title, rows, link, foot = 'ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้กดรายงาน') {
   const tr = rows.map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#77728c;white-space:nowrap;vertical-align:top">${esc(k)}</td><td style="padding:6px 0">${esc(v)}</td></tr>`).join('');
   return `<div style="font-family:Sarabun,system-ui,sans-serif;color:#2d2a5a;max-width:560px"><h2 style="margin:0 0 12px">⚠️ ${esc(title)}</h2><table style="border-collapse:collapse;font-size:15px">${tr}</table>`
     + `<p style="margin:18px 0"><a href="${esc(link)}" style="background:#2d2a5a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">เปิดหน้าดูแลระบบ</a></p>`
-    + `<p style="color:#77728c;font-size:13px">ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้กดรายงาน</p></div>`;
+    + `<p style="color:#77728c;font-size:13px">${esc(foot)}</p></div>`;
 }
-function notifyAdmin(env, ctx, title, rows, origin) {
+function notifyAdmin(env, ctx, title, rows, origin, foot) {
   if (!env.RESEND_API_KEY) return;
   const to = String(env.ADMIN_NOTIFY_EMAIL || 'contact@piccab.com').split(',').map(x => x.trim()).filter(Boolean);
   const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${origin}/admin`;
   const send = fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin'), text }),
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin', foot), text }),
   }).then(r => { if (!r.ok) console.log('report mail failed', r.status); }).catch(e => console.log('report mail error', e && e.message));
   if (ctx && ctx.waitUntil) ctx.waitUntil(send);
 }
@@ -1110,6 +1187,34 @@ async function admin(request, env, url) {
   try {
     if (what === 'me' && m === 'GET') return json({ admin: true });
     if (what === 'ai-usage' && m === 'GET') return json(await aiUsageReport(env));
+    if (what === 'feedback' && !id && m === 'GET') {
+      const all = url.searchParams.get('all') === '1';
+      try {
+        const rows = await q(env, `feedback?select=id,created_at,kind,message,contact,page,ui,ua,resolved_at,note,user_id&order=created_at.desc&limit=200${all ? '' : '&resolved_at=is.null'}`) || [];
+        const open = all ? (await q(env, 'feedback?select=id&resolved_at=is.null&limit=1000') || []).length : rows.length;
+        return json({ feedback: rows.map(r => ({ ...r, user_id: undefined, signed_in: !!r.user_id })), open });
+      } catch (e) { if (e.status === 404) return json({ setup: true }); throw e; }
+    }
+    if (what === 'feedback' && /^\d+$/.test(id || '') && act === 'resolve' && m === 'POST') {
+      await q(env, `feedback?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ resolved_at: body.reopen ? null : new Date().toISOString(), note: String(body.note || '').slice(0, 300) || null }) });
+      return json({ ok: true });
+    }
+    if (what === 'errors' && m === 'GET') {
+      try {
+        const since = thaiDay(new Date(Date.now() - 13 * 86400e3));
+        const rows = await q(env, `client_errors?select=day,msg,src,stack,page,ua,n,last_at&day=gte.${since}&order=last_at.desc&limit=300`) || [];
+        return json({ errors: rows });
+      } catch (e) { if (e.status === 404) return json({ setup: true }); throw e; }
+    }
+    if (what === 'stats' && m === 'GET') {
+      const since = thaiDay(new Date(Date.now() - 29 * 86400e3));
+      const st = await sbRest(env, 'rpc/trial_stats', { method: 'POST', body: '{}' });
+      if (st.status === 404) return json({ setup: true });
+      if (!st.ok) throw new Error('trial_stats ' + st.status);
+      const days = await q(env, `usage_daily?select=day,event,n&day=gte.${since}&order=day.asc`) || [];
+      if (Math.random() < 0.05) sbRest(env, 'rpc/trial_cleanup', { method: 'POST', body: '{}' }).catch(() => {});
+      return json({ totals: await st.json(), days, today: thaiDay() });
+    }
     if (what === 'reports' && !id && m === 'GET') {
       const all = url.searchParams.get('all') === '1';
       const reps = await q(env, `friend_reports?select=*&order=created_at.desc&limit=200${all ? '' : '&resolved_at=is.null'}`) || [];

@@ -808,3 +808,34 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('word list tests passed');
 }
+
+// trial tools: feedback, client errors, usage counts
+{
+  const { cleanFeedback, cleanUsage } = await import('../src/worker.js');
+  assert.deepEqual(cleanFeedback({ kind:'problem', message:'  กดแล้วไม่มีเสียง\r\n ', contact:'a@b.co', page:'play/quiz', ui:'en' }),
+    { kind:'problem', message:'กดแล้วไม่มีเสียง', contact:'a@b.co', page:'play/quiz', ui:'en' });
+  assert.equal(cleanFeedback({ kind:'hack', message:'x' }).kind, 'other');
+  assert.equal(cleanFeedback({ message:'x', contact:'not an email' }).contact, '');
+  assert.equal(cleanFeedback({ message:'y'.repeat(3000) }).message.length, 2000);
+  assert.deepEqual(cleanUsage({ day:'2026-11-08', events:{ open:1, 'mode:quiz':3, evil:5, review:999, mock:-2, 'age:0':'x' } }),
+    { day:'2026-11-08', events:{ open:1, 'mode:quiz':3, review:50 } });
+  assert.equal(cleanUsage({ day:'bad', events:{} }).day, null);
+  const saved = globalThis.fetch; const seen = [];
+  globalThis.fetch = async (url, init) => { seen.push({ url:String(url), body: init && init.body ? JSON.parse(init.body) : null }); return new Response(null, { status: 201 }); };
+  const DB = { SUPABASE_SECRET_KEY:'sb_secret_test' };
+  assert.equal((await call('/api/feedback', post({ message:'' }), DB)).status, 400);
+  assert.equal((await call('/api/feedback', post({ message:'hi' }), {})).status, 503);
+  const fr = await call('/api/feedback', post({ kind:'idea', message:'อยากให้มีเกม', page:'home' }), DB);
+  assert.equal(fr.status, 200);
+  assert.match(seen.at(-1).url, /\/rest\/v1\/feedback$/); assert.equal(seen.at(-1).body.kind, 'idea'); assert.equal(seen.at(-1).body.contact, null);
+  assert.equal((await call('/api/log', post({ msg:'TypeError: x is null', src:'https://piccab.com/app?x=1', line:12, page:'home' }), DB)).status, 204);
+  assert.match(seen.at(-1).url, /rpc\/client_error_add$/); assert.equal(seen.at(-1).body.p_src, '/app:12'); assert.equal(seen.at(-1).body.p_sig.length, 16);
+  const n = seen.length;
+  assert.equal((await call('/api/log', post({ msg:'boom', src:'chrome-extension://abc/x.js' }), DB)).status, 204);
+  assert.equal(seen.length, n);                                                                 // extensions are ignored
+  assert.equal((await call('/api/usage', post({ day:'1999-01-01', events:{ open:1, 'mode:learn':2 } }), DB)).status, 204);
+  assert.match(seen.at(-1).url, /rpc\/usage_add$/); assert.deepEqual(seen.at(-1).body.p_events, { open:1, 'mode:learn':2 });
+  assert.notEqual(seen.at(-1).body.p_day, '1999-01-01');                                        // only today or yesterday
+  globalThis.fetch = saved;
+  console.log('trial tools tests passed');
+}
