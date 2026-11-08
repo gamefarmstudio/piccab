@@ -8,6 +8,43 @@
 (function(){
 'use strict';
 const D={
+  // word lists (dictation)
+  "มีชีทคำศัพท์จากครู? ทำชุดคำไว้ฝึกก่อนสอบ": "Got a word list from your teacher? Make a set to practise before the test",
+  "ผ่านครบ {0} คำแล้ว · ลองสอบจำลองอีกรอบ": "All {0} words passed · try a practice test again",
+  "ผ่านแล้ว {0}/{1} คำ · ฝึกเขียนตามคำบอก": "{0}/{1} words passed · practise the dictation",
+  "ชีทคำศัพท์จากครู": "Word list from your teacher",
+  "📝 สอบจำลอง": "📝 Practice test",
+  "📝 เขียนตามคำบอก": "📝 Dictation",
+  "ฟังแล้วเขียนคำที่ได้ยิน": "Listen and write the word you hear",
+  "ฟังอีกครั้ง": "Listen again",
+  "เขียนคำนี้เป็นภาษา{0}": "Write this in {0}",
+  "📝 สอบจำลองทั้งชุด ({0} คำ)": "📝 Practice test, whole list ({0} words)",
+  "✏️ แก้ไขรายการคำ": "✏️ Edit the word list",
+  "สอบวันนี้": "Test today",
+  "สอบพรุ่งนี้": "Test tomorrow",
+  "สอบอีก {0} วัน": "Test in {0} days",
+  "ตอนนี้ใช้ AI ไม่ได้ — พิมพ์หรือวางรายการคำเองได้": "AI isn't available right now — you can type or paste the list yourself",
+  "ต้องต่ออินเทอร์เน็ตก่อนใช้ AI": "Connect to the internet to use AI",
+  "เครดิต AI เดือนนี้หมดแล้ว ({0} ครั้ง/เดือน) — พิมพ์หรือวางรายการคำเองได้": "No AI credits left this month ({0} a month) — you can type or paste the list yourself",
+  "ไม่พบรายการคำศัพท์ในรูปนี้ ลองถ่ายให้ชัดและตรงขึ้น หรือพิมพ์เอง": "No word list found in this photo. Try a sharper, straighter photo, or type it in",
+  "รายการคำศัพท์": "Word list",
+  "apple แอปเปิล\nbanana กล้วย\nelephant ช้าง": "apple - meaning\nbanana - meaning\nelephant - meaning",
+  "ชื่อชุดคำ": "Set name",
+  "วันสอบ": "Test date",
+  "ครูสอบแบบไหน": "How does the teacher test?",
+  "ครูอ่านคำอังกฤษ": "Reads the word aloud",
+  "ครูบอกความหมายไทย": "Gives the meaning",
+  "ถ่ายรูปชีท ให้ AI อ่าน": "Photo of the list — AI reads it",
+  "AI กำลังอ่านชีท…": "AI is reading the list…",
+  "AI อ่านได้ {0} คำ — ตรวจและแก้ได้ก่อนบันทึก": "AI found {0} words — check and edit before saving",
+  "บันทึกชุดคำแล้ว": "Word list saved",
+  "สร้างชุดคำ {0} คำแล้ว — แตะการ์ดเพื่อฟังคำ": "Made a list of {0} words — tap a card to hear it",
+  "แก้ไขชีทคำศัพท์": "Edit word list",
+  "ถ่ายรูปชีทให้ AI อ่าน หรือพิมพ์/วางคำทีละบรรทัด ตามด้วยความหมาย": "Take a photo of the list for AI to read, or type / paste one word per line with its meaning",
+  "เช่น apple แอปเปิล": "e.g. apple - meaning",
+  "ชื่อชุด": "Name",
+  "วันสอบ (ถ้ามี)": "Test date (optional)",
+  "ชีทคำศัพท์จากครู (สำหรับสอบ Dictation)": "Word list from your teacher (for a dictation test)",
   // first visit + speaking progress
   "ไว้ทีหลัง": "Later",
   "สร้างฉากแรกของคุณ": "Make your first scene",
@@ -1095,7 +1132,8 @@ function doAttrs(e){ if(e.nodeName==='A'){ const h=e.getAttribute('href'); if(h 
 function walk(root){
   if(root.nodeType===3){ doText(root); return; }
   if(root.nodeType!==1 && root.nodeType!==9 && root.nodeType!==11) return;
-  if(root.nodeType===1){ if(skipEl(root)) return; doAttrs(root); }
+  if(root.nodeType===1){ if(root.nodeName==='TEXTAREA' && !root.closest('[data-noi18n]')){ doAttrs(root); return; }   // its placeholder, not what was typed
+    if(skipEl(root)) return; doAttrs(root); }
   const w=document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT, null);
   let n; while((n=w.nextNode())){ if(n.nodeType===3) doText(n); else doAttrs(n); }
 }

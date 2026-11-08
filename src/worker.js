@@ -78,6 +78,10 @@ export default {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return scan(request, env);
     }
+    if (url.pathname === '/api/wordlist') {
+      if (request.method !== 'POST') return error('method_not_allowed', 405);
+      return wordlist(request, env);
+    }
     if (url.pathname === '/api/translate') {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return translate(request, env);
@@ -174,6 +178,54 @@ async function scan(request, env) {
     await saveUsage(env, 'scan', log);
     return res;
   });
+}
+
+// POST /api/wordlist {image} -> {items:[{w, th}]}: reads a teacher's vocabulary sheet (dictation list) from a photo.
+// One AI credit, like a scan; the photo is only read, not kept.
+async function wordlist(request, env) {
+  const acc = await aiAccess(request, env);
+  if (acc instanceof Response) return acc;
+  let body;
+  try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
+  const m = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+  if (!m || !IMAGE_TYPES.includes(m[1])) return error('bad_image', 400);
+  if (m[2].length > MAX_IMAGE_BYTES) return error('image_too_large', 413);
+  const log = [];
+  return withCredit(env, acc, async () => {
+    const res = acc.provider === 'gemini'
+      ? await scanGemini(env, m[1], m[2], buildWordlistPrompt(), parseWordlist, log)
+      : await scanClaude(env, m[1], m[2], buildWordlistPrompt(), parseWordlist, log);
+    await saveUsage(env, 'wordlist', log);
+    return res;
+  });
+}
+export function buildWordlistPrompt() {
+  return `This is a photo of a vocabulary list that a teacher in Thailand gave to students to learn for a spelling / dictation test (a worksheet, a page in a notebook, a whiteboard or a screen). It may be printed or handwritten.
+
+List the English vocabulary items to learn, in the order they appear. For each give:
+- "w": the English word or short phrase exactly as the teacher wrote it (keep their spelling; only fix letters that were clearly misread), lower case unless it is a name, without numbering, word class tags like (n.) or (v.), or example sentences
+- "th": the Thai meaning written next to it on the sheet; if there is none, give a short, common Thai meaning a dictionary would give
+
+Leave out headings, instructions, dates, page numbers, scores, and any names of students, teachers or schools. At most 60 items. If you cannot find a vocabulary list, reply with [].
+Reply with a JSON array only, no other text, like [{"w":"apple","th":"แอปเปิล"}].`;
+}
+export function parseWordlist(text) {
+  const s = String(text || '');
+  const a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a < 0 || b <= a) return null;
+  let arr;
+  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  if (!Array.isArray(arr)) return null;
+  const seen = new Set(), out = [];
+  for (const r of arr) {
+    if (!r || typeof r.w !== 'string') continue;
+    const w = r.w.replace(/^\s*\d+\s*[.)]\s*/, '').replace(/\((?:n|v|adj|adv|prep|conj|pron|int|phr)\.?\)/gi, ' ').replace(/[^\p{L}\p{N} '\-.]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!w || !/[A-Za-z]/.test(w) || seen.has(w.toLowerCase())) continue;
+    seen.add(w.toLowerCase());
+    out.push({ w, th: String(r.th || '').replace(/[\u0000-\u001f"\\]/g, '').trim().slice(0, 80) });
+    if (out.length >= 60) break;
+  }
+  return out;
 }
 
 // Languages the AI can add next to English. German nouns come with their article.

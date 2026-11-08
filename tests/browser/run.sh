@@ -8,7 +8,7 @@ set -u
 cd "$(dirname "$0")"
 ROOT=$(cd ../.. && pwd)
 export SHOTS=${SHOTS:-/tmp/piccab-shots}
-OFFLINE="test_cozy_home.py test_german.py test_english_ui.py test_speak.py test_spaced_review.py test_draw.py test_captcha.py test_landing.py test_account_policies.py"
+OFFLINE="test_cozy_home.py test_wordsheet.py test_german.py test_english_ui.py test_speak.py test_spaced_review.py test_draw.py test_captcha.py test_landing.py test_account_policies.py"
 SERVER_TESTS="test_classes.py test_classes_german.py test_admin.py test_ai_usage.py test_english_web.py test_pwa.py"
 WANT="${*:-$OFFLINE $SERVER_TESTS}"
 failed=()
