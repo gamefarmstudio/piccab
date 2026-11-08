@@ -802,7 +802,7 @@ async function sharePage(request, env, url) {
       ? (row.kind === 'deck' ? `Word set “${row.name}” · ${n} ${n === 1 ? 'word' : 'words'} — Piccab` : `Scene “${row.name}” · ${n} ${n === 1 ? 'word' : 'words'} — Piccab`)
       : (row.kind === 'deck' ? `ชุดคำ “${row.name}” · ${n} คำ — Piccab` : `ฉาก “${row.name}” · ${n} คำ — Piccab`);
     const pic = scenes.find(s => !s.builtin);
-    const img = pic ? `${url.origin}/api/share/${id}/img/${pic.id}` : `${url.origin}/og-image.png`;
+    const img = pic ? `${url.origin}/api/share/${id}/img/${pic.id}` : `${url.origin}/icon-512.png`;
     const desc = en ? 'Learn words from a picture — tap to open it in Piccab and save it to practise' : 'ฝึกคำศัพท์ภาษาอังกฤษจากภาพ — กดเพื่อเปิดใน Piccab แล้วเก็บไว้ฝึกได้เลย';
     const tags = `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
@@ -1118,7 +1118,7 @@ async function appPageWith(request, env, url, title, desc) {
   let html = await page.text();
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab"><meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(url.origin + '/og-image.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">`);
+<meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(url.origin + '/icon-512.png')}">`);
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
 }
 
@@ -1307,7 +1307,7 @@ async function classPage(request, env, url) {
     const tags = `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(en ? 'Tap the link, enter a nickname and start practising the words your teacher assigned' : 'กดลิงก์ ใส่ชื่อเล่น แล้วเริ่มฝึกคำศัพท์ที่ครูมอบหมายได้เลย')}">
-<meta property="og:image" content="${esc(url.origin + '/og-image.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:url" content="${esc(url.origin + '/c/' + code)}">`;
+<meta property="og:image" content="${esc(url.origin + '/icon-512.png')}"><meta property="og:url" content="${esc(url.origin + '/c/' + code)}">`;
     html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
   }
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
@@ -1368,10 +1368,10 @@ export function buildAuthEmail(p, supabaseUrl) {
     ? `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(d.token_hash)}&type=${encodeURIComponent(type === 'email' ? 'magiclink' : type)}&redirect_to=${encodeURIComponent(redirect)}`
     : '';
   const subject = code ? `${t.subject}: ${code}` : t.subject;
-  const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#fdf9f3;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
+  const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#f6f0e8;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:18px;padding:28px">
-<tr><td style="padding-bottom:6px"><img src="https://piccab.com/icon-192.png" width="40" height="40" alt="" style="vertical-align:middle;border:0;border-radius:10px"> <span style="font-size:22px;font-weight:700;vertical-align:middle">Pic<span style="color:#e8607a">cab</span></span></td></tr>
+<tr><td style="font-size:22px;font-weight:700;padding-bottom:6px">Pic<span style="color:#c2405c">cab</span></td></tr>
 <tr><td style="font-size:20px;font-weight:700;padding:10px 0 6px">${esc(t.title)}</td></tr>
 ${code ? `<tr><td style="font-size:15px;color:#77728c">${esc(t.lead)}</td></tr>
 <tr><td style="padding:16px 0"><div style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;background:#efeaf7;border-radius:12px;padding:14px 0">${esc(code)}</div></td></tr>` : ''}
