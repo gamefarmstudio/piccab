@@ -40,6 +40,13 @@ async def main():
         await pg.click('.hero .btn.primary'); await pg.wait_for_timeout(1500)
         out['en_to_th_app_lang']=await pg.evaluate('document.documentElement.lang'); out['en_to_th_url']=pg.url
         await ctx.close()
+        # someone who already uses the app opens the landing page (/?home) and switches language: they stay on the landing pages
+        ctx,pg=await page('th-TH'); await pg.goto(B+'/app'); await pg.wait_for_timeout(1200)
+        await pg.evaluate("localStorage.setItem('pv-seen','1')")
+        await pg.goto(B+'/?home'); await pg.wait_for_timeout(600)
+        await pg.click('.langsw'); await pg.wait_for_timeout(800); out['used_to_en']=[pg.url, await pg.evaluate('document.documentElement.lang')]
+        await pg.click('.langsw'); await pg.wait_for_timeout(800); out['used_to_th']=[pg.url, await pg.evaluate('document.documentElement.lang')]
+        await ctx.close()
         # legal pages in English
         ctx,pg=await page('en-US',390,844,True)
         for u in ['/en/privacy','/en/terms']:
@@ -57,8 +64,9 @@ async def main():
     check(out['privacy_href']=='/en/privacy', 'policy links go to the English pages', out['privacy_href'])
     check(out['returning'].endswith('/app'), 'returning visitors go to the app', out['returning'])
     check(out['th_url'].endswith(':8788/') or out['th_url'].rstrip('/').endswith(SERVER.split('//')[1]), 'Thai browser stays on the Thai page', out['th_url'])
-    check(out['th_app_link']=='/app?hl=th' and out['th_to_en'].endswith('/en/'), 'Thai page links', (out['th_app_link'], out['th_to_en']))
-    check(out['en_to_th'].endswith('/?hl=th') and out['en_to_th_app_lang']=='th', 'choosing ไทย on the English page', (out['en_to_th'], out['en_to_th_app_lang']))
+    check(out['th_app_link']=='/app?hl=th' and out['th_to_en'].endswith('/en/?home'), 'Thai page links', (out['th_app_link'], out['th_to_en']))
+    check(out['used_to_en'][0].endswith('/en/?home') and out['used_to_en'][1]=='en' and out['used_to_th'][0].endswith('/?hl=th&home') and out['used_to_th'][1]=='th', 'app users can switch the landing page language too', (out['used_to_en'], out['used_to_th']))
+    check(out['en_to_th'].endswith('/?hl=th&home') and out['en_to_th_app_lang']=='th', 'choosing ไทย on the English page', (out['en_to_th'], out['en_to_th_app_lang']))
     for u in ['/en/privacy','/en/terms']:
         check(out[u][1]==[], f'{u} has no Thai left', out[u])
     check(out['en_mobile_thai']==[], 'English landing on a phone', out['en_mobile_thai'])
