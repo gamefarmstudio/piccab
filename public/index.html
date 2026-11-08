@@ -23,7 +23,7 @@
 })();
 </script>
 <title>Piccab — ฝึกศัพท์อังกฤษจากภาพ เริ่มใช้ฟรี สำหรับคนไทยทุกวัย</title>
-<meta name="description" content="แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์ ฟังแล้วหา และทบทวนตามรอบเวลา ถ่ายรูปรอบตัวให้ AI หาคำศัพท์ให้ เริ่มใช้ฟรีบนมือถือและคอมพิวเตอร์">
+<meta name="description" content="แตะของในรูปเพื่อฟังเสียงและดูความหมาย ฝึกพิมพ์ ฟังแล้วหา ฝึกพูด และทบทวนตามรอบเวลา ถ่ายรูปรอบตัวให้ AI หาคำศัพท์ให้ เริ่มใช้ฟรีบนมือถือและคอมพิวเตอร์">
 <link rel="canonical" href="https://piccab.com/">
 <link rel="alternate" hreflang="th" href="https://piccab.com/">
 <link rel="alternate" hreflang="en" href="https://piccab.com/en/">
@@ -36,7 +36,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Piccab">
 <meta property="og:title" content="Piccab — ฝึกศัพท์อังกฤษจากภาพ">
-<meta property="og:description" content="แตะของในรูปเพื่อฟังเสียง ฝึกพิมพ์ ฟังแล้วหา และทบทวนตามรอบเวลา เริ่มใช้ฟรี">
+<meta property="og:description" content="แตะของในรูปเพื่อฟังเสียง ฝึกพิมพ์ ฟังแล้วหา ฝึกพูด และทบทวนตามรอบเวลา เริ่มใช้ฟรี">
 <meta property="og:image" content="https://piccab.com/icon-512.png">
 <link rel="preload" href="/fonts/sarabun-thai-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/sarabun-thai-700-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -172,10 +172,10 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
 @media (max-width:820px){ .cmp{grid-template-columns:1fr} }
 
 /* modes */
-.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+.modes{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:44px;max-width:980px}
 .mode{background:#fff;border:1px solid var(--line);border-radius:24px;padding:26px;display:flex;flex-direction:column;box-shadow:var(--shadow2)}
 .mode .no{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font:600 17px Fredoka,sans-serif;color:var(--ink3)}
-.mode:nth-child(1) .no{background:var(--lav2)}.mode:nth-child(2) .no{background:var(--pink)}.mode:nth-child(3) .no{background:var(--peach)}
+.mode:nth-child(1) .no{background:var(--lav2)}.mode:nth-child(2) .no{background:var(--pink)}.mode:nth-child(3) .no{background:var(--peach)}.mode:nth-child(4) .no{background:var(--mint)}
 .mode .st{font-size:13px;font-weight:700;color:var(--crimson);margin-top:18px}
 .mode h3{font-size:21px;margin:4px 0 10px}
 .mode p{margin:0;color:#5d5970;font-size:15.5px;flex:1}
@@ -188,6 +188,8 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
 .mock .hint{margin-left:auto;font-size:13px;color:var(--crimson)}
 .mock .score{margin-left:auto;font:600 20px Fredoka,sans-serif;color:var(--crimson)}
 .mock .play{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:14px;flex:none}
+.mock .mic{width:36px;height:36px;border-radius:50%;background:var(--crimson);color:#fff;display:grid;place-items:center;font-size:16px;flex:none}
+.mock .ok{margin-left:auto;font-size:13px;font-weight:700;color:#17683f;white-space:nowrap}
 @media (max-width:900px){ .modes{grid-template-columns:1fr} }
 
 /* review */
@@ -520,7 +522,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
   <div class="wrap">
     <a class="brand" href="/" aria-label="Piccab หน้าแรก"><img src="/favicon.svg" alt="" width="38" height="38"><span><b>Pic<span>cab</span></b><small>Picture Vocab · ฝึกศัพท์อังกฤษจากภาพ</small></span></a>
     <nav class="nav" aria-label="ส่วนต่าง ๆ ของหน้า">
-      <a href="#why">จุดเด่น</a><a href="#modes">3 โหมดฝึก</a><a href="#review">ทบทวนตามรอบ</a><a href="#ai">ถ่ายรูปด้วย AI</a><a href="#class">ห้องเรียน</a><a href="#faq">คำถามที่พบบ่อย</a>
+      <a href="#why">จุดเด่น</a><a href="#modes">4 โหมดฝึก</a><a href="#review">ทบทวนตามรอบ</a><a href="#ai">ถ่ายรูปด้วย AI</a><a href="#class">ห้องเรียน</a><a href="#faq">คำถามที่พบบ่อย</a>
     </nav>
     <div class="act"><a class="langsw" href="/en/" hreflang="en" lang="en" title="English">EN</a><a class="login" href="/app?login&amp;hl=th">เข้าสู่ระบบ</a><a class="btn primary small" href="/app?hl=th">เริ่มฝึกฟรี 🎉</a></div>
   </div>
@@ -558,7 +560,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
 <section class="band" aria-label="Piccab โดยย่อ">
   <div class="wrap grid">
     <div class="f"><b class="c1">เริ่มฟรี</b><span>ใช้ได้ทันทีบนเว็บ</span><small>ไม่ต้องใช้บัตร ไม่ต้องสมัครก็ลองได้</small></div>
-    <div class="f"><b class="c2">3 โหมด</b><span>ดู · พิมพ์ · ฟังแล้วหา</span><small>ฝึกจากการเห็น ได้ยิน และสะกด</small></div>
+    <div class="f"><b class="c2">4 โหมด</b><span>ดู · พิมพ์ · ฟังแล้วหา · พูด</span><small>ฝึกจากการเห็น ได้ยิน สะกด และพูด</small></div>
     <div class="f"><b class="c3">1→120 วัน</b><span>ทบทวนตามรอบอัตโนมัติ</span><small>คำที่ใกล้ลืมจะกลับมาเอง</small></div>
     <div class="f"><b class="c4">20 คำ</b><span>AI หาคำจากรูปของคุณ</span><small>สูงสุดต่อรูป เลือกระดับคำได้</small></div>
   </div>
@@ -592,9 +594,9 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
 
 <section class="sec alt" id="modes">
   <div class="wrap center">
-    <span class="kicker lav">3 โหมดฝึก</span>
-    <h2>ฝึก 3 ขั้น จากรู้จัก → สะกดได้ → ได้ยินแล้วหาเจอ</h2>
-    <p class="lead">ทุกฉากเล่นได้ทั้ง 3 โหมด จะฝึกทีละโหมดหรือสลับไปมาก็ได้</p>
+    <span class="kicker lav">4 โหมดฝึก</span>
+    <h2>ฝึก 4 ขั้น จากรู้จัก → สะกดได้ → ได้ยินแล้วหาเจอ → พูดได้เอง</h2>
+    <p class="lead">ทุกฉากเล่นได้ทั้ง 4 โหมด จะฝึกทีละโหมดหรือสลับไปมาก็ได้</p>
   </div>
   <div class="wrap modes">
     <div class="mode reveal">
@@ -614,6 +616,12 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
       <h3>👂 ฟังแล้วหา</h3>
       <p>ฟังเสียงคำศัพท์ แล้วแตะหาของชิ้นนั้นในภาพให้เจอ ฝึกให้ได้ยินแล้วนึกภาพออกทันที โดยไม่ต้องผ่านคำแปล</p>
       <div class="mock"><span class="play">▶</span><span><b>“teacup”</b><small>แตะให้ถูกในภาพ</small></span><span class="score en">5/8</span></div>
+    </div>
+    <div class="mode reveal">
+      <span class="no en">04</span><span class="st">ขั้นที่ 4</span>
+      <h3>🎤 ฝึกพูด</h3>
+      <p>แตะ 🎤 แล้วพูดคำของสิ่งที่ไฮไลต์ไว้ แอปฟังแล้วบอกว่าตรงไหม ซ่อนคำแล้วพูดถูกเองจะนับเป็นการทบทวนและได้ ★ ใช้ระบบฟังเสียงของเบราว์เซอร์ ไม่ใช้เครดิต AI</p>
+      <div class="mock"><span class="mic">🎤</span><span><b>“teapot”</b><small>ได้ยินว่า teapot</small></span><span class="ok">★ ถูกต้อง</span></div>
     </div>
   </div>
 </section>
@@ -651,7 +659,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
     <div class="reveal">
       <span class="kicker">ถ่ายรูปด้วย AI</span>
       <h2>📸 เปลี่ยนรูปรอบตัว ให้เป็นฉากคำศัพท์ของคุณเอง</h2>
-      <p style="color:#5d5970;margin:14px 0 0">ถ่ายรูปห้องนอน โต๊ะทำงาน ร้านกาแฟ หรือจานอาหาร แล้วกด ✨ ให้ AI หาคำศัพท์ AI จะตีกรอบรอบสิ่งของ ใส่คำอังกฤษและความหมายไทยให้ จากนั้นเล่นได้ทั้ง 3 โหมดทันที</p>
+      <p style="color:#5d5970;margin:14px 0 0">ถ่ายรูปห้องนอน โต๊ะทำงาน ร้านกาแฟ หรือจานอาหาร แล้วกด ✨ ให้ AI หาคำศัพท์ AI จะตีกรอบรอบสิ่งของ ใส่คำอังกฤษและความหมายไทยให้ จากนั้นเล่นได้ทั้ง 4 โหมดทันที</p>
       <div class="feat"><span class="e">🔎</span><div><b>หาได้สูงสุด 20 คำต่อรูป</b><span>เลือกระดับคำได้ ง่าย · กลาง · ยาก</span></div></div>
       <div class="feat"><span class="e">✏️</span><div><b>แก้ไขเองได้ทุกคำ</b><span>ตีกรอบคำใหม่ แก้คำ ย้ายหรือลบกรอบ จะไม่ใช้ AI แล้วตีกรอบเองทั้งหมดก็ได้</span></div></div>
       <div class="feat"><span class="e">🎁</span><div><b>มีเครดิต AI ฟรีให้ทุกเดือน</b><span>สำหรับบัญชีที่เข้าสู่ระบบด้วยอีเมลหรือ Google (จำนวนเครดิตอาจปรับเปลี่ยนได้)</span></div></div>
@@ -666,7 +674,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
         <span class="box c3" style="left:85.4%;top:39.6%;width:9.1%;height:26%"><b>vase</b><small>แจกัน</small></span>
         <span class="box c4" style="left:6.5%;top:56.9%;width:10%;height:15%"><b>sugar bowl</b><small>โถน้ำตาล</small></span>
       </div>
-      <div class="cap"><span>ภาพประกอบ: ฉากตัวอย่าง Afternoon tea ในแอป</span><b>✓ เล่นได้ทั้ง 3 โหมด</b></div>
+      <div class="cap"><span>ภาพประกอบ: ฉากตัวอย่าง Afternoon tea ในแอป</span><b>✓ เล่นได้ทั้ง 4 โหมด</b></div>
     </div>
   </div>
 </section>
@@ -708,11 +716,11 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
   <div class="wrap faq">
     <details><summary>ต้องสมัครก่อนไหม เสียเงินหรือเปล่า?</summary><p>ไม่ต้องสมัครครับ เปิด piccab.com/app แล้วเริ่มเล่นฉากตัวอย่างหรือสร้างฉากจากรูปได้เลย ความคืบหน้าจะเก็บไว้ในเครื่อง ถ้าเข้าสู่ระบบด้วยอีเมลหรือ Google จะซิงก์ข้ามเครื่อง และได้เครดิต AI สำหรับหาคำศัพท์จากรูปทุกเดือน</p><p>ตอนนี้ใช้ได้ฟรีทุกฟีเจอร์ ในอนาคตเราอาจมีแพ็กเกจแบบเสียเงินสำหรับฟีเจอร์เสริม เช่น เครดิต AI เพิ่ม หรือเครื่องมือสำหรับครูและโรงเรียน โดยตั้งใจให้การฝึกพื้นฐานยังใช้ได้ฟรี ถ้ามีการเปลี่ยนแปลงเราจะแจ้งล่วงหน้า และจะไม่เก็บเงินถ้าคุณไม่ได้เลือกสมัครเอง (ดู<a href="/terms#pricing">ข้อตกลงการใช้งาน ข้อ 1.1</a>)</p></details>
     <details><summary>ฝึกภาษาอื่นนอกจากภาษาอังกฤษได้ไหม?</summary><p>ได้ครับ ตอนนี้ฝึก<strong>ภาษาเยอรมัน</strong>ได้แล้ว กดปุ่มธง 🇬🇧 ที่หัวแอปแล้วเลือก 🇩🇪 เยอรมัน ฉากเดิมใช้ได้เลย คำนามแสดง der/die/das เป็นสี และพิมพ์ ae/oe/ue/ss แทน ä/ö/ü/ß ได้ ฉากที่สร้างเองให้ AI แปลเป็นภาษาเยอรมันหรือพิมพ์เองก็ได้ ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา</p></details>
-    <details><summary>ไม่มีพื้นฐานภาษาอังกฤษเลย เริ่มได้ไหม?</summary><p>ได้ครับ ทุกคำมีความหมายภาษาไทยและเสียงอ่าน เริ่มจากโหมด 👀 ดูคำศัพท์ แตะของในรูปเพื่อฟังเสียง แล้วค่อยลองโหมดพิมพ์และฟังแล้วหา คำใบ้จะช่วยทีละขั้น</p></details>
-    <details><summary>ใช้บนอุปกรณ์อะไรได้บ้าง? ใช้ตอนไม่มีเน็ตได้ไหม?</summary><p>ใช้ผ่านเบราว์เซอร์บนมือถือ แท็บเล็ต และคอมพิวเตอร์ และติดตั้งเป็นแอปบนหน้าจอโฮมได้ หลังเปิดครั้งแรกแล้ว ฉากที่มีอยู่ฝึกต่อได้แม้ไม่มีอินเทอร์เน็ต ส่วน AI และการซิงก์ต้องต่อเน็ต</p></details>
+    <details><summary>ไม่มีพื้นฐานภาษาอังกฤษเลย เริ่มได้ไหม?</summary><p>ได้ครับ ทุกคำมีความหมายภาษาไทยและเสียงอ่าน เริ่มจากโหมด 👀 ดูคำศัพท์ แตะของในรูปเพื่อฟังเสียง แล้วค่อยลองโหมดพิมพ์ ฟังแล้วหา และฝึกพูด คำใบ้จะช่วยทีละขั้น</p></details>
+    <details><summary>ใช้บนอุปกรณ์อะไรได้บ้าง? ใช้ตอนไม่มีเน็ตได้ไหม?</summary><p>ใช้ผ่านเบราว์เซอร์บนมือถือ แท็บเล็ต และคอมพิวเตอร์ และติดตั้งเป็นแอปบนหน้าจอโฮมได้ หลังเปิดครั้งแรกแล้ว ฉากที่มีอยู่ฝึกต่อได้แม้ไม่มีอินเทอร์เน็ต ส่วน AI และการซิงก์ต้องต่อเน็ต โหมด 🎤 ฝึกพูดใช้ได้บน Chrome (Android และคอมพิวเตอร์) และ Safari (iPhone และ iPad) และต้องต่อเน็ต</p></details>
     <details><summary>รูปที่ถ่ายส่งให้ AI ไปไหน ปลอดภัยไหม?</summary><p>รูปจะถูกส่งไปให้บริการ AI (Google Gemini) วิเคราะห์เพื่อหาคำศัพท์เท่านั้น ถ้าเข้าสู่ระบบ รูปและฉากจะเก็บไว้ในบัญชีของคุณ และลบได้ทุกเมื่อ รายละเอียดอยู่ใน <a href="/privacy">นโยบายความเป็นส่วนตัว</a> แนะนำให้ไม่ถ่ายใบหน้าคนหรือข้อมูลส่วนตัว</p></details>
     <details><summary>เด็กใช้ได้ไหม?</summary><p>ได้ครับ Piccab ตั้งใจให้ทุกวัยใช้ เด็กเริ่มฝึกได้โดยไม่ต้องมีบัญชี ในห้องเรียน นักเรียนเข้าด้วยรหัสห้องและชื่อเล่น ไม่ต้องใช้อีเมล และบัญชีนักเรียนจะไม่ใช้ AI ผู้ที่อายุต่ำกว่า 20 ปีควรขออนุญาตพ่อแม่หรือผู้ปกครองก่อนสมัครบัญชี</p></details>
-    <details><summary>ทบทวนตามรอบทำงานอย่างไร?</summary><p>คำที่คุณพิมพ์ถูกในโหมดทบทวนแล้ว จะกลับมาให้ทบทวนหลัง 1 วัน แล้วห่างออกไปเป็น 3, 7, 14, 30, 60 และ 120 วัน ถ้าตอบได้เองโดยไม่ใช้ตัวช่วย ถ้าต้องใช้คำใบ้หรือตอบผิด คำนั้นจะกลับมาเร็วขึ้น ไม่ต้องตั้งค่าอะไรเพิ่ม</p></details>
+    <details><summary>ทบทวนตามรอบทำงานอย่างไร?</summary><p>คำที่คุณพิมพ์ถูกในโหมดทบทวน หรือพูดถูกในโหมดฝึกพูด จะกลับมาให้ทบทวนหลัง 1 วัน แล้วห่างออกไปเป็น 3, 7, 14, 30, 60 และ 120 วัน ถ้าตอบได้เองโดยไม่ใช้ตัวช่วย ถ้าต้องใช้คำใบ้หรือตอบผิด คำนั้นจะกลับมาเร็วขึ้น ไม่ต้องตั้งค่าอะไรเพิ่ม</p></details>
   </div>
 </section>
 
@@ -740,7 +748,7 @@ h2{font-size:clamp(26px,3.6vw,38px);font-weight:700}
         <p>เปลี่ยนรูปภาพรอบตัวให้เป็นคำศัพท์ภาษาอังกฤษ ฝึกด้วยภาพ เสียง การพิมพ์ และการทบทวนตามรอบเวลา</p>
         <div class="tags"><span>✓ สำหรับผู้เรียนไทย</span><span>ทุกวัย</span></div>
       </div>
-      <div><h4>ฝึกฝน</h4><ul><li><a href="#modes">👀 ดูคำศัพท์</a></li><li><a href="#modes">✍️ ทบทวน (พิมพ์)</a></li><li><a href="#modes">👂 ฟังแล้วหา</a></li><li><a href="#review">🔁 ทบทวนตามรอบ</a></li></ul></div>
+      <div><h4>ฝึกฝน</h4><ul><li><a href="#modes">👀 ดูคำศัพท์</a></li><li><a href="#modes">✍️ ทบทวน (พิมพ์)</a></li><li><a href="#modes">👂 ฟังแล้วหา</a></li><li><a href="#modes">🎤 ฝึกพูด</a></li><li><a href="#review">🔁 ทบทวนตามรอบ</a></li></ul></div>
       <div><h4>ใช้งาน</h4><ul><li><a href="/app?hl=th">เปิดแอป</a></li><li><a href="#ai">ถ่ายรูปด้วย AI</a></li><li><a href="#class">ห้องเรียน &amp; เพื่อน</a></li><li><a href="#faq">คำถามที่พบบ่อย</a></li></ul></div>
       <div><h4>ติดต่อ</h4><ul><li><a href="mailto:contact@piccab.com">contact@piccab.com</a></li><li><a href="/privacy">นโยบายความเป็นส่วนตัว</a></li><li><a href="/terms">ข้อตกลงการใช้งาน</a></li><li><a href="/en/" lang="en">English</a></li></ul></div>
     </div>
