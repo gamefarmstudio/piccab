@@ -16,7 +16,7 @@ async def main():
         cdp=await ctx.new_cdp_session(pg)
         out['install_errors']=(await cdp.send('Page.getInstallabilityErrors'))['installabilityErrors']
         man=await cdp.send('Page.getAppManifest'); out['manifest_errors']=man.get('errors')
-        out['cached']=sorted(await pg.evaluate("caches.open('piccab-v2').then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))"))
+        out['cached']=sorted(await pg.evaluate("caches.open('piccab-v1').then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))"))
         # make a scene, then go offline
         await pg.set_input_files('#fileImg', IMG); await pg.wait_for_timeout(800); await skip_ai_offer(pg)
         out['ai_btn_online']=await pg.locator('#sub .ai').count()
@@ -40,7 +40,7 @@ async def main():
         p2=await ctx.new_page(); await p2.goto(BASE+'/privacy'); await p2.wait_for_timeout(500); out['offline_privacy']=await p2.inner_text('h1')
         await ctx.set_offline(False); await pg.wait_for_timeout(500)
         out['online_toast']=await pg.inner_text('#toast')
-        out['api_cached']=await pg.evaluate("caches.open('piccab-v2').then(c=>c.keys()).then(k=>k.some(r=>r.url.includes('/api/')))")
+        out['api_cached']=await pg.evaluate("caches.open('piccab-v1').then(c=>c.keys()).then(k=>k.some(r=>r.url.includes('/api/')))")
         # standalone → no tile
         await cdp.send('Emulation.setEmulatedMedia', {'features':[{'name':'display-mode','value':'standalone'}]})
         await pg.click('.mainnav button[data-view=home]'); await pg.wait_for_timeout(300)
