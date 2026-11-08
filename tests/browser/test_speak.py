@@ -32,6 +32,8 @@ async def main():
         out['intro']=await pg.inner_text('#mbox h3')
         await pg.click('#mbox button.primary'); await pg.wait_for_timeout(400)
         out['after_ok']=await pg.inner_text('#sub'); out['lang']=await pg.evaluate('window.__srLang')
+        PROG="(()=>{ const p=JSON.parse(localStorage.getItem('pv-progress')||'{}').tea||{}; return [Object.keys(p.done||{}).sort(), Object.keys(p.star||{}).sort()]; })()"
+        out['prog1']=await pg.evaluate(PROG)
         await pg.screenshot(path=shot('sp1_ok.png'))
         await pg.wait_for_timeout(1700)
         w2=(await pg.inner_text('#sub .target')).strip(); out['target1']=w2
@@ -58,8 +60,12 @@ async def main():
         out['de_mode']=await pg.evaluate("document.querySelector('#modes [data-mode=speak]').classList.contains('on')")
         await pg.locator('#scene .item[data-id="vase"]').click(force=True); await pg.wait_for_timeout(300)
         out['de_target']=(await pg.inner_text('#sub .target')).strip()
+        await pg.click('#sub .toggle'); await pg.wait_for_timeout(150)   # hide the word: now it counts as a real review
         await pg.evaluate("window.__next=['die Vase']"); await pg.click('#sub .mic'); await pg.wait_for_timeout(400)
         out['de_star']=await pg.inner_text('#sub .spkres'); out['de_lang']=await pg.evaluate('window.__srLang')
+        out['prog_de']=await pg.evaluate(PROG)
+        out['de_srs']=await pg.evaluate("(()=>{ const v=JSON.parse(localStorage.getItem('pv-progress')).tea.done['vase@de']; return v && v.b; })()")
+        await pg.click('#sub .toggle'); await pg.wait_for_timeout(150)
         await pg.wait_for_timeout(1700)
         await pg.locator('#scene .item[data-id="teaspoon"]').click(force=True); await pg.wait_for_timeout(300)
         await pg.evaluate("window.__next=['die Teelöffel']"); await pg.click('#sub .mic'); await pg.wait_for_timeout(400)
@@ -82,6 +88,8 @@ async def main():
         out['nosr']=await pg.inner_text('#sub')
         await b.close()
     check('ถูกต้อง' in out['after_ok'] and 'ถูก 1' in out['after_ok'], 'saying "the <word>" counts', out['after_ok'])
+    check(len(out['prog1'][0])==1 and out['prog1'][1]==[], 'a word said right is saved as passed (word showing: no ★)', out['prog1'])
+    check('vase@de' in out['prog_de'][0] and 'vase@de' in out['prog_de'][1] and out['de_srs']==1, 'word hidden + right article: passed with ★ and a review date', (out['prog_de'], out['de_srs']))
     check(out['intro']=='🎤 ฝึกพูด', 'first use explains where the voice goes', out['intro'])
     check(out['lang']=='en-GB', 'listens in the chosen English accent', out['lang'])
     check(out['target1']!=out['target0'], 'moves on to the next word', (out['target0'], out['target1']))

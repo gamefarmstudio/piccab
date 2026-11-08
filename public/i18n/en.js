@@ -8,6 +8,17 @@
 (function(){
 'use strict';
 const D={
+  // first visit + speaking progress
+  "ไว้ทีหลัง": "Later",
+  "สร้างฉากแรกของคุณ": "Make your first scene",
+  "ถ่ายรูปของรอบตัว แล้วฝึกคำศัพท์จากของจริง": "Take a photo of things around you, then learn their words",
+  "AI ใส่ป้ายคำ": "AI labels it",
+  "ตีกรอบใส่คำ": "Box and label",
+  "ดู ฟัง พูด": "See, hear, say",
+  "ลองฉากตัวอย่าง": "Try the sample scene",
+  "🎉 ผ่านครบทุกคำในฉากนี้แล้ว!": "🎉 Every word in this scene passed!",
+  "★ ถูกต้อง! ได้ยินว่า “{0}”": "★ Correct! Heard “{0}”",
+  "พูดคำของสิ่งที่ไฮไลต์ไว้ · ซ่อนคำแล้วพูดถูกจะได้ ★": "Say the word for the highlighted thing · hide the word and get it right for a ★",
   // cozy pages
   "ถึงรอบ": "Due",
   "จำได้": "Remembered",

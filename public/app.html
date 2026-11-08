@@ -860,6 +860,23 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
  .modes button{flex-direction:column;gap:2px;font-size:12px;padding:7px 2px 6px;line-height:1.15}
  body.fsside #modes button{flex-direction:column}
 }
+
+/* ---------- first visit: make your first scene ---------- */
+.welcome{position:relative;text-align:center;margin:14px 0 4px;padding:22px 18px 16px;border-radius:24px;background:linear-gradient(160deg,#ffe4ea 0%,#efeaf7 70%);border:1px solid #f3d6e0;box-shadow:0 8px 24px rgba(254,94,122,.12)}
+.welcome .wl-art{display:inline-grid;place-items:center;width:72px;height:72px;border-radius:50%;background:var(--pink);color:#fff;box-shadow:0 8px 18px rgba(254,94,122,.35);margin-bottom:8px}
+.welcome .wl-art .ico{width:36px;height:36px}
+.welcome h3{margin:4px 0 4px;font-size:21px}
+.welcome>p{margin:0 auto;color:#5d5874;max-width:30em}
+.wl-steps{list-style:none;display:flex;justify-content:center;gap:6px;padding:0;margin:14px 0 14px;counter-reset:s}
+.wl-steps li{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:120px;font-size:13px;font-weight:600;position:relative}
+.wl-steps li+li::before{content:'';position:absolute;top:19px;right:calc(50% + 24px);width:calc(100% - 44px);border-top:2px dashed #d9c9e6}
+.wl-steps .si{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#fff;color:#5b4fc4;box-shadow:0 2px 6px rgba(45,42,90,.08)}
+.wl-steps .si .ico{width:21px;height:21px}
+.wl-acts{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;max-width:420px;margin:0 auto}
+.wl-acts .primary.big{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:16px;font-size:17px;font-weight:700;background:var(--pink);border-color:var(--pink);box-shadow:0 6px 16px rgba(254,94,122,.3)}
+.wl-acts .cbtn{min-height:52px}
+.welcome .capt{margin-top:10px}
+.welcome .x{position:absolute;top:10px;right:10px;border:none;background:none;color:var(--muted);font-size:16px;padding:6px 8px}
 </style>
 </head>
 <body>
@@ -1804,6 +1821,22 @@ function modeSheet(sc){
 }
 const homeCredit=()=> !aiReady ? 'อัปโหลดแล้วตีกรอบใส่คำศัพท์เอง'
   : (aiCredits && user && typeof aiLeft==='number') ? `✨ AI เหลือ ${aiLeft}/${aiMonthly} ครั้งเดือนนี้` : '✨ AI หาคำศัพท์ให้อัตโนมัติ';
+function welcomeCard(){
+  const step=(icon,text)=>el('li',{}, el('span',{class:'si'},ic(icon)), el('span',{text}));
+  return el('div',{class:'welcome'},
+    el('button',{class:'x','aria-label':'ไว้ทีหลัง',title:'ไว้ทีหลัง',text:'✕',onclick:()=>{ store.set('pv-welcome-hide',true); renderHome(); }}),
+    el('span',{class:'wl-art','aria-hidden':'true'}, ic('photo_camera-fill')),
+    el('h3',{text:'สร้างฉากแรกของคุณ'}),
+    el('p',{text:'ถ่ายรูปของรอบตัว แล้วฝึกคำศัพท์จากของจริง'}),
+    el('ol',{class:'wl-steps'},
+      step('photo_camera','ถ่ายรูป'),
+      step('sell-fill', aiReady?'AI ใส่ป้ายคำ':'ตีกรอบใส่คำ'),
+      step('mic','ดู ฟัง พูด')),
+    el('div',{class:'wl-acts'},
+      el('button',{class:'primary big',onclick:()=>$('#fileCam').click()}, ic('photo_camera'), 'ถ่ายรูป'),
+      el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()}, ic('imagesmode'), 'เลือกรูป')),
+    el('p',{class:'capt',id:'homeCredit',text:homeCredit()}));
+}
 function statChip(icon, cls, n, label){ return el('span',{class:'stat chip '+cls,role:'img',title:label,'aria-label':label}, ic(icon), el('b',{text:String(n)})); }
 function streakPill(){ const p=$('#streakPill'), n=streak(); p.replaceChildren(ic('local_fire_department-fill','fire'), String(n)); p.setAttribute('aria-label',`${n} วันติดกัน`); p.classList.toggle('zero',!n); }
 function renderHome(){
@@ -1826,12 +1859,15 @@ function renderHome(){
       el('button',{class:'primary',text:'ติดตั้ง',onclick:installApp}),
       el('button',{class:'x','aria-label':'ไม่ต้องแสดงอีก',title:'ไม่ต้องแสดงอีก',text:'✕',onclick:()=>{ store.set('pv-install-hide',true); renderHome(); }})));
   }
+  // first visit: nothing of their own yet → invite them to make a scene from a photo
+  const firstRun=!all.some(sc=>!sc.builtin) && !store.get('pv-welcome-hide',false);
+  if(firstRun) h.append(welcomeCard());
   // continue
   const started=all.filter(sc=>recent[sc.id]).sort(byRecent);
   const cur=started[0]||all.find(sc=>Object.keys(sc.items).length)||all[0];
   if(cur){
     const {n,d}=progOf(cur), md=lastMode[cur.id]||'learn', full=n&&d===n;
-    h.append(el('div',{class:'hsec'}, el('h3',{}, ic('play_circle'), started.length?'เรียนต่อ':'เริ่มเรียน'),
+    h.append(el('div',{class:'hsec'}, el('h3',{}, ic('play_circle'), started.length?'เรียนต่อ':firstRun?'ลองฉากตัวอย่าง':'เริ่มเรียน'),
       n ? el('span',{class:'hcount'+(full?' full':''),title:`ทบทวนแล้ว ${d}/${n} คำ`}, el('i',{class:'dot'}), `${d}/${n}`) : null));
     const cimg=el('div',{class:'cimg',onclick:()=>openPreview(cur.id),title:'ดูตัวอย่างฉาก'});
     cimg.append(labeledImg(cur, window.innerWidth>=900 ? 1.7 : 3/2));
@@ -1856,6 +1892,7 @@ function renderHome(){
           el('span',{class:'tt'}, el('b',{}, 'คำใหม่', el('span',{class:'num',text:String(totalLeft)})), el('small',{text:`จาก ${nScenes} ฉาก · ครั้งละ ${Math.min(10,totalLeft)} คำ`})),
           el('span',{class:'arrow'},ic('arrow_forward')))
       : el('div',{class:'tile fresh'}, el('span',{class:'ic'},ic('celebration')), el('span',{class:'tt'}, el('b',{text:'ผ่านครบทุกคำแล้ว'}), el('small',{text:'ลองสร้างฉากใหม่จากรูปรอบตัว'})))));
+  if(firstRun) return;   // the welcome card already has the photo buttons, and there are no other scenes yet
   // add a scene
   h.append(el('div',{class:'createrow'},
     el('button',{class:'cbtn',onclick:()=>$('#fileCam').click()}, ic('photo_camera'), 'ถ่ายรูป'),
@@ -2908,13 +2945,26 @@ function spkJudge(alts){
   spk.heard=r.said; spk.tries++;
   if(r.ok){
     if(spk.tries===1) spk.score++;
-    spk.result = r.art==='wrong' ? 'okart' : (S.lang==='de' && it.art && r.art==='right') ? 'okstar' : 'ok';
-    spk.state='done'; markActive(1); doFlash(id,'good',1400); renderSub();
+    const clean=spkSave(id, it, r);
+    spk.result = r.art==='wrong' ? 'okart' : !clean ? 'ok' : (S.lang==='de' && it.art) ? 'okstar' : 'okclean';
+    spk.state='done'; markActive(1); doFlash(id,'good',1400); updateOverlay(); renderChips(); renderSub();
     setTimeout(()=>{ if(spk.target===id && S.mode==='speak') spkNext(); }, r.art==='wrong' ? 2600 : 1500);
   } else {
     spk.result='no'; spk.state='idle'; renderSub();
     if(spk.tries>=2) speak(sayOf(id));     // second miss: say it for them to copy
   }
+}
+// Saying a word right counts like typing it in ✍️ Review: the word is passed and comes back for spaced review.
+// Clean (★, next review further away) = word hidden, right on the first try, and in German with the right der/die/das.
+// With the word showing it is reading aloud: a new word still counts as passed, a passed word keeps its review plan.
+function spkSave(id, it, r){
+  const rp=progRaw(), key=pk(id), had=!!rp.done[key];
+  const clean=!spk.showWord && spk.tries===1 && r.art!=='wrong' && !(S.lang==='de' && it.art && r.art!=='right');
+  if(spk.showWord){ if(had) return false; srsAnswer(rp, scene().id, key, false); }
+  else { srsAnswer(rp, scene().id, key, clean); if(clean) rp.star[key]=true; }
+  saveProg();
+  const pp=prog(); if(ids().every(i=>pp.done[i])) setTimeout(()=>toast('🎉 ผ่านครบทุกคำในฉากนี้แล้ว!'), 900);
+  return clean;
 }
 function spkIntro(){
   openModal(m=>{
@@ -2943,11 +2993,12 @@ function renderSpeakSub(put){
   let msg=null;
   if(listening) msg=el('span',{class:'spkheard',text: spk.heard ? `“${spk.heard}”` : 'พูดได้เลย…'});
   else if(spk.result==='ok') msg=el('span',{class:'spkres ok',text:`✓ ถูกต้อง! ได้ยินว่า “${spk.heard}”`});
+  else if(spk.result==='okclean') msg=el('span',{class:'spkres ok',text:`★ ถูกต้อง! ได้ยินว่า “${spk.heard}”`});
   else if(spk.result==='okstar') msg=el('span',{class:'spkres ok',text:`★ ถูกต้อง พร้อม ${it.art}! ได้ยินว่า “${spk.heard}”`});
   else if(spk.result==='okart') msg=el('span',{class:'spkres ok',text:`✓ คำถูก แต่คำนำหน้าคือ “${it.art}” — ${it.word}`});
   else if(spk.result==='no') msg=el('span',{class:'spkres no',text: spk.tries>=2 ? `ได้ยินว่า “${spk.heard}” — ฟังแล้วลองพูดตามอีกครั้ง` : `ได้ยินว่า “${spk.heard}” — ลองอีกครั้ง หรือกด 🔊 ฟังก่อน`});
   else if(spk.result==='nothing') msg=el('span',{class:'spkres no',text:'ไม่ได้ยินเสียง ลองพูดใกล้ไมค์อีกครั้ง'});
-  else msg=el('span',{class:'hint tip',text: S.lang==='de' ? 'พูดคำของสิ่งที่ไฮไลต์ไว้ (พูด der/die/das ด้วยจะได้ ★)' : 'พูดคำของสิ่งที่ไฮไลต์ไว้'});
+  else msg=el('span',{class:'hint tip',text: spk.showWord ? 'พูดคำของสิ่งที่ไฮไลต์ไว้ · ซ่อนคำแล้วพูดถูกจะได้ ★' : S.lang==='de' ? 'พูดคำของสิ่งที่ไฮไลต์ไว้ (พูด der/die/das ด้วยจะได้ ★)' : 'พูดคำของสิ่งที่ไฮไลต์ไว้'});
   put(mic,
     el('button',{text:'🔊','aria-label':'ฟังคำ',title:'ฟังคำ',onclick:()=>speak(sayOf(spk.target))}),
     word, msg, el('span',{class:'grow'}),

@@ -28,6 +28,10 @@ async def main():
         # pills sit inside the picture and fit their words
         out['pills_fit']=await pg.evaluate("""[...document.querySelectorAll('.cont .cimg g')].every(g=>{ const r=g.querySelector('rect').getBBox(), t=g.querySelector('text').getBBox(); return t.x>=r.x-0.5 && t.x+t.width<=r.x+r.width+0.5; })""")
         await pg.screenshot(path=shot('cozy1_home.png'), full_page=True)
+        # first visit (no scenes of their own): a big "make your first scene" card instead of the photo row
+        out['welcome']=[await pg.locator('.welcome').count(), await pg.locator('#homeView .createrow').count(), await pg.locator('.welcome .primary.big').inner_text()]
+        await pg.click('.welcome .x'); await pg.wait_for_timeout(200); await pg.reload(); await pg.wait_for_timeout(600)
+        out['welcome_hidden']=[await pg.locator('.welcome').count(), await pg.locator('#homeView .createrow').count()]
         await pg.click('.cont .icbtn'); await pg.wait_for_timeout(200)
         out['sheet']=await pg.evaluate("[...document.querySelectorAll('.mopt')].map(b=>[b.dataset.mode, b.classList.contains('on')])")
         await pg.screenshot(path=shot('cozy2_modes.png'))
@@ -71,6 +75,8 @@ async def main():
     check([n[0] for n in out['nav']]==['หน้าแรก','คลังฉาก','สร้างฉากจากรูป','คำของฉัน','ห้องเรียน'] and all(n[1]=='' for n in out['nav']), 'bottom bar is icons with labels for screen readers', out['nav'])
     check(out['nav'][0][2] and out['dot'] not in ('rgba(0, 0, 0, 0)','transparent'), 'home is marked with a dot', (out['nav'][0], out['dot']))
     check([c[0] for c in out['chips']]==['0','2','1'] and out['chips'][1][1]=='ผ่านแล้ว 2 คำ', 'stat chips: numbers with labels', out['chips'])
+    check(out['welcome'][:2]==[1,0] and 'ถ่ายรูป' in out['welcome'][2], 'first visit shows the make-your-first-scene card', out['welcome'])
+    check(out['welcome_hidden']==[0,1], '"later" hides it for good and brings back the photo row', out['welcome_hidden'])
     check(out['streak']=='0 วันติดกัน', 'streak pill label', out['streak'])
     check(out['pill']=='🇬🇧', 'language pill is just the flag on a phone', out['pill'])
     check(out['button']=='ฝึกต่อ' and out['pct']=='8%', 'continue card', (out['button'], out['pct']))
