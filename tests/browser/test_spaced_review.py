@@ -32,6 +32,7 @@ async def main():
           'lemon-drizzle-cake':{{b:2,d:T+3}}, 'teapot':{{b:1,d:T+1}} }} }} }}; }}"""
         pg=await page(seed)
         out['tile']=await pg.locator('.tile.srs').inner_text()
+        out['tile_label']=await pg.locator('.tile.srs').get_attribute('aria-label')
         out['tile_cls']=await pg.locator('.tile.srs').get_attribute('class')
         await pg.screenshot(path=shot('srs1_home.png'))
         # words page: filter + labels
@@ -62,7 +63,7 @@ async def main():
         out['after']={k:(v if v is True else [v['b'],v['d']-T]) for k,v in prog.items()}
         await pg.click('.rv-end button:has-text("ปิด")'); await pg.wait_for_timeout(300)
         out['tile_after']=await pg.locator('.tile.srs').inner_text()
-        out['streak_today']=await pg.locator('.hello .stats').inner_text()
+        out['streak_today']=await pg.locator('#streakPill').get_attribute('aria-label')
         await pg.context.close()
         # 4) scene quiz on a due word: clean answer moves it up (type the right word into the quiz card)
         seed2=f"""()=>{{ const T={TD}; return {{tea:{{updatedAt:Date.now(), star:{{}}, done:{{'macaron':{{b:2,d:T}} }} }} }}; }}"""
@@ -89,7 +90,7 @@ async def main():
         await pg.context.close()
         await b.close()
     check('ทบทวนตามรอบ' in out['idle'], 'idle tile explains spaced review', out['idle'])
-    check('คำที่ต้องทบทวนวันนี้ 4 คำ' in out['tile'] and 'due' in out['tile_cls'], 'home shows 4 words due', (out['tile'], out['tile_cls']))
+    check(out['tile_label']=='คำที่ต้องทบทวนวันนี้ 4 คำ' and re.search(r'ทบทวนด่วน\s*4', out['tile']) and 'due' in out['tile_cls'], 'home shows 4 words due', (out['tile'], out['tile_label'], out['tile_cls']))
     check('ถึงรอบ4' in out['filters'].replace('\n',''), 'My words has a Due filter', out['filters'])
     check(len(out['due_cards'])==4 and out['due_labels']==['🔁 ถึงรอบทบทวน'], 'due words listed', (out['due_cards'], out['due_labels']))
     check(out['rv_n']=='1/4' and 'ตอบถูก 4/4' in out['end'], 'review round of 4 finishes', (out['rv_n'], out['end']))
