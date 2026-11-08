@@ -1006,7 +1006,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
     </label>
     <label><input type="checkbox" id="slow"> 🐢 พูดช้า</label>
     <span class="note">เสียงอ่านใช้เสียงที่มีในเครื่อง/เบราว์เซอร์ของคุณ</span>
-    <nav class="legal"><button type="button" class="linkbtn small" id="installLink" hidden>📲 ติดตั้งแอป</button> <a href="/privacy">นโยบายความเป็นส่วนตัว</a> · <a href="/terms">ข้อตกลงการใช้งาน</a> · <a href="mailto:contact@piccab.com">ติดต่อเรา</a></nav>
+    <nav class="legal"><button type="button" class="linkbtn small" id="installLink" hidden>📲 ติดตั้งแอป</button> <a href="/?home">เกี่ยวกับ Piccab</a> · <a href="/privacy">นโยบายความเป็นส่วนตัว</a> · <a href="/terms">ข้อตกลงการใช้งาน</a> · <a href="mailto:contact@piccab.com">ติดต่อเรา</a></nav>
   </footer>
 </div>
 
@@ -4037,6 +4037,7 @@ function openAccount(){
           await sb.auth.signOut(); closeModal(); toast('ออกจากระบบแล้ว'); }}),
         el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})),
       el('div',{class:'acctlinks'},
+        el('a',{href:'/?home',text:'เกี่ยวกับ Piccab'}), ' · ',
         el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · ', el('a',{href:'/terms',target:'_blank',text:'ข้อตกลงการใช้งาน'}), ' · ',
         el('button',{class:'linkbtn small danger-link',text:'ลบบัญชีและข้อมูลทั้งหมด',onclick:openDeleteAccount})));
   });

@@ -8,6 +8,7 @@
 (function(){
 'use strict';
 const D={
+  "เกี่ยวกับ Piccab": "About Piccab",
   // word lists (dictation)
   "มีชีทคำศัพท์จากครู? ทำชุดคำไว้ฝึกก่อนสอบ": "Got a word list from your teacher? Make a set to practise before the test",
   "ผ่านครบ {0} คำแล้ว · ลองสอบจำลองอีกรอบ": "All {0} words passed · try a practice test again",
@@ -1123,7 +1124,7 @@ function doText(n){ const v=n.nodeValue; if(!v || !TH.test(v) || skipEl(n.parent
   const pv=n.previousSibling; if(pv && /(^|[^\d.,])1$/.test((pv.textContent||'').trim())) t=t.replace(/^(\s*)(words|scenes|students|days|weeks|months|items|classes|times|pictures|stars|assignments|seconds|sets)\b/,(_,sp,w)=>sp+ONE[w]);
   if(t!==v) n.nodeValue=t; }
 const LEGAL=/^\/(privacy|terms)(#.*)?$/;   // the policy pages have English versions under /en/
-function doAttrs(e){ if(e.nodeName==='A'){ const h=e.getAttribute('href'); if(h && LEGAL.test(h)) e.setAttribute('href','/en'+h); }
+function doAttrs(e){ if(e.nodeName==='A'){ const h=e.getAttribute('href'); if(h && LEGAL.test(h)) e.setAttribute('href','/en'+h); else if(h==='/?home') e.setAttribute('href','/en/?home'); }
   for(const a of ATTRS){ const v=e.getAttribute && e.getAttribute(a); if(v && TH.test(v)){ const t=tr(v); if(t!==v) e.setAttribute(a,t); } } }
 function walk(root){
   if(root.nodeType===3){ doText(root); return; }
