@@ -8,6 +8,7 @@
 (function(){
 'use strict';
 const D={
+  "อีเมลของคุณ สำหรับให้เราตอบกลับ (ไม่บังคับ)": "Your e-mail, so we can reply (optional)",
   "เลื่อนขึ้น": "Scroll up",
   "เลื่อนลง": "Scroll down",
   "หมวดที่จะใส่": "Category to import into",

@@ -24,7 +24,7 @@ src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน publi
                      GET  /api/health  → { ai, needCode, credits, monthly, captcha }
                      POST /api/scan    → ส่งรูปให้ Gemini หรือ Claude แล้วคืนรายการคำศัพท์ + กรอบ
                      POST /api/wordlist → อ่านรายการคำจากรูปชีทคำศัพท์
-                     POST /api/feedback → 💬 ความเห็นจากผู้ใช้ (บันทึก + อีเมลแจ้ง ADMIN_NOTIFY_EMAIL)
+                     POST /api/feedback → 💬 ความเห็นจากผู้ใช้ (บันทึก + อีเมลแจ้ง FEEDBACK_EMAIL หรือ ADMIN_NOTIFY_EMAIL, ตอบกลับอีเมลได้)
                      POST /api/log, /api/usage → ข้อผิดพลาดของแอป และยอดการใช้งานรายวัน (ไม่ระบุตัวตน)
                      GET  /api/gallery[/<id>], /g/<id>.webp → คลังภาพ (เฉพาะฉากที่เผยแพร่แล้ว) และรูป · แอดมิน: /api/admin/gallery
                      GET|PUT|DELETE /api/img/<id> → รูปฉากใน R2 (เฉพาะเจ้าของที่ล็อกอิน)
@@ -97,7 +97,8 @@ bash tests/browser/run.sh                 # ทั้งหมด (~5 นาท�
 | `SEND_EMAIL_HOOK_SECRET` | Secret | ล็อกอิน | secret ของ Supabase Send Email hook (`v1,whsec_…`) → URL `https://piccab.com/api/auth-email` |
 | `RESEND_API_KEY` | Secret | ล็อกอิน | คีย์ Resend (`re_…`) ส่งอีเมลรหัสเข้าสู่ระบบภาษาไทยจาก `no-reply@piccab.com` |
 | `ADMIN_EMAILS` | Text | – | อีเมลผู้ดูแล (คั่นด้วย ,) ที่เปิดหน้า /admin ได้ |
-| `ADMIN_NOTIFY_EMAIL` | Text | – | อีเมลที่รับแจ้งรายงานและ 💬 ความเห็นจากผู้ใช้ (ค่าเริ่มต้น contact@piccab.com) |
+| `ADMIN_NOTIFY_EMAIL` | Text | – | อีเมลที่รับแจ้งรายงานเนื้อหาไม่เหมาะสม (และความเห็น ถ้าไม่ได้ตั้ง FEEDBACK_EMAIL) — ค่าเริ่มต้น contact@piccab.com, ใส่หลายอีเมลคั่นด้วยจุลภาคได้ |
+| `FEEDBACK_EMAIL` | Text | – | อีเมลที่รับ 💬 ความเห็นจากผู้ใช้ เช่น feedback@piccab.com — กดตอบกลับในอีเมลเพื่อตอบผู้ส่งได้เลย |
 | `TURNSTILE_SITE_KEY` | Text | – | Site key ของ Cloudflare Turnstile (ตรวจว่าไม่ใช่บอตตอนส่งรหัสเข้าอีเมล / นักเรียนเข้าห้องแบบไม่ใช้อีเมล) — Secret key ใส่ใน Supabase → Authentication → Attack Protection → CAPTCHA (ตั้ง site key และ merge ก่อน แล้วค่อยเปิดใน Supabase) |
 
 ควรตั้ง **วงเงินใช้จ่ายรายเดือน** ใน console.anthropic.com → Settings → Limits ด้วย

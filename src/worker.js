@@ -1081,7 +1081,8 @@ async function feedback(request, env, ctx) {
   const kindTh = { problem: 'แจ้งปัญหา', idea: 'ไอเดีย / อยากให้มี', other: 'อื่นๆ' }[f.kind];
   notifyAdmin(env, ctx, `ความเห็นจากผู้ใช้: ${kindTh}`, [['ประเภท', kindTh], ['ข้อความ', f.message], ['ตอบกลับที่', f.contact || '-'],
     ['หน้า', f.page || '-'], ['ผู้ส่ง', who ? (who.anon ? 'บัญชีนักเรียน' : who.email || 'ผู้ใช้ที่เข้าสู่ระบบ') : 'ไม่ได้เข้าสู่ระบบ'], ['อุปกรณ์', ua]],
-    new URL(request.url).origin, 'ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้ส่งความเห็น');
+    new URL(request.url).origin, 'ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้ส่งความเห็น · กดตอบกลับอีเมลนี้เพื่อตอบผู้ส่งได้ (ถ้าผู้ส่งใส่อีเมลไว้)',
+    { to: env.FEEDBACK_EMAIL, replyTo: f.contact || undefined });   // FEEDBACK_EMAIL (if set) instead of ADMIN_NOTIFY_EMAIL
   return json({ ok: true });
 }
 // Thai calendar day, as YYYY-MM-DD
@@ -1263,13 +1264,18 @@ export function adminMailHtml(title, rows, link, foot = 'ส่งอัตโ�
     + `<p style="margin:18px 0"><a href="${esc(link)}" style="background:#2d2a5a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">เปิดหน้าดูแลระบบ</a></p>`
     + `<p style="color:#77728c;font-size:13px">${esc(foot)}</p></div>`;
 }
-function notifyAdmin(env, ctx, title, rows, origin, foot) {
+// opts: { to: other addresses (comma-separated), replyTo: the person to answer }
+export function notifyTo(env, opts) {
+  return String((opts && opts.to) || env.ADMIN_NOTIFY_EMAIL || 'contact@piccab.com').split(',').map(x => x.trim()).filter(Boolean);
+}
+function notifyAdmin(env, ctx, title, rows, origin, foot, opts) {
   if (!env.RESEND_API_KEY) return;
-  const to = String(env.ADMIN_NOTIFY_EMAIL || 'contact@piccab.com').split(',').map(x => x.trim()).filter(Boolean);
+  const to = notifyTo(env, opts);
   const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${origin}/admin`;
   const send = fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin', foot), text }),
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin', foot), text,
+      ...(opts && opts.replyTo ? { reply_to: opts.replyTo } : {}) }),
   }).then(r => { if (!r.ok) console.log('report mail failed', r.status); }).catch(e => console.log('report mail error', e && e.message));
   if (ctx && ctx.waitUntil) ctx.waitUntil(send);
 }
