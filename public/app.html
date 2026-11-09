@@ -5479,6 +5479,7 @@ function adminResolve(r){
   deckNameDialog('ปิดเรื่อง (บันทึกสั้น ๆ ไม่บังคับ)', '', 'ปิดเรื่อง', async note=>{ await adminApi('POST',`/reports/${r.id}/resolve`,{ note }); ADM.data=null; renderAdmin(); }, 'เช่น ระงับบัญชีแล้ว / ไม่พบปัญหา', 300);
 }
 var adminLinkWanted=/^\/admin\/?$/.test(location.pathname);
+if(adminLinkWanted){ const t=new URLSearchParams(location.search).get('tab'); if(['reports','feedback','gallery','stats','errors','ai'].includes(t)) ADM.tab=t; }   // /admin?tab=feedback (link in the feedback e-mail)
 // ---------- share links (piccab.com/s/<id>) ----------
 // A link is a snapshot: the server copies the words and pictures when you share (or update) it.
 let myShares=store.get('pv-shares',{}); if(typeof myShares!=='object'||!myShares) myShares={};

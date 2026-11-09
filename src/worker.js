@@ -1078,11 +1078,9 @@ async function feedback(request, env, ctx) {
     await q(env, 'feedback', { method: 'POST', headers: { prefer: 'return=minimal' },
       body: JSON.stringify({ ...f, contact: f.contact || null, user_id: who ? who.uid : null, ua }) });
   } catch (e) { console.log('feedback failed', e && e.message); return error(e.status === 404 ? 'not_configured' : 'db_error', e.status === 404 ? 503 : 502); }
-  const kindTh = { problem: 'แจ้งปัญหา', idea: 'ไอเดีย / อยากให้มี', other: 'อื่นๆ' }[f.kind];
-  notifyAdmin(env, ctx, `ความเห็นจากผู้ใช้: ${kindTh}`, [['ประเภท', kindTh], ['ข้อความ', f.message], ['ตอบกลับที่', f.contact || '-'],
-    ['หน้า', f.page || '-'], ['ผู้ส่ง', who ? (who.anon ? 'บัญชีนักเรียน' : who.email || 'ผู้ใช้ที่เข้าสู่ระบบ') : 'ไม่ได้เข้าสู่ระบบ'], ['อุปกรณ์', ua]],
-    new URL(request.url).origin, 'ส่งอัตโนมัติจาก Piccab เมื่อมีผู้ใช้ส่งความเห็น · กดตอบกลับอีเมลนี้เพื่อตอบผู้ส่งได้ (ถ้าผู้ส่งใส่อีเมลไว้)',
-    { to: env.FEEDBACK_EMAIL, replyTo: f.contact || undefined });   // FEEDBACK_EMAIL (if set) instead of ADMIN_NOTIFY_EMAIL
+  const origin = new URL(request.url).origin;
+  const mail = feedbackMail(f, who, ua, origin);
+  notifyAdmin(env, ctx, mail.title, [], origin, '', { to: env.FEEDBACK_EMAIL, replyTo: f.contact || undefined, html: mail.html, text: mail.text });   // FEEDBACK_EMAIL (if set) instead of ADMIN_NOTIFY_EMAIL
   return json({ ok: true });
 }
 // Thai calendar day, as YYYY-MM-DD
@@ -1264,17 +1262,34 @@ export function adminMailHtml(title, rows, link, foot = 'ส่งอัตโ�
     + `<p style="margin:18px 0"><a href="${esc(link)}" style="background:#2d2a5a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none">เปิดหน้าดูแลระบบ</a></p>`
     + `<p style="color:#77728c;font-size:13px">${esc(foot)}</p></div>`;
 }
-// opts: { to: other addresses (comma-separated), replyTo: the person to answer }
+// The feedback e-mail: pressing Reply quotes it to the person who wrote, so their message comes first,
+// the details (device, page) small under it, and only a small link to the admin page.
+const FB_KIND_TH = { problem: 'แจ้งปัญหา', idea: 'ไอเดีย / อยากให้มี', other: 'อื่นๆ' };
+export function feedbackMail(f, who, ua, origin) {
+  const kind = FB_KIND_TH[f.kind] || FB_KIND_TH.other;
+  const short = f.message.replace(/\s+/g, ' ').slice(0, 50) + (f.message.length > 50 ? '…' : '');
+  const by = who ? (who.anon ? 'บัญชีนักเรียน' : who.email || 'ผู้ใช้ที่เข้าสู่ระบบ') : 'ไม่ได้เข้าสู่ระบบ';
+  const details = [['ตอบกลับที่', f.contact || '- (ไม่ได้ใส่อีเมล ตอบกลับไม่ได้)'], ['บัญชี', by], ['หน้า', f.page || '-'], ['อุปกรณ์', ua || '-']];
+  const link = origin + '/admin?tab=feedback';
+  const html = `<div style="font-family:Sarabun,system-ui,sans-serif;color:#2d2a5a;max-width:560px">`
+    + `<p style="margin:0 0 8px;font-size:13px;color:#77728c">💬 ความเห็นจากผู้ใช้ Piccab · ${esc(kind)}</p>`
+    + `<div style="font-size:16px;line-height:1.6;white-space:pre-wrap;border-left:3px solid #e4dacd;padding:2px 0 2px 12px;margin:0 0 16px">${esc(f.message)}</div>`
+    + `<p style="margin:0;font-size:12px;line-height:1.6;color:#9a94ad">${details.map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('<br>')}</p>`
+    + `<p style="margin:10px 0 0;font-size:12px"><a href="${esc(link)}" style="color:#9a94ad">ดูในหน้าดูแลระบบ</a></p></div>`;
+  const text = `${f.message}\n\n— ความเห็นจากผู้ใช้ Piccab · ${kind}\n${details.map(([k, v]) => `${k}: ${v}`).join('\n')}\n${link}`;
+  return { title: `ความเห็น (${kind}): ${short}`, html, text };
+}
+// opts: { to: other addresses (comma-separated), replyTo: the person to answer, html/text: a ready-made e-mail }
 export function notifyTo(env, opts) {
   return String((opts && opts.to) || env.ADMIN_NOTIFY_EMAIL || 'contact@piccab.com').split(',').map(x => x.trim()).filter(Boolean);
 }
 function notifyAdmin(env, ctx, title, rows, origin, foot, opts) {
   if (!env.RESEND_API_KEY) return;
   const to = notifyTo(env, opts);
-  const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${origin}/admin`;
+  const text = (opts && opts.text) || rows.map(([k, v]) => `${k}: ${v}`).join('\n') + `\n\n${origin}/admin`;
   const send = fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: adminMailHtml(title, rows, origin + '/admin', foot), text,
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to, subject: `[Piccab] ${title}`, html: (opts && opts.html) || adminMailHtml(title, rows, origin + '/admin', foot), text,
       ...(opts && opts.replyTo ? { reply_to: opts.replyTo } : {}) }),
   }).then(r => { if (!r.ok) console.log('report mail failed', r.status); }).catch(e => console.log('report mail error', e && e.message));
   if (ctx && ctx.waitUntil) ctx.waitUntil(send);
