@@ -61,6 +61,13 @@ async def main():
         ctx=await b.new_context(locale='en-US', service_workers='block'); pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); await pg.route('**/*', route)
         await pg.goto('https://piccab.test/'); await pg.wait_for_timeout(900)
         out['en_url']=pg.url; out['en_thai']=await pg.evaluate(THAI_LEFT); out['en_cta']=await pg.locator('.hero .btn.primary').get_attribute('href')
+        await ctx.close()
+        # Googlebot (English settings) still sees the Thai page, so both languages get indexed
+        ctx=await b.new_context(locale='en-US', user_agent='Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', service_workers='block'); pg=await ctx.new_page(); await pg.route('**/*', route)
+        await pg.goto('https://piccab.test/'); await pg.wait_for_timeout(600)
+        out['bot_url']=pg.url
+        out['seo']=await pg.evaluate("""()=>({robots:document.querySelector('meta[name=robots]')?.content||'', canon:document.querySelector('link[rel=canonical]')?.href,
+          ld:JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent)['@graph'].map(x=>x['@type'])})""")
         await ctx.close(); await b.close()
     bad=[f for f in failed if 'google' not in str(f) and 'supabase' not in str(f)]
     for name in ['desk','phone']:
@@ -73,6 +80,13 @@ async def main():
     check(out['login_param'][1] and 'เข้าสู่ระบบ' in out['login_param'][1], '/app?login opens sign-in', out['login_param'])
     check(out['install_param'][1] and 'ติดตั้ง' in out['install_param'][1], '/app?install opens install help', out['install_param'])
     check(out['en_url']=='https://piccab.test/en/' and out['en_thai']==[] and out['en_cta']=='/app?hl=en', 'English browsers get the English page', (out['en_url'], out['en_thai'], out['en_cta']))
+    check(out['bot_url']=='https://piccab.test/', 'search engines see the Thai page (no language redirect)', out['bot_url'])
+    check(out['seo']['robots']=='' and out['seo']['canon']=='https://piccab.com/' and 'WebSite' in out['seo']['ld'] and 'Organization' in out['seo']['ld'], 'landing page: indexable, canonical, site name + logo for Google', out['seo'])
+    import re as _re, xml.dom.minidom as _md
+    check('noindex' in _re.search(r'<meta name="robots" content="([^"]+)"', APP).group(1), 'the app page is kept out of search results')
+    rob=(PUB/'robots.txt').read_text(); locs=[n.firstChild.data for n in _md.parse(str(PUB/'sitemap.xml')).getElementsByTagName('loc')]
+    check('Sitemap: https://piccab.com/sitemap.xml' in rob and 'Disallow: /app' not in rob, 'robots.txt points at the sitemap and lets Google see the app noindex', rob)
+    check(locs[:2]==['https://piccab.com/','https://piccab.com/en/'] and all(l.startswith('https://') for l in locs), 'sitemap lists the https pages', locs)
     check(not bad, 'every file on the landing page loads', bad[:5])
     finish('landing pages', out, errs)
 asyncio.run(main())
