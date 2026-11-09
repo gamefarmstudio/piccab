@@ -95,6 +95,11 @@ body.fsside #sub>*{max-width:100%}
 body.fsside .chips{display:none}
 .fillbtn{display:none}
 body.fsside.fsnarrow .fillbtn{display:block}
+.fscue{display:none}
+body.fsfill.fsnarrow #playView>main .fscue{position:sticky;z-index:6;width:44px;height:30px;margin:0 auto;border-radius:999px;border:0;background:rgba(45,42,90,.78);color:#fff;font-size:14px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+body.fsfill.fsnarrow #playView>main .fscue.up{top:8px;margin-bottom:-30px}
+body.fsfill.fsnarrow #playView>main .fscue.down{bottom:8px;margin-top:-30px}
+body.fsfill.fsnarrow #playView>main.more-up .fscue.up, body.fsfill.fsnarrow #playView>main.more-down .fscue.down{display:block}
 body.fsside.fsfill.fsnarrow #playView>main{align-self:start;overflow-y:auto;overscroll-behavior:contain;border-radius:18px}
 #scene{display:block;width:100%;height:auto;border-radius:18px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 body.editing #scene{touch-action:none;cursor:crosshair}
@@ -2658,7 +2663,26 @@ function setHL(){
     e.classList.toggle('bad', f==='bad');
     e.classList.toggle('hl', !f && id===active);
   });
-  updateSpot();
+  updateSpot(); fsFollow();
+}
+// Full screen on a landscape phone with a tall picture ("fill the width"): only part of the picture shows,
+// so bring the word being shown (Auto, a question, the word to say) into view, once each time it changes.
+var fsFollowed=null;
+function fsFollow(){
+  const id=pinnedId || quizId || spkTarget();
+  if(id===fsFollowed) return; fsFollowed=id;
+  if(!id || !document.body.classList.contains('fsfill')) return;
+  const m=$('#playView>main'), e=svg.querySelector(`.item[data-id="${CSS.escape(id)}"]`); if(!m || !e) return;
+  const b=e.getBoundingClientRect(), mb=m.getBoundingClientRect();
+  if(b.top>=mb.top+8 && b.bottom<=mb.bottom-8) return;
+  m.scrollBy({ top:(b.top+b.height/2)-(mb.top+mb.height/2), behavior:'smooth' });
+}
+// ▲ / ▼ on the picture when there is more of it above or below
+function fsCues(){
+  const m=$('#playView>main'); if(!m) return;
+  const on=document.body.classList.contains('fsfill');
+  m.classList.toggle('more-up', on && m.scrollTop>4);
+  m.classList.toggle('more-down', on && m.scrollTop+m.clientHeight<m.scrollHeight-4);
 }
 function setHover(id){
   if(id===hoverId) return;
@@ -5915,6 +5939,7 @@ function fitWrap(){
     document.body.classList.toggle('fsfill', narrow && fsFill);
     const fb=$('#fillBtn'); fb.textContent = fsFill ? '🔲 ดูทั้งภาพ' : '↔️ ขยายเต็มจอ';
     fb.title = fsFill ? 'ย่อให้เห็นทั้งภาพในจอเดียว' : 'ขยายภาพให้เต็มความกว้าง แล้วเลื่อนขึ้นลงดู';
+    requestAnimationFrame(fsCues);
     if(narrow && fsFill){
       if(!store.get('pv-fsfill-tip', false)){ store.set('pv-fsfill-tip', true); setTimeout(()=>toast('↕️ เลื่อนขึ้น-ลงเพื่อดูส่วนอื่นของภาพ · กด 🔲 ดูทั้งภาพ เพื่อย่อ', 4000), 600); }
       main.style.height=availH+'px';
@@ -5938,6 +5963,12 @@ function fitWrap(){
   wrap.style.maxWidth=Math.max(120, Math.min(availW, Math.max(160,availH)*r))+'px';
 }
 var fsFill=store.get('pv-fsfill', true);
+{ const m=$('#playView>main');
+  const cue=dir=>{ const b=el('button',{type:'button',class:'fscue '+dir,'aria-label':dir==='up'?'เลื่อนขึ้น':'เลื่อนลง',title:dir==='up'?'เลื่อนขึ้น':'เลื่อนลง'}, dir==='up'?'▲':'▼');
+    b.addEventListener('click',e=>{ e.stopPropagation(); m.scrollBy({ top:(dir==='up'?-1:1)*m.clientHeight*0.6, behavior:'smooth' }); }); return b; };
+  m.prepend(cue('up')); m.append(cue('down'));
+  m.addEventListener('scroll', fsCues, { passive:true });
+}
 $('#fillBtn').addEventListener('click', e=>{
   e.stopPropagation(); fsFill=!fsFill; store.set('pv-fsfill', fsFill);
   fitWrap(); requestAnimationFrame(()=>{ relayout(); const m=$('#playView>main'); m.scrollTop=Math.max(0,(m.scrollHeight-m.clientHeight)/2); });
