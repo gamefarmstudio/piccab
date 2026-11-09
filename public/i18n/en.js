@@ -8,6 +8,8 @@
 (function(){
 'use strict';
 const D={
+  "เลื่อนขึ้น": "Scroll up",
+  "เลื่อนลง": "Scroll down",
   "หมวดที่จะใส่": "Category to import into",
   "ตามที่เขียนในไฟล์ JSON": "As written in the JSON file",
   "ใส่ในหมวด": "Put in category",
