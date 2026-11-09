@@ -879,6 +879,10 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   const r = await worker.fetch(new Request('https://piccab.com/api/feedback', post({ kind:'problem', message:'เสียงไม่ออก', contact:'mom@example.com' })), { ASSETS: assets, ...env }, ctx);
   assert.equal(r.status, 200); await Promise.all(waits);
   assert.deepEqual(sent.at(-1).to, ['feedback@piccab.com']); assert.equal(sent.at(-1).reply_to, 'mom@example.com');
+  assert.match(sent.at(-1).subject, /^\[Piccab\] ความเห็น \(แจ้งปัญหา\): เสียงไม่ออก$/);
+  assert.ok(sent.at(-1).html.indexOf('เสียงไม่ออก') < sent.at(-1).html.indexOf('ตอบกลับที่'));                 // the message comes first
+  assert.ok(!sent.at(-1).html.includes('⚠️') && sent.at(-1).html.includes('/admin?tab=feedback'));
+  assert.ok(sent.at(-1).text.startsWith('เสียงไม่ออก'));
   await worker.fetch(new Request('https://piccab.com/api/feedback', post({ message:'no contact' })), { ASSETS: assets, ...env }, ctx); await Promise.all(waits);
   assert.equal('reply_to' in sent.at(-1), false);
   globalThis.fetch = saved;

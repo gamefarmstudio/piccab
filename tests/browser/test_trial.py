@@ -58,6 +58,8 @@ async def main():
         await A.click('.admtabs button:has-text("ข้อผิดพลาด")'); await A.wait_for_timeout(1200)
         out['errs']=await A.inner_text('#adminView')
         await A.screenshot(path=shot('tr4_admin_errors.png'), full_page=True)
+        await A.goto(BASE+'/admin?tab=feedback'); await A.wait_for_selector('.admtabs button.on', timeout=15000)   # the link in the feedback e-mail
+        out['tab_link']=await A.inner_text('.admtabs button.on')
         await b.close()
     check(out['strip']==1 and out['footer']==1, 'feedback on home and in the footer', (out['strip'], out['footer']))
     check(out['dlg'].strip()=='ส่งความเห็น' and 'ขอบคุณ' in out['toast'], 'feedback dialog sends', (out['dlg'], out['toast']))
@@ -72,5 +74,6 @@ async def main():
     check('ไม่มีความเห็นที่ต้องจัดการ' in out['fb_after'], 'feedback closed', out['fb_after'][:200])
     check('เปิดแอปวันนี้ (เครื่อง)' in out['stats'] and 'ฟังแล้วหา' in out['stats'], 'usage page', out['stats'][:400])
     check('Cannot read' in out['errs'] and '1 ครั้ง' in out['errs'], 'errors page', out['errs'][:300])
+    check(out['tab_link']=='💬 ความเห็น', '/admin?tab=feedback opens the feedback tab', out['tab_link'])
     finish('trial tools', out, errs)
 asyncio.run(main())
