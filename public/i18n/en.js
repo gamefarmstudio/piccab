@@ -8,6 +8,17 @@
 (function(){
 'use strict';
 const D={
+  "หมวดที่จะใส่": "Category to import into",
+  "ตามที่เขียนในไฟล์ JSON": "As written in the JSON file",
+  "ใส่ในหมวด": "Put in category",
+  "แก้กรอบหรือคำได้เลย เสร็จแล้วกด ⬆️ บันทึกเข้าคลังภาพ ด้านบน": "Fix boxes or words now, then press ⬆️ Save to the picture library at the top",
+  "บันทึกเข้าคลังภาพแล้ว ✓": "Saved to the picture library ✓",
+  "บันทึกไม่สำเร็จ ลองอีกครั้ง": "Couldn't save. Try again",
+  "⬆️ บันทึกเข้าคลังภาพ แล้วกลับ": "⬆️ Save to the picture library and go back",
+  "กำลังแก้ฉากในคลังภาพ": "Editing a picture-library scene",
+  "ยกเลิก กลับหน้าดูแลระบบ": "Cancel, back to admin",
+  "ทิ้งการแก้ไขนี้แล้วกลับหน้าดูแลระบบ?": "Drop these changes and go back to admin?",
+  "ทิ้งการแก้ไข": "Drop changes",
   "⬆️ อัปเดตในคลังภาพ": "⬆️ Update in the picture library",
   "🖼️ คลังภาพ": "🖼️ Picture library",
   "เริ่มต้น": "beginner",

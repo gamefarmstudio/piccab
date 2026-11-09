@@ -899,6 +899,11 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .galrow .galinfo{flex:1;min-width:0}
 .galrow .galwl{white-space:normal;word-break:break-word}
 .galrow .row{flex-wrap:wrap;gap:6px}
+.galedit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:10px 14px;border-radius:14px;background:#efeaf7;border:1px solid #d9d0ee}
+.galedit .tt{display:flex;align-items:center;gap:6px}
+.galedit .tt .ico{width:20px;height:20px;color:#5b4fc4}
+.galimp .galcatrow{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:14px}
+.galrow .galcatrow{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
 .galimp .chk{display:flex;gap:8px;align-items:center;margin:8px 0;font-size:14px}
 .aitable tr.tot td{font-weight:700}
 @media (max-width:620px){ .galrow{flex-direction:column} .galrow .galthumb{width:100%} }
@@ -991,6 +996,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   <section id="adminView" hidden></section>
 
   <div id="playView">
+  <div class="galedit" id="galEditBar" hidden></div>
   <nav class="modes" id="modes">
     <button class="fsexit" id="fsExit" type="button" aria-label="ออกจากเต็มจอ" title="ออกจากเต็มจอ"><svg class="ico" aria-hidden="true"><use href="#i-arrow_back"/></svg></button>
     <button data-mode="learn" title="ดูคำศัพท์"><svg class="ico" aria-hidden="true"><use href="#i-visibility"/></svg><span>ดูคำศัพท์</span></button>
@@ -2567,7 +2573,7 @@ function openPreview(id){
         el('span',{class:'sp'}),
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
-        ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id); }}) : null,
+        ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id, true); }}) : null,
         sc.builtin || isList(sc) ? null : el('button',{text:'✏️ แก้ไขฉาก',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }}),
         sc.builtin || isList(sc) ? null : el('button',{text:'📝 เปลี่ยนชื่อ',onclick:()=>{ closeModal(); S.sceneId=sc.id; $('#renameBtn').click(); }}),
         sc.builtin ? null : el('button',{class:'danger',text:'🗑 ลบ',onclick:()=>{ closeModal(); S.sceneId=sc.id; deleteScene(); }}))
@@ -2586,6 +2592,7 @@ function applySel(){
 }
 function selectBox(id){ selId=id; applySel(); setHL(); updateOverlay(); renderChips(); }
 function refresh(){
+  galEditBar();
   if(!S.editing) drawMode=false;
   document.body.classList.toggle('editing', S.editing);
   document.body.classList.toggle('drawmode', S.editing && drawMode);
@@ -5143,9 +5150,12 @@ function renderGalleryAdmin(v){
   const inp=el('input',{type:'file',multiple:'',accept:'image/png,image/jpeg,image/webp,.json,.txt',hidden:'',class:'galfiles'});
   inp.addEventListener('change',()=>{ const f=[...inp.files]; inp.value=''; if(f.length) galImport(f); });
   const crop=el('input',{type:'checkbox',class:'galcrop'}); crop.checked=GA.crop; crop.addEventListener('change',()=>{ GA.crop=crop.checked; });
+  const cat=el('select',{class:'galcat','aria-label':'หมวดที่จะใส่'}, el('option',{value:'',text:'ตามที่เขียนในไฟล์ JSON'}), ...D.categories.map(c=>el('option',{value:c.id,text:`${c.emoji} ${catName(c)}`})));
+  cat.value=GA.cat||''; cat.addEventListener('change',()=>{ GA.cat=cat.value; });
   v.append(el('div',{class:'admcard galimp'},
     el('h4',{text:'📥 นำเข้าจาก Gemini'}),
     el('p',{class:'note',text:'เลือกรูปกับไฟล์ JSON ที่ชื่อเดียวกัน เช่น kitchen.png + kitchen.json เลือกหลายฉากพร้อมกันได้ ฉากที่นำเข้าจะเป็นฉบับร่าง ตรวจกรอบก่อนแล้วค่อยกดเผยแพร่'}),
+    el('label',{class:'galcatrow'}, el('span',{text:'ใส่ในหมวด'}), cat),
     el('label',{class:'chk'}, crop, el('span',{text:'ตัดขอบขวาและล่าง 4% (ลบลายน้ำ Gemini ที่มุมขวาล่าง)'})),
     el('div',{class:'row'}, el('button',{class:'primary',text:'เลือกไฟล์…',onclick:()=>inp.click()})), inp));
   // scenes by category
@@ -5170,9 +5180,9 @@ function galAdminRow(g, D){
         el('span',{class:'pill'+(live?' ok':''),text: live ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})),
       el('p',{class:'note small',text:`${items.length} คำ · ระดับ${GAL_LV[g.level]||''} · ${g.w}×${g.h}`}),
       el('p',{class:'note small galwl','data-noi18n':'',text:items.map(it=>it.word+(it.th?'':' (?)')).join(', ')}),
-      el('div',{class:'row'}, sel, el('span',{class:'sp'}),
+      el('div',{class:'row'}, el('label',{class:'galcatrow'}, el('span',{text:'หมวด'}), sel), el('span',{class:'sp'}),
         el('button',{class:live?'':'primary',text: live ? 'ซ่อน' : 'เผยแพร่',...(g.img_ver?{}:{disabled:''}),onclick:()=>patch({ published:!g.published }, g.published ? 'ซ่อนแล้ว' : 'เผยแพร่แล้ว ✓')}),
-        edit ? el('button',{class:'primary',text:'⬆️ อัปเดตจากฉบับแก้ไข',onclick:()=>galPushEdit(edit)}) : null,
+        edit ? el('button',{class:'primary',text:'⬆️ อัปเดตจากฉบับแก้ไข',onclick:()=>galPushEdit(edit, true)}) : null,
         el('button',{text:'✏️ แก้กรอบ',onclick:()=>galEditLocal(g, edit)}),
         el('button',{text:'📝 ชื่อ',onclick:()=>{ const t=prompt('ชื่อฉาก (อังกฤษ)', g.title); if(t==null || !t.trim()) return; const th=prompt('ชื่อฉาก (ไทย)', g.title_th||''); patch({ title:t, title_th:th==null?g.title_th:th }, 'เปลี่ยนชื่อแล้ว'); }}),
         el('button',{class:'danger',text:'🗑',title:'ลบ',onclick:async()=>{ if(!confirm(`ลบ “${g.title}” ออกจากคลังภาพ? คนที่เก็บไปแล้วยังมีฉากนี้อยู่`)) return;
@@ -5186,16 +5196,40 @@ async function galEditLocal(g, existing){
     const sid=await galCopy(g, g, '✏️ '+g.title);
     galEdits[sid]=g.id; store.set('pv-gal-edit',galEdits);
     openScene(sid,'learn',true);
-    toast('แก้กรอบหรือคำได้เลย เสร็จแล้วกลับไปที่ 🛡️ ดูแลระบบ → 🖼️ คลังภาพ แล้วกด ⬆️ อัปเดตจากฉบับแก้ไข', 7000);
+    toast('แก้กรอบหรือคำได้เลย เสร็จแล้วกด ⬆️ บันทึกเข้าคลังภาพ ด้านบน', 5000);
   }catch(e){ toast('เปิดไม่สำเร็จ'); }
 }
-async function galPushEdit(sid){
-  const sc=scenes().find(x=>x.id===sid), gid=galEdits[sid]; if(!sc || !gid) return;
-  const r=await adminApi('PATCH','/gallery/'+gid,{ items:sc.items, w:sc.w, h:sc.h }).catch(()=>({ok:false}));
-  toast(r.ok ? 'อัปเดตคลังภาพแล้ว ✓' : 'อัปเดตไม่สำเร็จ');
-  if(r.ok){ ADM.gal=null; GAL.data=null; if(S.view==='admin') renderAdmin(); }
+// The editing copy is only a tool: once its boxes are sent (or dropped) it is removed and the admin page comes back.
+function galDropCopy(sid){
+  const i=customs.findIndex(x=>x.id===sid); if(i<0) return;
+  const sc=customs[i]; customs.splice(i,1); delete progress[sid]; forgetSceneLocal(sid);
+  if(typeof syncDeleted==='function') syncDeleted(sc);
+  delete galEdits[sid]; store.set('pv-gal-edit',galEdits); saveScenes(); saveProg();
 }
-var GA={ crop:true };
+function galBackToAdmin(){ ADM.tab='gallery'; ADM.gal=null; GAL.data=null; S.editing=false; selId=null; goHome('admin'); }
+async function galPushEdit(sid, back){
+  const sc=scenes().find(x=>x.id===sid), gid=galEdits[sid]; if(!sc || !gid) return false;
+  if(S.editing) saveScenes();
+  const r=await adminApi('PATCH','/gallery/'+gid,{ items:sc.items, w:sc.w, h:sc.h }).catch(()=>({ok:false}));
+  toast(r.ok ? 'บันทึกเข้าคลังภาพแล้ว ✓' : 'บันทึกไม่สำเร็จ ลองอีกครั้ง');
+  if(!r.ok) return false;
+  galDropCopy(sid);
+  if(back || S.view==='admin') galBackToAdmin(); else { ADM.gal=null; GAL.data=null; }
+  return true;
+}
+function galEditBar(){
+  const bar=$('#galEditBar'); if(!bar) return;
+  const gid=S.view==='play' ? galEditOf(S.sceneId) : null;
+  bar.hidden=!gid; if(!gid) return;
+  const g=ADM.gal && ADM.gal.scenes && ADM.gal.scenes.find(x=>x.id===gid);
+  const save=el('button',{class:'primary',text:'⬆️ บันทึกเข้าคลังภาพ แล้วกลับ'});
+  save.addEventListener('click',async()=>{ save.disabled=true; if(!await galPushEdit(S.sceneId, true)) save.disabled=false; });
+  bar.replaceChildren(el('span',{class:'tt'}, ic('photo_library'), el('b',{text:'กำลังแก้ฉากในคลังภาพ'}), g ? el('span',{'data-noi18n':'',text:' · '+g.title}) : null),
+    el('span',{class:'sp'}),
+    el('button',{text:'ยกเลิก กลับหน้าดูแลระบบ',onclick:async()=>{ if(!await ask('ทิ้งการแก้ไขนี้แล้วกลับหน้าดูแลระบบ?','ทิ้งการแก้ไข')) return; galDropCopy(S.sceneId); galBackToAdmin(); }}),
+    save);
+}
+var GA={ crop:true, cat:'' };
 // Gemini's answer: {"category","title","title_th","level","items":[{word, th, alts, de, de_art, de_alts, box_2d}]} (or just the items array)
 function galParse(text){
   const s=String(text||''), a=s.indexOf('{'), b=s.lastIndexOf('}'), a2=s.indexOf('['), b2=s.lastIndexOf(']');
@@ -5251,7 +5285,7 @@ async function galImportOne(p, cats){
   const W=Math.round(W1*k), H=Math.round(H1*k);
   const items=galItems(meta.items, W0, H0, W1, H1, k);
   if(!Object.keys(items).length) throw new Error('ไม่มีคำที่ใช้ได้');
-  const cat=String(meta.category||'').trim().toLowerCase();
+  const cat=GA.cat || String(meta.category||'').trim().toLowerCase();
   const r=await adminApi('POST','/gallery',{ category: cats.includes(cat) ? cat : cats[0], title:String(meta.title||p.name).slice(0,60),
     title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items }).catch(()=>({ok:false,j:{}}));
   if(!r.ok) throw new Error((r.j && r.j.error) || 'บันทึกไม่สำเร็จ');
