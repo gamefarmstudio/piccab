@@ -839,3 +839,28 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('trial tools tests passed');
 }
+
+// picture library: cleaning what the admin saves, and the public list
+{
+  const { cleanGalleryScene } = await import('../src/worker.js');
+  const o = cleanGalleryScene({ category:'home', title:'  Kitchen ', title_th:'ห้องครัว', level:'expert', w:1600, h:1200,
+    items:{ a:{ word:' kettle ', th:'กาต้มน้ำ', alts:['electric kettle', 5], x:-20, y:100, w:300, h:5000, l:{ de:{ w:'Wasserkocher', a:'der', alts:[] } } }, 'bad id!':{ word:'x', x:0,y:0,w:9,h:9 }, b:{ word:'', x:0,y:0,w:9,h:9 } } }, false);
+  assert.equal(o.title, 'Kitchen'); assert.equal(o.level, 'beginner'); assert.equal(o.word_count, 1);
+  assert.deepEqual(o.items.a, { word:'kettle', th:'กาต้มน้ำ', alts:['electric kettle'], x:0, y:100, w:300, h:1100, l:{ de:{ w:'Wasserkocher', a:'der', alts:[] } } });
+  assert.equal(cleanGalleryScene({ category:'Home!', title:'x', w:100, h:100, items:{} }, false).error, 'bad_category');
+  assert.equal(cleanGalleryScene({ category:'home', title:'x', w:10, h:100, items:{} }, false).error, 'bad_size');
+  assert.deepEqual(cleanGalleryScene({ published:1 }, true), { published:true });
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (url) => { const u = String(url);
+    if (u.includes('gallery_categories')) return new Response(JSON.stringify([{ id:'home', name_th:'บ้าน', name_en:'Home', emoji:'🏠', sort:10 }]), { status:200 });
+    if (u.includes('gallery_scenes')) { assert.match(u, /published=is\.true/); assert.match(u, /img_ver=gt\.0/); return new Response(JSON.stringify([{ id:'abc123def', category:'home', title:'Kitchen', word_count:12, img_ver:1 }]), { status:200 }); }
+    return new Response('{}', { status:404 }); };
+  const DB = { SUPABASE_SECRET_KEY:'sb_secret_test' };
+  const r = await call('/api/gallery', { method:'GET' }, DB);
+  assert.equal(r.status, 200); const j = await r.json(); assert.equal(j.scenes[0].title, 'Kitchen'); assert.equal(j.categories[0].id, 'home');
+  assert.equal((await call('/api/gallery/Bad-ID', { method:'GET' }, DB)).status, 404);
+  assert.equal((await call('/g/abc123def.webp', { method:'GET' }, {})).status, 404);
+  assert.equal((await call('/api/admin/gallery', { method:'GET' }, DB)).status, 404);           // not an admin
+  globalThis.fetch = saved;
+  console.log('picture library tests passed');
+}
