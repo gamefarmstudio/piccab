@@ -67,7 +67,7 @@ async def main():
     check(u.get('open')==1 and u.get('new_device')==1 and u.get('age:0')==1 and u.get('mode:learn',0)>=1 and u.get('mode:quiz')==1 and u.get('mode:find')==1 and u.get('feedback')==1,
           'usage counted per day (open, new device, modes, feedback)', u)
     check(out['pending']=={}, 'counts cleared after sending', out['pending'])
-    check(out['tabs']==['🚩 รายงาน','💬 ความเห็น','📊 การใช้งาน','🐞 ข้อผิดพลาด','✨ การใช้ AI'], 'admin tabs', out['tabs'])
+    check(out['tabs']==['🚩 รายงาน','💬 ความเห็น','🖼️ คลังภาพ','📊 การใช้งาน','🐞 ข้อผิดพลาด','✨ การใช้ AI'], 'admin tabs', out['tabs'])
     check('อยากให้มีเกมจับคู่คำ' in out['fb_card'] and 'mom@example.com' in out['fb_card'] and 'หน้า home' in out['fb_card'], 'admin reads the feedback', out['fb_card'][:300])
     check('ไม่มีความเห็นที่ต้องจัดการ' in out['fb_after'], 'feedback closed', out['fb_after'][:200])
     check('เปิดแอปวันนี้ (เครื่อง)' in out['stats'] and 'ฟังแล้วหา' in out['stats'], 'usage page', out['stats'][:400])

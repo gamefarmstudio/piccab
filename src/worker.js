@@ -93,6 +93,8 @@ export default {
     if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url, ctx);
     if (url.pathname === '/api/report/share') return reportShare(request, env, ctx);
     if (url.pathname === '/api/feedback') return feedback(request, env, ctx);
+    if (url.pathname === '/api/gallery' || url.pathname.startsWith('/api/gallery/')) return galleryPublic(request, env, url);
+    if (url.pathname.startsWith('/g/')) return galleryImage(request, env, url);
     if (url.pathname === '/api/log') return clientError(request, env);
     if (url.pathname === '/api/usage') return usage(request, env);
     if (url.pathname.startsWith('/api/admin/')) return admin(request, env, url);
@@ -1110,7 +1112,7 @@ async function clientError(request, env) {
 }
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
-  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback'];
+  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback', 'gallery_add'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};
@@ -1127,6 +1129,130 @@ async function usage(request, env) {
   if (!Object.keys(u.events).length) return new Response(null, { status: 204 });
   try { await sbRest(env, 'rpc/usage_add', { method: 'POST', body: JSON.stringify({ p_day: day, p_events: u.events }) }); } catch (e) {}
   return new Response(null, { status: 204 });
+}
+
+// ---------- picture library (คลังภาพ): ready-made scenes in categories (supabase/2026-11-gallery.sql) ----------
+export const GALLERY_LEVELS = ['beginner', 'intermediate', 'advanced'];
+const GAL_ID = /^[a-z0-9]{6,24}$/;
+// Clean the items of a library scene (the shape scenes use: {id: {word, th, alts, x, y, w, h, l}}); boxes kept inside the picture.
+export function cleanGalleryItems(items, w, h) {
+  const out = {}; let n = 0;
+  for (const [k, it] of Object.entries(items && typeof items === 'object' ? items : {})) {
+    if (n >= 60 || !/^[A-Za-z0-9_-]{1,24}$/.test(k) || !it || typeof it.word !== 'string') continue;
+    const word = it.word.trim().replace(/\s+/g, ' ').slice(0, 60); if (!word) continue;
+    const num = v => Math.round(Number(v));
+    let x = num(it.x), y = num(it.y), bw = num(it.w), bh = num(it.h);
+    if (![x, y, bw, bh].every(Number.isFinite)) continue;
+    x = Math.max(0, Math.min(w - 4, x)); y = Math.max(0, Math.min(h - 4, y));
+    bw = Math.max(4, Math.min(w - x, bw)); bh = Math.max(4, Math.min(h - y, bh));
+    const o = { word, th: String(it.th || '').trim().slice(0, 120),
+      alts: (Array.isArray(it.alts) ? it.alts : []).filter(a => typeof a === 'string' && a.trim()).slice(0, 4).map(a => a.trim().slice(0, 60)), x, y, w: bw, h: bh };
+    if (it.l && typeof it.l === 'object') {
+      const l = {};
+      for (const lg of Object.keys(AI_LANGS)) { const v = it.l[lg]; if (v && typeof v === 'object') { const c = cleanLangWord({ w: v.w, a: v.a, alts: v.alts }); if (c.w) l[lg] = c; } }
+      if (Object.keys(l).length) o.l = l;
+    }
+    out[k] = o; n++;
+  }
+  return out;
+}
+export function cleanGalleryScene(b, partial) {
+  const o = {};
+  const str = (v, n) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, n);
+  if (!partial || 'category' in b) o.category = str(b.category, 31);
+  if (!partial || 'title' in b) o.title = str(b.title, 60);
+  if (!partial || 'title_th' in b) o.title_th = str(b.title_th, 60);
+  if (!partial || 'level' in b) o.level = GALLERY_LEVELS.includes(b.level) ? b.level : 'beginner';
+  if ('published' in b) o.published = !!b.published;
+  if ('sort' in b) o.sort = Math.max(-100000, Math.min(100000, Math.round(Number(b.sort)) || 0));
+  if (!partial || 'items' in b) {
+    const w = Math.round(Number(b.w)), h = Math.round(Number(b.h));
+    if (!(w >= 50 && w <= 4000 && h >= 50 && h <= 4000)) return { error: 'bad_size' };
+    o.w = w; o.h = h; o.items = cleanGalleryItems(b.items, w, h); o.word_count = Object.keys(o.items).length;
+  }
+  if ('category' in o && !/^[a-z][a-z0-9-]{1,30}$/.test(o.category)) return { error: 'bad_category' };
+  if ('title' in o && !o.title) return { error: 'no_title' };
+  return o;
+}
+const GAL_LIST = 'id,category,title,title_th,level,w,h,word_count,img_ver,sort';
+async function galleryPublic(request, env, url) {
+  if (request.method !== 'GET') return error('method_not_allowed', 405);
+  if (!env.SUPABASE_SECRET_KEY) return json({ categories: [], scenes: [] });
+  const id = url.pathname.slice('/api/gallery/'.length);
+  try {
+    if (id) {
+      if (!GAL_ID.test(id)) return error('not_found', 404);
+      const r = await q(env, `gallery_scenes?select=${GAL_LIST},items&id=eq.${id}&published=is.true&img_ver=gt.0`);
+      if (!r || !r[0]) return error('not_found', 404);
+      return json(r[0]);
+    }
+    const [categories, scenes] = await Promise.all([
+      q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
+      q(env, `gallery_scenes?select=${GAL_LIST}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`),
+    ]);
+    const res = json({ categories: categories || [], scenes: scenes || [] });
+    res.headers.set('cache-control', 'public, max-age=60');
+    return res;
+  } catch (e) {
+    if (e.status === 404) return json({ categories: [], scenes: [] });   // tables not made yet
+    console.log('gallery failed', e && e.message); return error('db_error', 502);
+  }
+}
+// /g/<id>.webp (picture) and /g/<id>-t.webp (thumbnail). The app adds ?v=<img_ver>, so they can be cached for good.
+async function galleryImage(request, env, url) {
+  const m = url.pathname.match(/^\/g\/([a-z0-9]{6,24})(-t)?\.(webp|jpg)$/);
+  if (!m || !env.IMAGES) return error('not_found', 404);
+  const obj = await env.IMAGES.get(`gallery/${m[1]}${m[2] || ''}`);
+  if (!obj) return error('not_found', 404);
+  return new Response(obj.body, { headers: {
+    'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/webp',
+    'cache-control': 'public, max-age=31536000, immutable',
+  } });
+}
+async function galleryAdmin(request, env, m, id, act, body) {
+  if (!id && m === 'GET') {
+    try {
+      const [categories, scenes] = await Promise.all([
+        q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
+        q(env, `gallery_scenes?select=${GAL_LIST},items,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`),
+      ]);
+      return json({ categories: categories || [], scenes: scenes || [] });
+    } catch (e) { if (e.status === 404) return json({ setup: true }); throw e; }
+  }
+  if (!id && m === 'POST') {
+    const o = cleanGalleryScene(body, false);
+    if (o.error) return error(o.error, 400);
+    const nid = [...crypto.getRandomValues(new Uint8Array(8))].map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('') + Date.now().toString(36).slice(-4);
+    await q(env, 'gallery_scenes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ ...o, id: nid, published: false }) });
+    return json({ id: nid });
+  }
+  if (!GAL_ID.test(id || '')) return error('bad_id', 400);
+  if (act === 'img' && m === 'PUT') {
+    const thumb = new URL(request.url).searchParams.get('thumb') === '1';
+    const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!['image/webp', 'image/jpeg'].includes(type)) return error('bad_image', 400);
+    const data = await request.arrayBuffer();
+    if (!data.byteLength || data.byteLength > 4 * 1024 * 1024) return error('image_too_large', 413);
+    const r = await q(env, `gallery_scenes?select=img_ver&id=eq.${id}`);
+    if (!r || !r[0]) return error('not_found', 404);
+    await env.IMAGES.put(`gallery/${id}${thumb ? '-t' : ''}`, data, { httpMetadata: { contentType: type } });
+    if (thumb) return json({ ok: true });
+    const v = (r[0].img_ver || 0) + 1;
+    await q(env, `gallery_scenes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ img_ver: v, updated_at: new Date().toISOString() }) });
+    return json({ ok: true, img_ver: v });
+  }
+  if (!act && m === 'PATCH') {
+    const o = cleanGalleryScene(body, true);
+    if (o.error) return error(o.error, 400);
+    await q(env, `gallery_scenes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ ...o, updated_at: new Date().toISOString() }) });
+    return json({ ok: true });
+  }
+  if (!act && m === 'DELETE') {
+    await q(env, `gallery_scenes?id=eq.${id}`, { method: 'DELETE' });
+    await env.IMAGES.delete([`gallery/${id}`, `gallery/${id}-t`]).catch(() => {});
+    return json({ ok: true });
+  }
+  return error('not_found', 404);
 }
 
 // ---------- reports → e-mail, and the admin API ----------
@@ -1183,10 +1309,11 @@ async function admin(request, env, url) {
   if (!isAdmin(env, who)) return error('not_found', 404);                       // look like nothing is here
   const parts = url.pathname.split('/').filter(Boolean);                         // api, admin, …
   const m = request.method, what = parts[2], id = parts[3], act = parts[4];
-  const body = m === 'POST' ? await request.json().catch(() => ({})) : {};
+  const body = m === 'POST' || m === 'PATCH' ? await request.json().catch(() => ({})) : {};
   try {
     if (what === 'me' && m === 'GET') return json({ admin: true });
     if (what === 'ai-usage' && m === 'GET') return json(await aiUsageReport(env));
+    if (what === 'gallery') return await galleryAdmin(request, env, m, id, act, body);
     if (what === 'feedback' && !id && m === 'GET') {
       const all = url.searchParams.get('all') === '1';
       try {

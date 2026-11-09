@@ -884,6 +884,24 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 /* ---------- word sheets (dictation lists) ---------- */
 .createrow .cbtn.wide{grid-column:1/-1}
 .cbtn .ico{color:var(--pink)}
+.galhead{margin-top:8px}
+.galhead h2{display:flex;align-items:center;gap:8px}
+.galhead h2 .ico{width:24px;height:24px;color:#5b4fc4}
+.galcats{flex-wrap:wrap;margin:6px 0 12px}
+.galcats button .n{display:inline-block;margin-left:5px;font-size:12px;padding:0 6px;border-radius:999px;background:rgba(0,0,0,.08)}
+.galcats button.on .n{background:rgba(255,255,255,.22)}
+.galcard .meta2 .lv{color:var(--muted);font-size:12.5px}
+.galwords{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.galwords .pill{font-size:13px}
+.galrow{display:flex;gap:14px;align-items:flex-start}
+.galrow .galthumb{width:150px;flex:none;border-radius:10px;aspect-ratio:4/3;object-fit:cover;background:#f2ede6}
+.galrow .galthumb.none{display:grid;place-items:center;color:var(--muted);font-size:13px}
+.galrow .galinfo{flex:1;min-width:0}
+.galrow .galwl{white-space:normal;word-break:break-word}
+.galrow .row{flex-wrap:wrap;gap:6px}
+.galimp .chk{display:flex;gap:8px;align-items:center;margin:8px 0;font-size:14px}
+.aitable tr.tot td{font-weight:700}
+@media (max-width:620px){ .galrow{flex-direction:column} .galrow .galthumb{width:100%} }
 .fbstrip{display:flex;align-items:center;gap:12px;width:100%;margin:22px 0 4px;padding:12px 14px;border:1px dashed #cfc6e6;border-radius:16px;background:#fbf9ff;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
 .fbstrip:hover{background:#f3effc}
 .fbstrip .ic{width:38px;height:38px;border-radius:12px;background:#efeaf7;color:#5b4fc4;display:grid;place-items:center;flex:none}
@@ -965,6 +983,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
       </select></label>
     </div>
     <div class="libgrid" id="libList"></div>
+    <div id="galBox"></div>
   </section>
 
   <section id="wordsView" hidden></section>
@@ -2078,6 +2097,7 @@ function renderLibrary(){
   const box=$('#libList'); box.innerHTML='';
   if(!list.length){ box.append(el('div',{class:'libempty',text: q?`ไม่พบฉากหรือคำศัพท์ที่ตรงกับ “${LIB.q.trim()}”`:'ยังไม่มีฉากในหมวดนี้'})); return; }
   list.forEach(sc=>box.append(sceneCard(sc,{hit:hits[sc.id]})));
+  renderPicLib();
 }
 // ---------- my words: every word from every scene + a mixed review ----------
 // Scene pictures as short blob: URLs, so many small crops can share one decoded image.
@@ -2547,6 +2567,7 @@ function openPreview(id){
         el('span',{class:'sp'}),
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
+        ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id); }}) : null,
         sc.builtin || isList(sc) ? null : el('button',{text:'✏️ แก้ไขฉาก',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }}),
         sc.builtin || isList(sc) ? null : el('button',{text:'📝 เปลี่ยนชื่อ',onclick:()=>{ closeModal(); S.sceneId=sc.id; $('#renameBtn').click(); }}),
         sc.builtin ? null : el('button',{class:'danger',text:'🗑 ลบ',onclick:()=>{ closeModal(); S.sceneId=sc.id; deleteScene(); }}))
@@ -4898,7 +4919,7 @@ function openReportShare(id){
         closeModal(); toast(r && r.ok ? 'ส่งรายงานแล้ว ขอบคุณที่ช่วยดูแลความปลอดภัย' : 'ส่งรายงานไม่สำเร็จ ลองใหม่อีกครั้ง', 4000); }})));
   });
 }
-var ADM={ ok:false, all:false, data:null, open:{}, tab:'reports', ai:null, fb:null, fbAll:false, errs:null, stats:null };
+var ADM={ ok:false, all:false, data:null, open:{}, tab:'reports', ai:null, fb:null, fbAll:false, errs:null, stats:null, gal:null };
 async function adminApi(method, path, body){
   const tok=await accessToken();
   const r=await fetch('/api/admin'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined });
@@ -4914,14 +4935,15 @@ async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?a
 function renderAdmin(){
   const v=$('#adminView'); v.innerHTML='';
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🛡️ ดูแลระบบ'}), el('p',{text:'รายงานจากผู้ใช้ · ระงับบัญชี · ลบลิงก์แชร์'})),
-    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=ADM.ai=ADM.fb=ADM.errs=ADM.stats=null; renderAdmin(); }})));
+    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=ADM.ai=ADM.fb=ADM.errs=ADM.stats=ADM.gal=null; renderAdmin(); }})));
   if(!user || !ADM.ok){ v.append(el('p',{class:'libempty',text: user ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน'})); return; }
-  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI']];
+  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['gallery','🖼️ คลังภาพ'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI']];
   v.append(el('div',{class:'seg admtabs'}, ...tabs.map(([k,t])=>el('button',{class:ADM.tab===k?'on':'',text:t,onclick:()=>{ ADM.tab=k; if(k==='ai') ADM.ai=null; renderAdmin(); }}))));
   if(ADM.tab==='ai'){ renderAiUsage(v); return; }
   if(ADM.tab==='feedback'){ renderFeedbackAdmin(v); return; }
   if(ADM.tab==='stats'){ renderStatsAdmin(v); return; }
   if(ADM.tab==='errors'){ renderErrorsAdmin(v); return; }
+  if(ADM.tab==='gallery'){ renderGalleryAdmin(v); return; }
   v.append(el('div',{class:'seg'},
     el('button',{class:ADM.all?'':'on',text:'ยังไม่จัดการ',onclick:()=>{ ADM.all=false; ADM.data=null; renderAdmin(); }}),
     el('button',{class:ADM.all?'on':'',text:'ทั้งหมด',onclick:()=>{ ADM.all=true; ADM.data=null; renderAdmin(); }})));
@@ -5007,6 +5029,259 @@ function renderErrorsAdmin(v){
     el('p',{class:'note small',text:o.ua||''}),
     o.stack ? el('details',{}, el('summary',{text:'stack'}), el('pre',{class:'errstack',text:o.stack})) : null)));
 }
+// ---------- picture library (คลังภาพ): ready-made scenes made by the Piccab team, free to add (no AI credits) ----------
+var GAL={ data:null, busy:false, cat:'all' };   // var + function declarations: renderLibrary() may run before this part of the script
+var GAL_LV={ beginner:'เริ่มต้น', intermediate:'กลาง', advanced:'สูง' };
+var galAdded=store.get('pv-gal',{})||{};        // library scene id → my scene id
+var galEdits=store.get('pv-gal-edit',{})||{};   // (admin) my scene id → library scene id it is an editing copy of
+function galImg(g, thumb){ return `/g/${g.id}${thumb?'-t':''}.webp?v=${g.img_ver}`; }
+function catName(c){ return UI==='en' ? c.name_en : c.name_th; }
+function galMine(gid){ const sid=galAdded[gid]; return sid && scenes().some(x=>x.id===sid) ? sid : null; }
+function galEditOf(sid){ return galEdits[sid] && scenes().some(x=>x.id===sid) ? galEdits[sid] : null; }
+async function loadGallery(force){
+  if(GAL.busy || (GAL.data && !force)) return;
+  GAL.busy=true;
+  const r=await fetch('/api/gallery').then(x=>x.ok?x.json():null).catch(()=>null);
+  GAL.busy=false; GAL.data=r && Array.isArray(r.scenes) ? r : { categories:[], scenes:[], offline:!r };
+  if(S.view==='library') renderPicLib();
+}
+function renderPicLib(){
+  const box=$('#galBox'); if(!box) return;
+  box.innerHTML='';
+  if(LIB.f!=='all') return;
+  if(!GAL.data){ loadGallery(); return; }
+  const cats=GAL.data.categories||[], list=GAL.data.scenes||[];
+  if(!list.length) return;                         // nothing published yet (or offline)
+  const q=LIB.q.trim().toLowerCase(), n={};
+  list.forEach(g=>{ n[g.category]=(n[g.category]||0)+1; });
+  if(GAL.cat!=='all' && !n[GAL.cat]) GAL.cat='all';
+  const vis=list.filter(g=>(GAL.cat==='all' || g.category===GAL.cat) && (!q || g.title.toLowerCase().includes(q) || String(g.title_th||'').toLowerCase().includes(q)));
+  const chip=(id,label,k)=>el('button',{type:'button',class:GAL.cat===id?'on':'',onclick:()=>{ GAL.cat=id; renderPicLib(); }}, label, el('span',{class:'n',text:String(k)}));
+  box.append(
+    el('div',{class:'ghead lh galhead'}, el('div',{}, el('h2',{}, ic('photo_library'), 'คลังภาพ Piccab'), el('p',{text:`ฉากพร้อมคำศัพท์ ${list.length} ฉาก · เก็บเข้าคลังของคุณได้ฟรี ไม่ใช้เครดิต AI`}))),
+    el('div',{class:'fchips galcats',role:'group','aria-label':'หมวด'}, chip('all', el('span',{text:'ทั้งหมด'}), list.length),
+      ...cats.filter(c=>n[c.id]).map(c=>chip(c.id, el('span',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), n[c.id]))),
+    vis.length ? el('div',{class:'libgrid galgrid'}, ...vis.map(galCard)) : el('p',{class:'libempty',text:'ไม่พบฉากในคลังภาพที่ตรงกับคำค้น'}));
+}
+function galCard(g){
+  const mine=galMine(g.id);
+  return el('button',{class:'card lcard galcard',onclick:()=>openGalleryScene(g),'aria-label':'ดูฉาก '+g.title},
+    el('div',{class:'thumb'}, el('img',{alt:'',loading:'lazy',src:galImg(g,true)}),
+      mine ? el('span',{class:'own mine',title:'เก็บแล้ว'}, ic('check_circle-fill')) : null,
+      el('span',{class:'cnt',title:`${g.word_count} คำ`}, ic('sell-fill'), String(g.word_count))),
+    el('div',{class:'cbody'}, el('b',{text:g.title}),
+      el('div',{class:'meta2'}, UI==='en' ? null : el('span',{'data-noi18n':'',text:g.title_th||''}), el('span',{class:'lv',text:GAL_LV[g.level]||''}))));
+}
+function openGalleryScene(g){
+  const mine=galMine(g.id), cat=((GAL.data&&GAL.data.categories)||[]).find(c=>c.id===g.category);
+  let full=null;
+  openModal(m=>{
+    m.classList.add('wide');
+    const go=el('button',{class:'primary',text: mine ? '▶ เปิด' : '➕ เก็บเข้าคลังแล้วเริ่มเรียน'});
+    const words=el('div',{class:'galwords'}, el('span',{class:'note small',text:'กำลังโหลดคำศัพท์…'}));
+    fetch('/api/gallery/'+g.id).then(x=>x.ok?x.json():null).catch(()=>null).then(r=>{
+      full=r; words.replaceChildren(...(r ? Object.values(r.items||{}).map(it=>el('span',{class:'pill','data-noi18n':'',text:it.word})) : [el('span',{class:'note small',text:'โหลดคำศัพท์ไม่สำเร็จ'})]));
+    });
+    go.addEventListener('click',async()=>{
+      if(mine){ closeModal(); openScene(mine,'learn'); return; }
+      go.disabled=true; go.textContent='กำลังเก็บ…';
+      try{ const sid=await addGalleryScene(g, full); closeModal(); toast('เก็บฉากเข้าคลังแล้ว ✓'); openScene(sid,'learn'); }
+      catch(e){ go.disabled=false; go.textContent='➕ ลองอีกครั้ง'; toast('เก็บไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่'); }
+    });
+    m.append(el('div',{class:'pv-head'},
+        el('div',{}, el('h3',{'data-noi18n':'',text:g.title+(g.title_th && UI!=='en' ? ' · '+g.title_th : '')}),
+          el('div',{class:'meta'}, cat ? el('span',{'data-noi18n':'',text:`${cat.emoji} ${catName(cat)} · `}) : null, el('span',{text:`${g.word_count} คำศัพท์ · ระดับ${GAL_LV[g.level]||''}`}))),
+        el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
+      el('div',{class:'pv-fig sharefig'}, el('img',{alt:'',src:galImg(g)})),
+      words,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ไว้ทีหลัง',onclick:closeModal}), go),
+      el('p',{class:'note small',text:'ภาพในคลังสร้างด้วย AI · ฉากจะถูกเก็บในเครื่องนี้ (และในบัญชี ถ้าเข้าสู่ระบบ) แก้ไขในคลังของคุณได้ ไม่กระทบคนอื่น'}));
+  });
+}
+async function galCopy(g, full, name){
+  if(!full) full=await fetch('/api/gallery/'+g.id).then(x=>x.ok?x.json():null).catch(()=>null);
+  if(!full) throw new Error('scene');
+  const res=await fetch(galImg(g)); if(!res.ok) throw new Error('picture');
+  const img=await blobToDataUrl(await res.blob());
+  const sc={ id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(name||full.title).slice(0,50), w:full.w, h:full.h, items:JSON.parse(JSON.stringify(full.items||{})), img };
+  customs.push(sc); saveScenes();
+  return sc.id;
+}
+async function addGalleryScene(g, full){
+  const sid=await galCopy(g, full);
+  galAdded[g.id]=sid; store.set('pv-gal',galAdded); tally('gallery_add');
+  return sid;
+}
+
+// 🖼️ Admin: what the library holds, import from Gemini (picture + JSON), publish, fix boxes
+function galStats(D){
+  const per={}, all=new Set(); let words=0, noTh=0, noDe=0;
+  const P=id=>per[id]||(per[id]={ pub:0, draft:0, words:0, uniq:new Set() });
+  D.categories.forEach(c=>P(c.id));
+  D.scenes.forEach(g=>{ const p=P(g.category); (g.published && g.img_ver) ? p.pub++ : p.draft++;
+    Object.values(g.items||{}).forEach(it=>{ const k=String(it.word||'').toLowerCase(); words++; p.words++; p.uniq.add(k); all.add(k); if(!it.th) noTh++; if(!(it.l && it.l.de)) noDe++; }); });
+  return { per, words, uniq:all.size, noTh, noDe, used:D.categories.filter(c=>per[c.id].pub+per[c.id].draft).length };
+}
+function renderGalleryAdmin(v){
+  if(adminLoad('gal','/gallery','gallery')){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); return; }
+  const D=ADM.gal;
+  if(D.error){ v.append(el('p',{class:'err',text:D.error})); return; }
+  if(D.setup){ v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังไม่ได้เปิดใช้'})),
+    el('p',{text:'รันไฟล์ supabase/2026-11-gallery.sql ใน Supabase → SQL Editor ครั้งเดียว แล้วหมวดทั้ง 12 หมวดจะพร้อมใช้'}))); return; }
+  const st=galStats(D), pub=D.scenes.filter(g=>g.published && g.img_ver).length;
+  const card=(title,big,sub)=>el('div',{class:'aicard'}, el('h4',{text:title}), el('div',{class:'aibig'}, el('b',{text:String(big)})), sub?el('p',{class:'note small',text:sub}):null);
+  v.append(el('div',{class:'aicards'},
+    card('หมวด', D.categories.length, `มีฉากแล้ว ${st.used} หมวด`),
+    card('ฉาก', D.scenes.length, `เผยแพร่ ${pub} · ฉบับร่าง ${D.scenes.length-pub}`),
+    card('คำศัพท์ทั้งหมด', st.words, `คำไม่ซ้ำ ${st.uniq} คำ`),
+    card('ต้องตรวจ', st.noTh, `คำที่ยังไม่มีคำแปลไทย · ไม่มีภาษาเยอรมัน ${st.noDe} คำ`)));
+  const tb=el('table',{class:'aitable stat'}, el('tr',{}, ...['หมวด','เผยแพร่','ฉบับร่าง','คำ','คำไม่ซ้ำ'].map(h=>el('th',{text:h}))));
+  D.categories.forEach(c=>{ const p=st.per[c.id]; tb.append(el('tr',{}, el('td',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), ...[p.pub,p.draft,p.words,p.uniq.size].map(x=>el('td',{text:String(x)})))); });
+  tb.append(el('tr',{class:'tot'}, el('td',{text:'รวม'}), ...[pub, D.scenes.length-pub, st.words, st.uniq].map(x=>el('td',{text:String(x)}))));
+  v.append(el('h4',{class:'aih',text:'แต่ละหมวด'}), el('div',{class:'aitablewrap'}, tb));
+  // import
+  const inp=el('input',{type:'file',multiple:'',accept:'image/png,image/jpeg,image/webp,.json,.txt',hidden:'',class:'galfiles'});
+  inp.addEventListener('change',()=>{ const f=[...inp.files]; inp.value=''; if(f.length) galImport(f); });
+  const crop=el('input',{type:'checkbox',class:'galcrop'}); crop.checked=GA.crop; crop.addEventListener('change',()=>{ GA.crop=crop.checked; });
+  v.append(el('div',{class:'admcard galimp'},
+    el('h4',{text:'📥 นำเข้าจาก Gemini'}),
+    el('p',{class:'note',text:'เลือกรูปกับไฟล์ JSON ที่ชื่อเดียวกัน เช่น kitchen.png + kitchen.json เลือกหลายฉากพร้อมกันได้ ฉากที่นำเข้าจะเป็นฉบับร่าง ตรวจกรอบก่อนแล้วค่อยกดเผยแพร่'}),
+    el('label',{class:'chk'}, crop, el('span',{text:'ตัดขอบขวาและล่าง 4% (ลบลายน้ำ Gemini ที่มุมขวาล่าง)'})),
+    el('div',{class:'row'}, el('button',{class:'primary',text:'เลือกไฟล์…',onclick:()=>inp.click()})), inp));
+  // scenes by category
+  D.categories.forEach(c=>{
+    const list=D.scenes.filter(g=>g.category===c.id); if(!list.length) return;
+    v.append(el('h4',{class:'aih','data-noi18n':'',text:`${c.emoji} ${catName(c)} (${list.length})`}));
+    list.forEach(g=>v.append(galAdminRow(g, D)));
+  });
+  const orphan=D.scenes.filter(g=>!D.categories.some(c=>c.id===g.category));
+  orphan.forEach(g=>v.append(galAdminRow(g, D)));
+}
+function galAdminRow(g, D){
+  const items=Object.values(g.items||{}), live=g.published && g.img_ver;
+  const edit=Object.keys(galEdits).find(sid=>galEdits[sid]===g.id && scenes().some(x=>x.id===sid));
+  const patch=async(body, okMsg)=>{ const r=await adminApi('PATCH','/gallery/'+g.id, body).catch(()=>({ok:false})); toast(r.ok ? okMsg : 'บันทึกไม่สำเร็จ'); ADM.gal=null; GAL.data=null; renderAdmin(); };
+  const sel=el('select',{'aria-label':'หมวด'}, ...D.categories.map(c=>el('option',{value:c.id,text:`${c.emoji} ${catName(c)}`})));
+  sel.value=g.category; sel.addEventListener('change',()=>patch({ category:sel.value }, 'ย้ายหมวดแล้ว'));
+  return el('div',{class:'admcard galrow'},
+    g.img_ver ? el('img',{class:'galthumb',alt:'',loading:'lazy',src:galImg(g,true)}) : el('div',{class:'galthumb none',text:'ไม่มีรูป'}),
+    el('div',{class:'galinfo'},
+      el('div',{class:'admtop'}, el('b',{'data-noi18n':'',text:g.title+(g.title_th?' · '+g.title_th:'')}),
+        el('span',{class:'pill'+(live?' ok':''),text: live ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})),
+      el('p',{class:'note small',text:`${items.length} คำ · ระดับ${GAL_LV[g.level]||''} · ${g.w}×${g.h}`}),
+      el('p',{class:'note small galwl','data-noi18n':'',text:items.map(it=>it.word+(it.th?'':' (?)')).join(', ')}),
+      el('div',{class:'row'}, sel, el('span',{class:'sp'}),
+        el('button',{class:live?'':'primary',text: live ? 'ซ่อน' : 'เผยแพร่',...(g.img_ver?{}:{disabled:''}),onclick:()=>patch({ published:!g.published }, g.published ? 'ซ่อนแล้ว' : 'เผยแพร่แล้ว ✓')}),
+        edit ? el('button',{class:'primary',text:'⬆️ อัปเดตจากฉบับแก้ไข',onclick:()=>galPushEdit(edit)}) : null,
+        el('button',{text:'✏️ แก้กรอบ',onclick:()=>galEditLocal(g, edit)}),
+        el('button',{text:'📝 ชื่อ',onclick:()=>{ const t=prompt('ชื่อฉาก (อังกฤษ)', g.title); if(t==null || !t.trim()) return; const th=prompt('ชื่อฉาก (ไทย)', g.title_th||''); patch({ title:t, title_th:th==null?g.title_th:th }, 'เปลี่ยนชื่อแล้ว'); }}),
+        el('button',{class:'danger',text:'🗑',title:'ลบ',onclick:async()=>{ if(!confirm(`ลบ “${g.title}” ออกจากคลังภาพ? คนที่เก็บไปแล้วยังมีฉากนี้อยู่`)) return;
+          const r=await adminApi('DELETE','/gallery/'+g.id).catch(()=>({ok:false})); toast(r.ok?'ลบแล้ว':'ลบไม่สำเร็จ'); ADM.gal=null; GAL.data=null; renderAdmin(); }}))));
+}
+// Fix boxes with the normal editor: copy the library scene into my library, edit it, then send the boxes back.
+async function galEditLocal(g, existing){
+  if(existing){ openScene(existing,'learn',true); return; }
+  toast('กำลังเปิด…', 8000);
+  try{
+    const sid=await galCopy(g, g, '✏️ '+g.title);
+    galEdits[sid]=g.id; store.set('pv-gal-edit',galEdits);
+    openScene(sid,'learn',true);
+    toast('แก้กรอบหรือคำได้เลย เสร็จแล้วกลับไปที่ 🛡️ ดูแลระบบ → 🖼️ คลังภาพ แล้วกด ⬆️ อัปเดตจากฉบับแก้ไข', 7000);
+  }catch(e){ toast('เปิดไม่สำเร็จ'); }
+}
+async function galPushEdit(sid){
+  const sc=scenes().find(x=>x.id===sid), gid=galEdits[sid]; if(!sc || !gid) return;
+  const r=await adminApi('PATCH','/gallery/'+gid,{ items:sc.items, w:sc.w, h:sc.h }).catch(()=>({ok:false}));
+  toast(r.ok ? 'อัปเดตคลังภาพแล้ว ✓' : 'อัปเดตไม่สำเร็จ');
+  if(r.ok){ ADM.gal=null; GAL.data=null; if(S.view==='admin') renderAdmin(); }
+}
+var GA={ crop:true };
+// Gemini's answer: {"category","title","title_th","level","items":[{word, th, alts, de, de_art, de_alts, box_2d}]} (or just the items array)
+function galParse(text){
+  const s=String(text||''), a=s.indexOf('{'), b=s.lastIndexOf('}'), a2=s.indexOf('['), b2=s.lastIndexOf(']');
+  let o=null;
+  try{
+    if(a>=0 && b>a && (a2<0 || a<a2)) o=JSON.parse(s.slice(a,b+1));
+    else if(a2>=0 && b2>a2) o={ items:JSON.parse(s.slice(a2,b2+1)) };
+  }catch(e){ o=null; }
+  if(!o || !Array.isArray(o.items)) throw new Error('อ่าน JSON ไม่ได้');
+  return o;
+}
+// box_2d is 0-1000 of the picture Gemini made; the saved picture may be cropped (watermark) and smaller.
+function galItems(list, W0, H0, W1, H1, k){
+  const items={}, seen=new Set();
+  for(const r of list){
+    if(!r || typeof r.word!=='string') continue;
+    const word=r.word.trim().replace(/\s+/g,' ').slice(0,60), key=word.toLowerCase();
+    if(!word || seen.has(key)) continue;
+    let bx=null;
+    if(Array.isArray(r.box_2d) && r.box_2d.length>=4){ const [y0,x0,y1,x1]=r.box_2d.slice(0,4).map(Number); bx=[x0,y0,x1,y1]; }
+    else if(Array.isArray(r.box) && r.box.length>=4) bx=r.box.slice(0,4).map(Number);
+    if(!bx || bx.some(v=>!Number.isFinite(v))) continue;
+    const x0=Math.max(0,Math.min(bx[0],bx[2])/1000*W0), x1=Math.min(W1,Math.max(bx[0],bx[2])/1000*W0);
+    const y0=Math.max(0,Math.min(bx[1],bx[3])/1000*H0), y1=Math.min(H1,Math.max(bx[1],bx[3])/1000*H0);
+    if(x1-x0<8 || y1-y0<8) continue;
+    seen.add(key);
+    const it={ word, th:String(r.th||'').trim().slice(0,120),
+      alts:(Array.isArray(r.alts)?r.alts:[]).filter(a=>typeof a==='string' && a.trim()).slice(0,4).map(a=>a.trim().slice(0,60)),
+      x:Math.round(x0*k), y:Math.round(y0*k), w:Math.round((x1-x0)*k), h:Math.round((y1-y0)*k) };
+    const l=typeof r.de==='string' && r.de.trim() ? cleanLang({ de:{ w:r.de, a:r.de_art, alts:r.de_alts } }) : null;
+    if(l) it.l=l;
+    items['g'+Object.keys(items).length.toString(36)+Math.random().toString(36).slice(2,6)]=it;
+  }
+  return items;
+}
+async function galEncode(src, sw, sh, w, h, q){
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const x=c.getContext('2d'); x.imageSmoothingQuality='high'; x.drawImage(src,0,0,sw,sh,0,0,w,h);
+  let b=await new Promise(r=>c.toBlob(r,'image/webp',q));
+  if(!b || b.type!=='image/webp') b=await new Promise(r=>c.toBlob(r,'image/jpeg',q));   // Safari cannot make WebP
+  return b;
+}
+async function galPutImg(id, blob, thumb){
+  const tok=await accessToken();
+  const r=await fetch(`/api/admin/gallery/${id}/img${thumb?'?thumb=1':''}`,{ method:'PUT', headers:{ 'content-type':blob.type, ...(tok?{authorization:'Bearer '+tok}:{}) }, body:blob });
+  if(!r.ok) throw new Error('อัปโหลดรูปไม่สำเร็จ ('+r.status+')');
+}
+async function galImportOne(p, cats){
+  const meta=galParse(await p.json.text());
+  const bmp=await createImageBitmap(p.img);
+  const W0=bmp.width, H0=bmp.height, cut=GA.crop ? 0.04 : 0;
+  const W1=Math.round(W0*(1-cut)), H1=Math.round(H0*(1-cut)), k=Math.min(1, 1600/Math.max(W1,H1));
+  const W=Math.round(W1*k), H=Math.round(H1*k);
+  const items=galItems(meta.items, W0, H0, W1, H1, k);
+  if(!Object.keys(items).length) throw new Error('ไม่มีคำที่ใช้ได้');
+  const cat=String(meta.category||'').trim().toLowerCase();
+  const r=await adminApi('POST','/gallery',{ category: cats.includes(cat) ? cat : cats[0], title:String(meta.title||p.name).slice(0,60),
+    title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items }).catch(()=>({ok:false,j:{}}));
+  if(!r.ok) throw new Error((r.j && r.j.error) || 'บันทึกไม่สำเร็จ');
+  await galPutImg(r.j.id, await galEncode(bmp, W1, H1, 480, Math.round(H*480/W), 0.8), true);
+  await galPutImg(r.j.id, await galEncode(bmp, W1, H1, W, H, 0.86), false);
+  return { n:Object.keys(items).length, catOk:cats.includes(cat) };
+}
+async function galImport(files){
+  const by={};
+  for(const f of files){
+    const name=f.name.replace(/\.[^.]+$/,''), key=name.toLowerCase(), o=by[key]||(by[key]={ name });
+    if(/^image\//.test(f.type)) o.img=f; else o.json=f;
+  }
+  const pairs=Object.values(by), cats=(ADM.gal && ADM.gal.categories || []).map(c=>c.id);
+  const done=[], fail=[], half=pairs.filter(p=>!p.img || !p.json).map(p=>p.name+(p.img?' (ไม่มี JSON)':' (ไม่มีรูป)'));
+  let i=0;
+  for(const p of pairs.filter(p=>p.img && p.json)){
+    toast(`กำลังนำเข้า ${++i}: ${p.name}…`, 60000);
+    try{ const r=await galImportOne(p, cats); done.push(`${p.name}: ${r.n} คำ`+(r.catOk?'':' (ไม่รู้จักหมวด ใส่ไว้หมวดแรก)')); }
+    catch(e){ fail.push(`${p.name}: ${e && e.message || e}`); }
+  }
+  toast('นำเข้าเสร็จแล้ว', 1500);
+  ADM.gal=null; renderAdmin();
+  openModal(m=>m.append(el('h3',{text:'📥 นำเข้าคลังภาพ'}),
+    el('p',{}, el('b',{text:`นำเข้าแล้ว ${done.length} ฉาก`})), ...done.map(t=>el('p',{class:'note small','data-noi18n':'',text:'✓ '+t})),
+    fail.length ? el('p',{}, el('b',{text:'ไม่สำเร็จ'})) : null, ...fail.map(t=>el('p',{class:'note small err','data-noi18n':'',text:'✗ '+t})),
+    half.length ? el('p',{}, el('b',{text:'ไฟล์ไม่ครบคู่'})) : null, ...half.map(t=>el('p',{class:'note small','data-noi18n':'',text:t})),
+    done.length ? el('p',{class:'note',text:'ฉากที่นำเข้าเป็นฉบับร่าง ตรวจกรอบ (✏️ แก้กรอบ) แล้วกด “เผยแพร่”'}) : null,
+    el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'ตกลง',onclick:closeModal}))));
+}
 function renderStatsAdmin(v){
   if(adminLoad('stats','/stats','stats')){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); return; }
   const A=ADM.stats;
@@ -5035,7 +5310,7 @@ function renderStatsAdmin(v){
     el('p',{class:'note small aileg'}, el('span',{class:'k t'}),' เครื่องใหม่ ', el('span',{class:'k s'}),' เครื่องที่เคยเปิดแล้ว'));
   // what people did (30 days)
   const acts=[['mode:learn','👀 ดูคำศัพท์'],['mode:quiz','⌨️ ทบทวน (พิมพ์)'],['mode:find','👂 ฟังแล้วหา'],['mode:speak','🎤 ฝึกพูด'],['review','🔁 รอบทบทวน'],['mock','📝 สอบจำลอง'],
-    ['scene_new','📷 สร้างฉากจากรูป'],['ai_scene','✨ AI หาคำ'],['sheet_new','📝 ชีทคำศัพท์'],['share','🔗 สร้างลิงก์แชร์'],['class_join','🎓 เข้าห้องเรียน'],['feedback','💬 ส่งความเห็น'],
+    ['scene_new','📷 สร้างฉากจากรูป'],['ai_scene','✨ AI หาคำ'],['sheet_new','📝 ชีทคำศัพท์'],['gallery_add','🖼️ เก็บฉากจากคลังภาพ'],['share','🔗 สร้างลิงก์แชร์'],['class_join','🎓 เข้าห้องเรียน'],['feedback','💬 ส่งความเห็น'],
     ['ui:en','🇬🇧 ใช้เมนูอังกฤษ (เครื่อง-วัน)'],['lang:de','🇩🇪 ฝึกเยอรมัน (เครื่อง-วัน)'],['installed','📲 เปิดจากแอปที่ติดตั้ง (เครื่อง-วัน)']];
   const tb=el('table',{class:'aitable stat'}, el('tr',{}, ...['สิ่งที่ทำ','7 วัน','30 วัน'].map(h=>el('th',{text:h}))));
   acts.forEach(([k,t])=>tb.append(el('tr',{}, el('td',{text:t}), el('td',{text:String(sum(k,7))}), el('td',{text:String(sum(k,30))}))));
