@@ -922,6 +922,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .fbkind{flex-wrap:wrap;margin:6px 0 10px}
 .fbbox textarea{width:100%;box-sizing:border-box;border:1px solid #e4dacd;border-radius:14px;padding:10px 12px;font-size:16px;line-height:1.5;resize:vertical;background:#fff;font-family:'Sarabun',system-ui,sans-serif;margin-bottom:8px}
 .fbbox input[type=email]{width:100%;box-sizing:border-box}
+.fbbox .fbmail{display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--muted)}
 .fbbox h3{display:flex;align-items:center;gap:8px}
 .linkbtn.wslink{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:14px;color:#5b4fc4}
 .linkbtn.wslink .ico{width:18px;height:18px}
@@ -2059,7 +2060,7 @@ function openFeedback(kind){
     const ta=el('textarea',{rows:'5',maxlength:'2000','aria-label':'ข้อความ'});
     const drawSeg=()=>{ seg.replaceChildren(...kinds.map(([v,t])=>el('button',{type:'button',class:v===k?'on':'',onclick:()=>{ k=v; drawSeg(); }}, t))); ta.placeholder=kinds.find(x=>x[0]===k)[2]; };
     drawSeg();
-    const mail=el('input',{type:'email',maxlength:'200',autocomplete:'email','aria-label':'อีเมลสำหรับตอบกลับ',placeholder:'อีเมล (ถ้าอยากให้เราตอบกลับ)',value:(user && !isStudent() && user.email)||''});
+    const mail=el('input',{type:'email',maxlength:'200',autocomplete:'email','aria-label':'อีเมลสำหรับตอบกลับ',placeholder:'name@example.com',value:(user && !isStudent() && user.email)||''});
     const err=el('p',{class:'err'});
     const go=el('button',{class:'primary',text:'ส่ง'});
     go.addEventListener('click',async()=>{
@@ -2078,7 +2079,7 @@ function openFeedback(kind){
     });
     m.append(el('h3',{}, ic('chat'), 'ส่งความเห็น'),
       el('p',{class:'note',text:'ทุกข้อความมีคนอ่านจริง ช่วยให้ Piccab ดีขึ้นมาก'}),
-      seg, ta, mail,
+      seg, ta, el('label',{class:'fbmail'}, el('span',{text:'อีเมลของคุณ สำหรับให้เราตอบกลับ (ไม่บังคับ)'}), mail),
       el('p',{class:'note small',text:'ระบบจะแนบหน้าที่คุณใช้อยู่และรุ่นเบราว์เซอร์ไปด้วย เพื่อช่วยหาสาเหตุ ไม่แนบรูปหรือคำศัพท์ของคุณ'}),
       err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
     setTimeout(()=>ta.focus(),50);

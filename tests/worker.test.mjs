@@ -864,3 +864,23 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('picture library tests passed');
 }
+
+// feedback e-mail goes to FEEDBACK_EMAIL (reports stay on ADMIN_NOTIFY_EMAIL), reply-to = the sender
+{
+  const { notifyTo } = await import('../src/worker.js');
+  assert.deepEqual(notifyTo({}), ['contact@piccab.com']);
+  assert.deepEqual(notifyTo({ ADMIN_NOTIFY_EMAIL:'a@x.co, b@x.co' }), ['a@x.co','b@x.co']);
+  assert.deepEqual(notifyTo({ ADMIN_NOTIFY_EMAIL:'a@x.co' }, { to:'feedback@piccab.com' }), ['feedback@piccab.com']);
+  assert.deepEqual(notifyTo({ ADMIN_NOTIFY_EMAIL:'a@x.co' }, { to:undefined }), ['a@x.co']);
+  const saved = globalThis.fetch; const sent = [];
+  globalThis.fetch = async (url, init) => { if (String(url).includes('resend.com')) sent.push(JSON.parse(init.body)); return new Response(null, { status: 201 }); };
+  const waits = []; const ctx = { waitUntil: p => waits.push(p) };
+  const env = { SUPABASE_SECRET_KEY:'sb_secret_test', RESEND_API_KEY:'re_test', ADMIN_NOTIFY_EMAIL:'contact@piccab.com', FEEDBACK_EMAIL:'feedback@piccab.com' };
+  const r = await worker.fetch(new Request('https://piccab.com/api/feedback', post({ kind:'problem', message:'เสียงไม่ออก', contact:'mom@example.com' })), { ASSETS: assets, ...env }, ctx);
+  assert.equal(r.status, 200); await Promise.all(waits);
+  assert.deepEqual(sent.at(-1).to, ['feedback@piccab.com']); assert.equal(sent.at(-1).reply_to, 'mom@example.com');
+  await worker.fetch(new Request('https://piccab.com/api/feedback', post({ message:'no contact' })), { ASSETS: assets, ...env }, ctx); await Promise.all(waits);
+  assert.equal('reply_to' in sent.at(-1), false);
+  globalThis.fetch = saved;
+  console.log('feedback e-mail tests passed');
+}
