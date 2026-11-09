@@ -1,7 +1,6 @@
 """Picture library (คลังภาพ): the admin imports a Gemini picture + JSON, sees the counts, fixes boxes and publishes;
 a visitor finds the scene in the library by category and adds it to their own library (no AI)."""
-import asyncio, json, os, tempfile, urllib.request
-from PIL import Image, ImageDraw
+import asyncio, json, os, struct, tempfile, urllib.request, zlib
 from playwright.async_api import async_playwright
 from common import *
 BASE=SERVER
@@ -15,11 +14,19 @@ async def login(pg, em):
     await pg.type('.mbox input.code','123456'); await pg.press('.mbox input.code','Enter'); await pg.wait_for_timeout(2500)
 def fake(path):
     with urllib.request.urlopen(urllib.request.Request(FAKE+path, headers={'apikey':'sb_secret_test','authorization':'Bearer sb_secret_test'})) as x: return json.loads(x.read() or b'null')
+def png(path, w, h, shapes, bg):
+    # a small PNG writer (no Pillow on CI): shapes = [(x0, y0, x1, y1, (r,g,b))], drawn as rectangles
+    rows=[]
+    for y in range(h):
+        row=bytearray(bg*w)
+        for x0,y0,x1,y1,c in shapes:
+            if y0<=y<y1: row[x0*3:x1*3]=bytes(c)*(x1-x0)
+        rows.append(b'\x00'+bytes(row))
+    chunk=lambda t,d: struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
+    open(path,'wb').write(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b''))
 def files():
     d=tempfile.mkdtemp()
-    im=Image.new('RGB',(1200,900),'#f4ead8'); g=ImageDraw.Draw(im)
-    g.rectangle((100,100,400,400),fill='#c0392b'); g.ellipse((600,150,800,350),fill='#f1c40f'); g.rectangle((300,550,900,800),fill='#2c7be5')
-    im.save(os.path.join(d,'Kitchen.png'))
+    png(os.path.join(d,'Kitchen.png'), 1200, 900, [(100,100,400,400,(192,57,43)),(600,150,800,350,(241,196,15)),(300,550,900,800,(44,123,229))], (244,234,216))
     gem={"piccab":1,"category":"home","title":"Kitchen","title_th":"ห้องครัว","level":"beginner","items":[
         {"word":"red box","th":"กล่องสีแดง","alts":[],"de":"Kiste","de_art":"die","de_alts":[],"box_2d":[111,83,444,333]},
         {"word":"sun","th":"ดวงอาทิตย์","alts":[],"box_2d":[167,500,389,667]},
