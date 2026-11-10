@@ -888,3 +888,39 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('feedback e-mail tests passed');
 }
+
+// ---------- 🧪 admin: the same picture through Gemini and Claude ----------
+{
+  const saved = globalThis.fetch; const seen = [];
+  globalThis.fetch = async (url, init = {}) => {
+    url = String(url);
+    if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: '33333333-3333-3333-3333-333333333333', email: init.headers.authorization === 'Bearer cmp-boss' ? 'boss@piccab.th' : 'kid@x.th' }));
+    if (url.includes('/rest/v1/')) throw new Error('compare must not touch the database: ' + url);   // no credits, no ai_usage rows
+    if (url.includes('generativelanguage')) { seen.push(url.split('/models/')[1]);
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","th":"ถ้วย","box_2d":[100,200,300,400]}]' }] } }], usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 200, thoughtsTokenCount: 800 } })); }
+    if (url.includes('api.anthropic.com')) { const b = JSON.parse(init.body); seen.push(b.model);
+      return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '[{"word":"cup","th":"ถ้วย","box":[200,100,400,300]},{"word":"spoon","th":"ช้อน","box":[1,2,3,4]}]' }], usage: { input_tokens: 2000, output_tokens: 1000 } })); }
+    throw new Error('unexpected ' + url);
+  };
+  const E = { ASSETS: assets, GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a', SUPABASE_SECRET_KEY: 'sb_secret_x', ADMIN_EMAILS: 'boss@piccab.th' };
+  const cmp = (body, who = 'cmp-boss') => worker.fetch(new Request('https://piccab.com/api/admin/compare', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + who }, body: JSON.stringify(body) }), E);
+  let r = await cmp({ image: img, gemini: 'gemini-3.8-flash', claude: 'claude-sonnet-5-5' });
+  assert.equal(r.status, 200);
+  const { results } = await r.json();
+  const [g, c] = results;
+  assert.equal(g.provider, 'gemini'); assert.equal(g.model, 'gemini-3.8-flash'); assert.equal(c.model, 'claude-sonnet-5-5');
+  assert.deepEqual(seen.sort(), ['claude-sonnet-5-5', 'gemini-3.8-flash:generateContent']);   // only the chosen models
+  assert.deepEqual(g.items[0].box, [200, 100, 400, 300]); assert.deepEqual(c.items[0].box, [200, 100, 400, 300]);   // same box format for both
+  assert.equal(g.tok_out, 1000);                                                   // thinking counted
+  assert.ok(Math.abs(g.cost_usd - (1000 * 0.75 + 1000 * 3.75) / 1e6) < 1e-12);
+  assert.ok(Math.abs(c.cost_usd - (2000 * 2 + 1000 * 10) / 1e6) < 1e-12);
+  // unknown models fall back to the cheapest of each; a missing key is reported, not fatal
+  seen.length = 0;
+  r = await worker.fetch(new Request('https://piccab.com/api/admin/compare', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer cmp-boss' }, body: JSON.stringify({ image: img, gemini: 'gpt-x', claude: 'x' }) }), { ...E, ANTHROPIC_API_KEY: '' });
+  const two = (await r.json()).results;
+  assert.equal(two[0].model, 'gemini-3.5-flash-lite'); assert.equal(two[1].error, 'not_configured'); assert.deepEqual(seen, ['gemini-3.5-flash-lite:generateContent']);
+  assert.equal((await cmp({ image: 'data:text/html;base64,AAAA' })).status, 400);
+  assert.equal((await cmp({ image: img }, 'cmp-kid')).status, 404);              // admins only
+  globalThis.fetch = saved;
+  console.log('AI compare tests passed');
+}
