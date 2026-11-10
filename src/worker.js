@@ -285,7 +285,7 @@ export function freeRpd(env) {
   return out;
 }
 // Paid prices per 1M tokens (USD), used only to estimate "what would this have cost on the paid tier".
-const PAID_PRICE = { 'gemini-3.8-flash': [0.75, 3.75], 'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.5-flash-lite': [0.30, 2.50], 'claude-haiku-5-5': [0.10, 0.50] };
+const PAID_PRICE = { 'gemini-3.8-flash': [0.75, 3.75], 'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.5-flash-lite': [0.30, 2.50], 'claude-haiku-5-5': [0.10, 0.50], 'claude-sonnet-5-5': [2.00, 10.00] };
 // Midnight in a time zone, as a Date: Thai days for the counts, Pacific days for Google's daily quota.
 export function zoneMidnight(now, timeZone) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -501,6 +501,32 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
   const u = data.usageMetadata;
   // thinking tokens are billed as output too
   return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } : undefined };
+}
+
+// ---------- 🧪 admin: one picture through Gemini and Claude, side by side ----------
+// No credits and nothing saved (not in ai_usage either): it's for choosing a provider, not for making scenes.
+export const COMPARE_MODELS = { gemini: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'], claude: ['claude-haiku-5-5', 'claude-sonnet-5-5'] };
+async function compareAI(env, body) {
+  const m = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+  if (!m || !IMAGE_TYPES.includes(m[1])) return error('bad_image', 400);
+  if (m[2].length > MAX_IMAGE_BYTES) return error('image_too_large', 413);
+  const count = clampInt(body.count, 5, 30, 20);
+  const level = LEVELS[body.level] ? body.level : 'mid';
+  const langs = (Array.isArray(body.langs) ? body.langs : []).filter(l => AI_LANGS[l]).slice(0, 3);
+  const pick = (p, want) => COMPARE_MODELS[p].includes(want) ? want : COMPARE_MODELS[p][0];
+  const run = async provider => {
+    const model = pick(provider, body[provider]);
+    if (!(provider === 'gemini' ? env.GEMINI_API_KEY : env.ANTHROPIC_API_KEY)) return { provider, model, ok: false, error: 'not_configured', items: [] };
+    const e = provider === 'gemini' ? { ...env, GEMINI_MODEL: model } : { ...env, CLAUDE_MODEL: model };
+    const log = [], t0 = Date.now(), prompt = buildPrompt(count, level, [], provider, langs);
+    const res = provider === 'gemini' ? await scanGemini(e, m[1], m[2], prompt, parseItems, log) : await scanClaude(e, m[1], m[2], prompt, parseItems, log);
+    const b = await res.json().catch(() => ({}));
+    const tin = log.reduce((t, x) => t + (x.tok_in || 0), 0), tout = log.reduce((t, x) => t + (x.tok_out || 0), 0);
+    const price = PAID_PRICE[model];
+    return { provider, model, ok: res.status === 200, error: res.status === 200 ? undefined : (b.error || 'error'), items: Array.isArray(b.items) ? b.items : [],
+      ms: Date.now() - t0, tok_in: tin, tok_out: tout, cost_usd: price ? (tin * price[0] + tout * price[1]) / 1e6 : null };
+  };
+  return json({ results: await Promise.all(['gemini', 'claude'].map(run)) });
 }
 
 // ---------- scene pictures in R2 ----------
@@ -1334,6 +1360,7 @@ async function admin(request, env, url) {
   try {
     if (what === 'me' && m === 'GET') return json({ admin: true });
     if (what === 'ai-usage' && m === 'GET') return json(await aiUsageReport(env));
+    if (what === 'compare' && m === 'POST') return await compareAI(env, body);
     if (what === 'gallery') return await galleryAdmin(request, env, m, id, act, body);
     if (what === 'feedback' && !id && m === 'GET') {
       const all = url.searchParams.get('all') === '1';

@@ -38,6 +38,24 @@ async def main():
             out[name+'_quota']=await A.inner_text('.aicard.wide')
             out[name+'_cols']=await A.locator('.aicol').count()
             await A.screenshot(path=shot(f'aiu_{name}.png'), full_page=True)
+            # 🧪 compare: the same picture from Gemini and Claude side by side (the AI answers are faked here; the Worker is unit-tested)
+            sent=[]
+            async def fake_compare(r):
+                sent.append(json.loads(r.request.post_data))
+                res=[{'provider':'gemini','model':'gemini-3.5-flash-lite','ok':True,'items':[{'word':'chair','th':'เก้าอี้','box':[100,400,300,900]},{'word':'lamp','th':'โคมไฟ','box':[600,50,800,400]}],'ms':9100,'tok_in':1800,'tok_out':2600,'cost_usd':0.00704},
+                     {'provider':'claude','model':'claude-haiku-5-5','ok':True,'items':[{'word':'chair','th':'เก้าอี้','box':[120,420,320,880]},{'word':'lamp','th':'โคมไฟ','box':[610,60,790,380]},{'word':'rug','th':'พรม','box':[200,800,900,990]}],'ms':6200,'tok_in':2100,'tok_out':1300,'cost_usd':0.00086}]
+                await r.fulfill(status=200, content_type='application/json', body=json.dumps({'results':res}))
+            await A.route('**/api/admin/compare', fake_compare)
+            await A.click('.admtabs button:has-text("เทียบ AI")'); await A.wait_for_timeout(300)
+            out[name+'_cmp_disabled']=await A.locator('.cmpctl button.primary').is_disabled()
+            await A.set_input_files('.cmpctl input[type=file]', PHOTO); await A.wait_for_timeout(800)
+            await A.click('.cmpctl button.primary'); await A.wait_for_timeout(800)
+            out[name+'_cmp_sent']=bool(sent) and sent[0]['image'].startswith('data:image/jpeg') and sent[0]['gemini']=='gemini-3.5-flash-lite' and sent[0]['claude']=='claude-haiku-5-5'
+            out[name+'_cmp_cols']=await A.locator('.cmpcol').count()
+            out[name+'_cmp_boxes']=[await A.locator('.cmpcol').nth(i).locator('svg rect').count() for i in range(2)]
+            out[name+'_cmp_cost']=await A.locator('.cmpcost').all_inner_texts()
+            out[name+'_cmp_sum']=await A.inner_text('.cmptab')
+            await A.screenshot(path=shot(f'aiu_cmp_{name}.png'), full_page=True)
             await ctx.close()
         await b.close()
     for n in ['d','m']:
@@ -48,5 +66,9 @@ async def main():
         q=re.search(r'gemini-3.8-flash\n(\d+) / 20', out[n+'_quota'])
         check(q and int(q.group(1))>=20 and '/ 500' in out[n+'_quota'], f'{n}: free quota bars', out[n+'_quota'])
         check(out[n+'_cols']==30, f'{n}: 30-day chart', out[n+'_cols'])
+        check(out[n+'_cmp_disabled'] and out[n+'_cmp_sent'], f'{n}: compare sends the picture with both chosen models', (out[n+'_cmp_disabled'], out[n+'_cmp_sent']))
+        check(out[n+'_cmp_cols']==2 and out[n+'_cmp_boxes']==[2,3], f'{n}: two columns with their boxes', (out[n+'_cmp_cols'], out[n+'_cmp_boxes']))
+        check(out[n+'_cmp_cost']==['~0.24 บาท/รูป ($0.0070)','~0.03 บาท/รูป ($0.0009)'], f'{n}: cost per picture in baht', out[n+'_cmp_cost'])
+        check('claude-haiku-5-5' in out[n+'_cmp_sum'] and 'gemini-3.5-flash-lite' in out[n+'_cmp_sum'], f'{n}: averages table', out[n+'_cmp_sum'])
     finish('AI usage', out, errs)
 asyncio.run(main())

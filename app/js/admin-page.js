@@ -3,6 +3,7 @@
 import { $, cleanLang, el, S, scenes, store, toast } from './core.js';
 import { ask, closeModal, openModal, openScene } from './scene.js';
 import { deckNameDialog } from './decks.js';
+import { loadImageFile } from './editor.js';
 import { user } from './account.js';
 import { ago2, CHEER_TEXT } from './friends.js';
 import { ADM, adminApi } from './admin.js';
@@ -15,9 +16,10 @@ function renderAdmin(){
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🛡️ ดูแลระบบ'}), el('p',{text:'รายงานจากผู้ใช้ · ระงับบัญชี · ลบลิงก์แชร์'})),
     el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=ADM.ai=ADM.fb=ADM.errs=ADM.stats=ADM.gal=null; renderAdmin(); }})));
   if(!user || !ADM.ok){ v.append(el('p',{class:'libempty',text: user ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน'})); return; }
-  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['gallery','🖼️ คลังภาพ'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI']];
+  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['gallery','🖼️ คลังภาพ'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI'],['compare','🧪 เทียบ AI']];
   v.append(el('div',{class:'seg admtabs'}, ...tabs.map(([k,t])=>el('button',{class:ADM.tab===k?'on':'',text:t,onclick:()=>{ ADM.tab=k; if(k==='ai') ADM.ai=null; renderAdmin(); }}))));
   if(ADM.tab==='ai'){ renderAiUsage(v); return; }
+  if(ADM.tab==='compare'){ renderCompare(v); return; }
   if(ADM.tab==='feedback'){ renderFeedbackAdmin(v); return; }
   if(ADM.tab==='stats'){ renderStatsAdmin(v); return; }
   if(ADM.tab==='errors'){ renderErrorsAdmin(v); return; }
@@ -409,6 +411,69 @@ async function adminDeleteShare(id){
 function adminResolve(r){
   if(r.resolved_at){ adminApi('POST',`/reports/${r.id}/resolve`,{ reopen:true }).then(()=>{ ADM.data=null; renderAdmin(); }); return; }
   deckNameDialog('ปิดเรื่อง (บันทึกสั้น ๆ ไม่บังคับ)', '', 'ปิดเรื่อง', async note=>{ await adminApi('POST',`/reports/${r.id}/resolve`,{ note }); ADM.data=null; renderAdmin(); }, 'เช่น ระงับบัญชีแล้ว / ไม่พบปัญหา', 300);
+}
+
+
+// ---------- 🧪 เทียบ AI: one picture through Gemini and Claude, side by side (no credits, nothing saved on the server) ----------
+const CMP_MODELS={ gemini:['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash'], claude:['claude-haiku-5-5','claude-sonnet-5-5'] };
+const CMP_COLORS=['#fe5e7a','#2563b8','#23915a','#f2683a','#7b4bd1','#0f8a9d'];
+const CMP_ERR={ not_configured:'ยังไม่ได้ใส่คีย์ของเจ้านี้ใน Cloudflare', refused:'AI ปฏิเสธรูปนี้', busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', rate_limited:'ใช้เกินโควตา ลองใหม่ทีหลัง', invalid_json:'คำตอบของ AI อ่านไม่ได้', image_rejected:'AI รับรูปนี้ไม่ได้' };
+function cmpState(){
+  if(!ADM.cmp) ADM.cmp={ img:null, res:null, busy:false, gemini:store.get('pv-cmp-g',CMP_MODELS.gemini[0]), claude:store.get('pv-cmp-c',CMP_MODELS.claude[0]), log:store.get('pv-cmp-log',[]) };
+  return ADM.cmp;
+}
+function renderCompare(v){
+  const C=cmpState();
+  const sel=p=>{ const x=el('select',{'aria-label':p,onchange:e=>{ C[p]=e.target.value; store.set(p==='gemini'?'pv-cmp-g':'pv-cmp-c',C[p]); }}, ...CMP_MODELS[p].map(m=>el('option',{value:m,text:m}))); x.value=C[p]; return x; };
+  const file=el('input',{type:'file',accept:'image/*',hidden:'',onchange:async e=>{ const f=e.target.files[0]; if(!f) return;
+    try{ C.img=await loadImageFile(f); C.res=null; renderAdmin(); }catch(err){ toast('เปิดรูปนี้ไม่ได้'); } }});
+  v.append(el('div',{class:'admcard'},
+    el('p',{class:'note small',text:'สแกนรูปเดียวกันด้วย Gemini และ Claude แล้ววางผลเทียบกัน · ไม่ใช้เครดิต และไม่บันทึกรูปหรือผลไว้ที่เซิร์ฟเวอร์'}),
+    el('div',{class:'row cmpctl'}, file,
+      el('button',{text:C.img?'🖼️ เปลี่ยนรูป':'🖼️ เลือกรูป',onclick:()=>file.click()}), sel('gemini'), sel('claude'),
+      el('button',{class:'primary',text:C.busy?'กำลังเทียบ…':'🧪 เทียบ',disabled:C.img&&!C.busy?null:'',onclick:runCompare}))));
+  if(C.res) v.append(el('div',{class:'cmpgrid'}, ...C.res.map(r=>cmpCol(r,C.img))));
+  else if(C.img) v.append(el('div',{class:'cmpimg one'}, el('img',{src:C.img.src,alt:''})));
+  if(C.log.length) v.append(cmpSummary(C.log));
+}
+async function runCompare(){
+  const C=cmpState(); if(!C.img || C.busy) return;
+  C.busy=true; renderAdmin();
+  const r=await adminApi('POST','/compare',{ image:C.img.src, gemini:C.gemini, claude:C.claude, langs:S.lang==='de'?['de']:[] }).catch(()=>({ok:false}));
+  C.busy=false;
+  if(!r.ok){ toast('เทียบไม่สำเร็จ ลองใหม่อีกครั้ง'); if(S.view==='admin') renderAdmin(); return; }
+  C.res=r.j.results;
+  for(const x of C.res) if(x.ok) C.log.push({ m:x.model, n:x.items.length, ms:x.ms, usd:x.cost_usd });
+  C.log=C.log.slice(-200); store.set('pv-cmp-log',C.log);
+  if(S.view==='admin' && ADM.tab==='compare') renderAdmin();
+}
+function cmpCol(r,img){
+  const NS='http://www.w3.org/2000/svg', svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 1000 1000'); svg.setAttribute('preserveAspectRatio','none');
+  const boxes=r.items.map(it=>{ const [a,b,c,d]=it.box.map(n=>Math.max(0,Math.min(1000,+n||0))); return [Math.min(a,c),Math.min(b,d),Math.abs(c-a),Math.abs(d-b)]; });
+  boxes.forEach(([x,y,w,h],i)=>{ const rect=document.createElementNS(NS,'rect');
+    for(const [k,val] of Object.entries({x,y,width:w,height:h,fill:'none',stroke:CMP_COLORS[i%CMP_COLORS.length],'stroke-width':3,'vector-effect':'non-scaling-stroke'})) rect.setAttribute(k,val);
+    svg.append(rect); });
+  // the numbers are HTML on top (text inside a stretched SVG would be squashed)
+  const nos=boxes.map(([x,y],i)=>el('span',{class:'cmpno',style:`left:${x/10}%;top:${y/10}%;background:${CMP_COLORS[i%CMP_COLORS.length]}`,text:String(i+1)}));
+  const meta=`${r.items.length} คำ · ${(r.ms/1000).toFixed(1)} วินาที · token ${(r.tok_in||0).toLocaleString()} / ${(r.tok_out||0).toLocaleString()}`;
+  return el('div',{class:'aicard cmpcol'},
+    el('h4',{text:(r.provider==='gemini'?'Gemini · ':'Claude · ')+r.model}),
+    r.ok ? el('p',{class:'note small',text:meta}) : el('p',{class:'err',text:CMP_ERR[r.error]||`สแกนไม่สำเร็จ (${r.error})`}),
+    r.ok ? el('p',{class:'cmpcost',text:r.cost_usd==null ? 'ไม่มีราคาของรุ่นนี้' : `~${(r.cost_usd*THB).toFixed(2)} บาท/รูป ($${r.cost_usd.toFixed(4)})`}) : null,
+    el('div',{class:'cmpimg'}, el('img',{src:img.src,alt:''}), svg, ...nos),
+    r.ok ? el('ol',{class:'cmplist'}, ...r.items.map(it=>el('li',{}, el('b',{text:it.word}), it.th?el('span',{lang:'th',text:' — '+it.th}):null,
+      it.l&&it.l.de ? el('span',{class:'note',text:` · ${it.l.de.a?it.l.de.a+' ':''}${it.l.de.w}`}) : null))) : null);
+}
+function cmpSummary(log){
+  const by={};
+  for(const x of log){ const b=by[x.m]=by[x.m]||{n:0,w:0,ms:0,usd:0,priced:0}; b.n++; b.w+=x.n; b.ms+=x.ms; if(x.usd!=null){ b.usd+=x.usd; b.priced++; } }
+  return el('div',{class:'aicard wide'}, el('h4',{text:'ค่าเฉลี่ยจากที่เทียบมาแล้ว (เก็บในเครื่องนี้)'}),
+    el('table',{class:'cmptab'},
+      el('tr',{}, ...['รุ่น','รูป','คำ/รูป','วินาที','บาท/รูป'].map(t=>el('th',{text:t}))),
+      ...Object.entries(by).map(([m,b])=>el('tr',{}, el('td',{text:m}), el('td',{text:String(b.n)}), el('td',{text:(b.w/b.n).toFixed(1)}),
+        el('td',{text:(b.ms/b.n/1000).toFixed(1)}), el('td',{text:b.priced?(b.usd/b.priced*THB).toFixed(2):'–'})))),
+    el('button',{class:'linkbtn small',text:'ล้างค่าเฉลี่ย',onclick:()=>{ ADM.cmp.log=[]; store.set('pv-cmp-log',[]); renderAdmin(); }}));
 }
 
 export { renderAdmin };

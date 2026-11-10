@@ -42,6 +42,6 @@ function renderAdmin(){
 }
 // /admin opens the admin page after sign-in; /admin?tab=… picks the tab
 G.adminLinkWanted=/^\/admin\/?$/.test(location.pathname);
-if(G.adminLinkWanted){ const t=new URLSearchParams(location.search).get('tab'); if(['reports','feedback','gallery','stats','errors','ai'].includes(t)) ADM.tab=t; }   // /admin?tab=feedback (link in the feedback e-mail)
+if(G.adminLinkWanted){ const t=new URLSearchParams(location.search).get('tab'); if(['reports','feedback','gallery','stats','errors','ai','compare'].includes(t)) ADM.tab=t; }   // /admin?tab=feedback (link in the feedback e-mail)
 
 export { ADM, adminApi, checkAdmin, openReportShare, renderAdmin };
