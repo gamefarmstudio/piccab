@@ -13,7 +13,7 @@ async def route(r):
         return await r.fulfill(status=200, content_type='application/json', body=json.dumps({'items':out}))
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
     if 'piccab.test' not in u: return await r.abort()
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await page_or_built(r)
 THAI_LEFT="""() => { const out=new Set(); const w=document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);
   let n; while((n=w.nextNode())){ if(n.nodeType===3){ const p=n.parentElement; if(!p || /SCRIPT|STYLE/.test(p.nodeName)) continue; if(p.closest('[data-noi18n]')) continue;
       if(/[\\u0E00-\\u0E7F]/.test(n.nodeValue)) out.add(n.nodeValue.trim().slice(0,90)); }

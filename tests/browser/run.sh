@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs every browser test and reports which failed.
 #   Needs: python3 with Playwright (pip install playwright && python -m playwright install chromium)
-#          and the test packages for wrangler (npm ci --prefix tests).
+#          the app's packages (npm ci) and the test packages for wrangler (npm ci --prefix tests).
 #   Optional: CHROME=/path/to/chrome (else Playwright's Chromium), SHOTS=folder for screenshots, VERBOSE=1.
 #   Run some only:  bash tests/browser/run.sh test_speak.py test_german.py
 set -u
@@ -12,6 +12,8 @@ OFFLINE="test_cozy_home.py test_wordsheet.py test_fullscreen_tall.py test_german
 SERVER_TESTS="test_classes.py test_classes_german.py test_admin.py test_ai_usage.py test_english_web.py test_pwa.py test_trial.py test_gallery.py"
 WANT="${*:-$OFFLINE $SERVER_TESTS}"
 failed=()
+# What Cloudflare serves: the app built by Vite + public/ (wrangler dev builds it again, which is quick)
+( cd "$ROOT" && npm run build --silent >/dev/null ) || { echo "npm run build failed (npm ci first?)"; exit 1; }
 run() { echo "▶ $1"; if ! timeout 300 python3 "$1"; then failed+=("$1"); fi; }
 
 for t in $OFFLINE; do [[ " $WANT " == *" $t "* ]] && run "$t"; done

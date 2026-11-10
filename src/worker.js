@@ -1,4 +1,4 @@
-// Piccab Worker: serves the static app from ./public and adds a small AI API.
+// Piccab Worker: serves the static app from ./dist (built from app/ + public/) and adds a small AI API.
 //
 //   GET  /api/health  -> { ai: boolean, needCode: boolean }
 //   POST /api/scan    -> { items: [{ word, th, alts, box:[x0,y0,x1,y1] }] }

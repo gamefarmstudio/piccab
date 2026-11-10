@@ -7,7 +7,7 @@
 
 ## สถานะ
 
-พร้อมให้ทดลองใช้แบบวงปิด (พฤศจิกายน 2569) — หน้าแอปอยู่ใน `public/app.html` ไฟล์เดียว (เปิดที่ `/app`) ส่วน `/` เป็นหน้าแนะนำ (landing page) ไม่ต้อง build
+พร้อมให้ทดลองใช้แบบวงปิด (พฤศจิกายน 2569) — หน้าแอปอยู่ใน `app/` (เปิดที่ `/app`) build ด้วย Vite ส่วน `/` เป็นหน้าแนะนำ (landing page) และไฟล์อื่นใน `public/` ถูกคัดลอกไปตามเดิม
 Cloudflare Worker (`src/worker.js`) เป็นหลังบ้าน: AI (Gemini), รูปใน R2, ลิงก์แชร์, ห้องเรียน, เพื่อน, หน้าดูแลระบบ และอีเมล · บัญชีและฐานข้อมูลอยู่ใน Supabase
 
 ## โครงสร้าง
@@ -15,12 +15,15 @@ Cloudflare Worker (`src/worker.js`) เป็นหลังบ้าน: AI (Ge
 ```
 public/vendor/     ไลบรารี supabase-js (UMD) เก็บไว้ในเว็บเอง
 public/fonts/      ฟอนต์ Sarabun + Fredoka (OFL) เก็บในเว็บเอง ไม่โหลดจาก Google Fonts
-public/sw.js       service worker: เปิดแอปได้แม้ออฟไลน์ (หน้าเว็บ network-first, ไฟล์ static จาก cache, ไม่ cache /api/*) — แก้รายการไฟล์แล้วเปลี่ยน VERSION
+public/sw.js       service worker: เปิดแอปได้แม้ออฟไลน์ (หน้าเว็บ network-first, ไฟล์ static จาก cache, ไฟล์ที่ build แล้ว /assets/* เก็บคู่กับหน้า /app, ไม่ cache /api/*) — แก้รายการไฟล์แล้วเปลี่ยน VERSION
 public/privacy.html, public/terms.html, public/legal.css  นโยบายความเป็นส่วนตัว / ข้อตกลงการใช้งาน (/privacy, /terms)
 public/index.html, public/en/  หน้าแนะนำ (landing page) ไทยที่ piccab.com/ และอังกฤษที่ /en/ (สร้างจาก tools/landing*.tpl.html) — คนที่เคยเปิดแอปแล้วจะถูกพาไป /app อัตโนมัติ (ดูหน้าแนะนำได้ที่ /?home)
-public/app.html    แอปทั้งหมด (HTML + CSS + JavaScript) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG — เปิดที่ /app
+app/app.html       หน้าแอป (HTML) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG — เปิดที่ /app
+app/app.css        สไตล์ของแอป
+app/main.js        โค้ดของแอป (โมดูล) — Vite build รวม app/ กับ public/ ไปไว้ที่ dist/ (npm run build) ไฟล์ที่ build แล้วชื่อมี hash เช่น /assets/app-XXXX.js
+vite.config.js     ตั้งค่า Vite · package.json มีแค่ vite + wrangler (Cloudflare ติดตั้งและรัน npm run build เองก่อน deploy)
 public/landing/    รูปหน้าจอแอปที่ใช้ในหน้าแนะนำ
-src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน public/ และ API ของ AI
+src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน dist/ และ API ของ AI
                      GET  /api/health  → { ai, needCode, credits, monthly, captcha }
                      POST /api/scan    → ส่งรูปให้ Gemini หรือ Claude แล้วคืนรายการคำศัพท์ + กรอบ
                      POST /api/wordlist → อ่านรายการคำจากรูปชีทคำศัพท์
@@ -41,7 +44,7 @@ supabase/2026-11-trial.sql  เครื่องมือช่วงทดล�
 supabase/2026-11-gallery.sql  คลังภาพ: ตาราง gallery_categories (12 หมวดเริ่มต้น) และ gallery_scenes (ฉากสำเร็จรูป + คำศัพท์) — รูปอยู่ใน R2 ที่ gallery/<id> และ gallery/<id>-t (รูปย่อ) · จัดการในแท็บ 🖼️ คลังภาพ ของหน้าดูแลระบบ
 supabase/2026-11-class-lang.sql  ภาษาของงานในห้องเรียน (class_items.lang: en / de) — ครูเลือกภาษาตอนมอบหมาย · ยังไม่รันก็มอบหมายภาษาอังกฤษได้ตามเดิม
 public/vendor/qrcode-generator-2.0.4.js  QR (MIT) โหลดเฉพาะตอนเปิดหน้าเพื่อน
-wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, โฟลเดอร์ public, จำกัด 6 ครั้ง/นาที/IP)
+wrangler.jsonc     ตั้งค่า Worker (ชื่อ piccab, build ด้วย npm run build แล้วเสิร์ฟโฟลเดอร์ dist, จำกัด 6 ครั้ง/นาที/IP)
 tests/             เทสต์ (ดูหัวข้อ "เทสต์") — แยก package.json ไว้ในนี้ Cloudflare จะได้ไม่ติดตั้งตอน build
 .github/workflows/tests.yml  รันเทสต์ทุก PR
 README.md          ไฟล์นี้
@@ -50,12 +53,13 @@ README.md          ไฟล์นี้
 ## วิธีเปิดดูบนเครื่อง
 
 ```bash
-npx wrangler dev
-# แล้วเปิด http://localhost:8787
+npm ci            # ครั้งแรก (Vite + wrangler)
+npx wrangler dev  # build แอปให้เองก่อนเปิด
+# แล้วเปิด http://localhost:8787/app
 ```
 
 ถ้าจะทดสอบ AI บนเครื่อง ให้สร้างไฟล์ `.dev.vars` (อยู่ใน .gitignore แล้ว) ใส่ `ANTHROPIC_API_KEY=...`
-หรือเปิด `public/app.html` ตรงๆ ในเบราว์เซอร์ก็ได้ (ปุ่ม AI จะซ่อน)
+แก้โค้ดแล้วต้อง build ใหม่ (`npm run build` หรือเริ่ม `wrangler dev` ใหม่) — เปิดไฟล์ app.html ตรงๆ ในเบราว์เซอร์ไม่ได้แล้ว เพราะโค้ดเป็นโมดูล
 
 ## เทสต์ (รันเองทุก PR)
 
@@ -68,7 +72,7 @@ GitHub Actions (`.github/workflows/tests.yml`) รันทุกครั้ง
 
 รันบนเครื่อง:
 ```
-npm ci --prefix tests
+npm ci && npm ci --prefix tests
 node tests/worker.test.mjs && node tests/i18n-check.mjs
 pip install playwright && python -m playwright install chromium
 bash tests/browser/run.sh                 # ทั้งหมด (~5 นาที) หรือระบุไฟล์ เช่น bash tests/browser/run.sh test_speak.py
@@ -118,7 +122,7 @@ bash tests/browser/run.sh                 # ทั้งหมด (~5 นาท�
 
 ## Supabase (บัญชีผู้ใช้)
 
-- โปรเจกต์: `piccab` (Singapore) — URL และ publishable key อยู่ใน `public/app.html` (ใช้ในเบราว์เซอร์ได้ ข้อมูลป้องกันด้วย RLS)
+- โปรเจกต์: `piccab` (Singapore) — URL และ publishable key อยู่ใน `app/main.js` (ใช้ในเบราว์เซอร์ได้ ข้อมูลป้องกันด้วย RLS)
 - ล็อกอินด้วยอีเมล + รหัสครั้งเดียว (OTP) — ต้องใส่ `{{ .Token }}` ในเทมเพลตอีเมล Magic Link / Confirm signup
 - Authentication → URL Configuration: Site URL `https://piccab.com`, Redirect URLs `https://piccab.com/**` และ `https://*-piccab.itthanun-s.workers.dev/**`
 - Sync: ฉาก + ความคืบหน้าเก็บใน Supabase (ใหม่กว่าชนะ), รูปเก็บใน **Cloudflare R2** bucket `piccab-images` (binding `IMAGES`)
@@ -144,11 +148,11 @@ bash tests/browser/run.sh                 # ทั้งหมด (~5 นาท�
 - คำภาษาอังกฤษอยู่ที่ `item.word / alts / say` (เหมือนเดิม) ภาษาอื่นอยู่ที่ `item.l.<lang> = {w, a, alts}` (a = der/die/das)
 - ความคืบหน้าภาษาอื่นเก็บในตาราง progress เดิม คีย์ `<item>@<lang>` (เช่น `teapot@de`) — ไม่ต้องรัน SQL
 - `POST /api/translate {lang, words:[{k,en,th}]}` แปลคำในฉากด้วย AI (ส่งเฉพาะคำ ไม่ส่งรูป, ไม่ใช้เครดิต) — แอปเรียกเองเมื่อเปลี่ยนภาษา เปิดฉากที่ยังไม่มีคำภาษานั้น หรือเพิ่มคำอังกฤษใหม่ · `/api/scan` รับ `langs` (ภาษาที่ผู้ใช้ฝึก `pv-langs`) เพื่อได้คำทุกภาษามาพร้อมกันในครั้งเดียว
-- เพิ่มภาษาใหม่: ใส่ใน `LANGS` (app.html) และ `AI_LANGS` (worker.js) + กฎตรวจคำตอบใน `check()`
+- เพิ่มภาษาใหม่: ใส่ใน `LANGS` (app/main.js) และ `AI_LANGS` (worker.js) + กฎตรวจคำตอบใน `check()`
 
 ## ภาษาของฉัน (เมนูไทย / อังกฤษ)
 
-- `pv-ui` = `th` หรือ `en` คุมเมนูและความหมายใต้คำ — สคริปต์แรกใน `app.html` เลือกให้: คนที่เคยใช้แอปแล้ว (มีคีย์ `pv-*`/`sb-*`) = ไทยเหมือนเดิม, คนใหม่ที่เบราว์เซอร์มีภาษาไทย = ไทย, นอกนั้น = อังกฤษ และเห็นหน้าต้อนรับให้เลือกภาษาของฉัน + ภาษาที่ฝึก (ภาษาอังกฤษเป็นเบราว์เซอร์หลัก → แนะนำเยอรมัน, ภาษาอื่น → แนะนำอังกฤษ)
+- `pv-ui` = `th` หรือ `en` คุมเมนูและความหมายใต้คำ — สคริปต์แรกใน `app/app.html` เลือกให้: คนที่เคยใช้แอปแล้ว (มีคีย์ `pv-*`/`sb-*`) = ไทยเหมือนเดิม, คนใหม่ที่เบราว์เซอร์มีภาษาไทย = ไทย, นอกนั้น = อังกฤษ และเห็นหน้าต้อนรับให้เลือกภาษาของฉัน + ภาษาที่ฝึก (ภาษาอังกฤษเป็นเบราว์เซอร์หลัก → แนะนำเยอรมัน, ภาษาอื่น → แนะนำอังกฤษ)
 - เปลี่ยนได้ที่ปุ่มธงหัวแอป → “🗣 ภาษาของฉัน” (โหลดหน้าใหม่)
 - แอปเขียนข้อความเป็นภาษาไทย; เมื่อเป็น `en` จะโหลด `public/i18n/en.js` (พจนานุกรม ไทย → อังกฤษ + ตัวแปลข้อความบนจอ) — คนไทยไม่ได้โหลดไฟล์นี้
 - เพิ่มหรือแก้ข้อความในแอป: เพิ่มคู่คำใน `D` ของ `en.js` แล้วตรวจด้วย `npm ci --prefix tests && node tests/i18n-check.mjs` (บอกข้อความที่ยังไม่มีคำแปล · รันเองทุก PR ด้วย)

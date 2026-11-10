@@ -44,7 +44,7 @@ def make(cfg, calls):
             if path=='/auth/v1/settings': return await r.fulfill(status=200, content_type='application/json', body='{"external":{"google":false}}')
             if path.startswith('/rest/v1/'): return await r.fulfill(status=200, content_type='application/json', body='[]')
             return await r.fulfill(status=404, body='{}')
-        return await r.fulfill(status=200, content_type='text/html', body=HTML)
+        return await page_or_built(r)
     return route
 
 def caps(calls, path):
