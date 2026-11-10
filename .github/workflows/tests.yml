@@ -27,6 +27,8 @@ jobs:
         run: node tests/worker.test.mjs
       - name: Every Thai text has English
         run: node tests/i18n-check.mjs
+      - name: App modules import what they use
+        run: node tests/modules-check.mjs
 
   browser:
     name: Browser

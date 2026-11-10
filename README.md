@@ -20,7 +20,12 @@ public/privacy.html, public/terms.html, public/legal.css  นโยบายค�
 public/index.html, public/en/  หน้าแนะนำ (landing page) ไทยที่ piccab.com/ และอังกฤษที่ /en/ (สร้างจาก tools/landing*.tpl.html) — คนที่เคยเปิดแอปแล้วจะถูกพาไป /app อัตโนมัติ (ดูหน้าแนะนำได้ที่ /?home)
 app/app.html       หน้าแอป (HTML) รวมภาพฉากตัวอย่าง Afternoon tea แบบ SVG — เปิดที่ /app
 app/app.css        สไตล์ของแอป
-app/main.js        โค้ดของแอป (โมดูล) — Vite build รวม app/ กับ public/ ไปไว้ที่ dist/ (npm run build) ไฟล์ที่ build แล้วชื่อมี hash เช่น /assets/app-XXXX.js
+app/main.js        จุดเริ่มของแอป: โหลดทุกส่วนตามลำดับแล้วเริ่มทำงาน — Vite build รวม app/ กับ public/ ไปไว้ที่ dist/ (npm run build) ไฟล์ที่ build แล้วชื่อมี hash เช่น /assets/app-XXXX.js
+app/js/           โค้ดแอปแยกตามส่วน (ES modules) แต่ละไฟล์ import สิ่งที่ใช้จากไฟล์อื่น:
+                     core (ตัวช่วยพื้นฐาน, ภาษา, state S และ G — ไม่ import ใคร) · progress · scene · home · decks · games · editor · sheets
+                     account · classes · friends · admin · gallery · share · pwa · sync · layout
+                     ค่าที่หลายไฟล์ต้องแก้ (เช่น G.selId, G.modalClose, G.decks) อยู่บน G ใน core.js เพราะค่าที่ import มาแก้ตรงๆ ไม่ได้
+                     โค้ดที่รันตอนโหลด (นอกฟังก์ชัน) ควรใช้แค่ core หรือของในไฟล์ตัวเอง ถ้าต้องใช้ส่วนอื่นให้ไว้ใน main.js (ส่วน start) — ถ้าผิดลำดับ แอปจะ error ตอนเปิดและเทสต์ทุกชุดจับได้
 vite.config.js     ตั้งค่า Vite · package.json มีแค่ vite + wrangler (Cloudflare ติดตั้งและรัน npm run build เองก่อน deploy)
 public/landing/    รูปหน้าจอแอปที่ใช้ในหน้าแนะนำ
 src/worker.js      Cloudflare Worker: เสิร์ฟไฟล์ใน dist/ และ API ของ AI
@@ -67,13 +72,13 @@ GitHub Actions (`.github/workflows/tests.yml`) รันทุกครั้ง
 
 | ชุด | ไฟล์ | ตรวจอะไร |
 |---|---|---|
-| Worker + translations | `tests/worker.test.mjs`, `tests/i18n-check.mjs` | API ทั้งหมดของ Worker (AI, เครดิต, แชร์, ห้องเรียน, เพื่อน, แอดมิน, อีเมล, ตัวนับ AI) และข้อความไทยทุกข้อความมีคำแปลอังกฤษ |
+| Worker + translations | `tests/worker.test.mjs`, `tests/i18n-check.mjs`, `tests/modules-check.mjs` | API ทั้งหมดของ Worker (AI, เครดิต, แชร์, ห้องเรียน, เพื่อน, แอดมิน, อีเมล, ตัวนับ AI) และข้อความไทยทุกข้อความมีคำแปลอังกฤษ |
 | Browser | `tests/browser/test_*.py` | เปิดแอปใน Chrome จริง: เยอรมัน, เมนูอังกฤษ, ฝึกพูด, ทบทวนตามรอบ, วาดกรอบ, CAPTCHA, หน้าแรก, ลบบัญชี/นโยบาย และกับ Worker จริง (`wrangler dev`) + Supabase จำลอง (`tests/fake_supabase.py`): ห้องเรียน (อังกฤษ/เยอรมัน), แอดมิน, ตัวนับ AI, เว็บภาษาอังกฤษ, ติดตั้งแอป/ออฟไลน์, ความเห็น/ข้อผิดพลาด/ยอดการใช้งาน, คลังภาพ |
 
 รันบนเครื่อง:
 ```
 npm ci && npm ci --prefix tests
-node tests/worker.test.mjs && node tests/i18n-check.mjs
+node tests/worker.test.mjs && node tests/i18n-check.mjs && node tests/modules-check.mjs
 pip install playwright && python -m playwright install chromium
 bash tests/browser/run.sh                 # ทั้งหมด (~5 นาที) หรือระบุไฟล์ เช่น bash tests/browser/run.sh test_speak.py
 ```
