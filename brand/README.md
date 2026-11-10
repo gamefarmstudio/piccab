@@ -29,7 +29,7 @@ Prefer the SVGs: they stay sharp at any size and can be opened in Figma, Illustr
 | Sun | `#fff38a` → `#ffd23a` → `#f4a300` |
 | Letter A | `#ff7d93` → `#ff4f69` (flat: `#fe5e7a`) |
 | Ink ("Pic" on light backgrounds) | `#2d2a5a` |
-| Pink ("cab" on light backgrounds) | `#e8607a` |
+| Pink ("cab" in the name; the same as the letter A) | `#fe5e7a` |
 | Cream background | `#fdf9f3` |
 
 ## Keep it recognisable

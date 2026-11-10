@@ -6,7 +6,7 @@ a{color:var(--accent)}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
 .brand img{border-radius:10px}
 .brand b{display:block;font-family:'Fredoka','Sarabun',sans-serif;font-size:22px;line-height:1.1}
-.brand .cab{color:#e8607a}
+.brand .cab{color:#fe5e7a}
 .brand small{display:block;color:var(--muted);font-size:13px;line-height:1.2}
 .back{font-weight:600;text-decoration:none;white-space:nowrap}
 main{max-width:820px;margin:0 auto 24px;padding:24px 28px 32px;background:#fff;border:1px solid var(--line);border-radius:20px}
