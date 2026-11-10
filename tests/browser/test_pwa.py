@@ -16,7 +16,12 @@ async def main():
         cdp=await ctx.new_cdp_session(pg)
         out['install_errors']=(await cdp.send('Page.getInstallabilityErrors'))['installabilityErrors']
         man=await cdp.send('Page.getAppManifest'); out['manifest_errors']=man.get('errors')
-        out['cached']=sorted(await pg.evaluate("caches.open('piccab-v4').then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))"))
+        out['cached']=sorted(await pg.evaluate("caches.open('piccab-v5').then(c=>c.keys()).then(k=>k.map(r=>new URL(r.url).pathname))"))
+        out['built']=await pg.evaluate("[...document.querySelectorAll('script[src^=\"/assets/\"],link[href^=\"/assets/\"]')].map(e=>e.getAttribute('src')||e.getAttribute('href'))")
+        # a file from an older build is dropped when the page is saved again
+        await pg.evaluate("caches.open('piccab-v5').then(c=>c.put('/assets/app-OLD0000.js', new Response('old')))")
+        await pg.reload(); await pg.wait_for_timeout(1000)
+        out['old_kept']=await pg.evaluate("caches.open('piccab-v5').then(c=>c.match('/assets/app-OLD0000.js')).then(r=>!!r)")
         # make a scene, then go offline
         await pg.set_input_files('#fileImg', IMG); await pg.wait_for_timeout(800); await skip_ai_offer(pg)
         out['ai_btn_online']=await pg.locator('#sub .ai').count()
@@ -40,7 +45,7 @@ async def main():
         p2=await ctx.new_page(); await p2.goto(BASE+'/privacy'); await p2.wait_for_timeout(500); out['offline_privacy']=await p2.inner_text('h1')
         await ctx.set_offline(False); await pg.wait_for_timeout(500)
         out['online_toast']=await pg.inner_text('#toast')
-        out['api_cached']=await pg.evaluate("caches.open('piccab-v4').then(c=>c.keys()).then(k=>k.some(r=>r.url.includes('/api/')))")
+        out['api_cached']=await pg.evaluate("caches.open('piccab-v5').then(c=>c.keys()).then(k=>k.some(r=>r.url.includes('/api/')))")
         # standalone → no tile
         await cdp.send('Emulation.setEmulatedMedia', {'features':[{'name':'display-mode','value':'standalone'}]})
         await pg.click('.mainnav button[data-view=home]'); await pg.wait_for_timeout(300)
@@ -61,6 +66,8 @@ async def main():
     check(not out['manifest_errors'], 'manifest has no errors', out['manifest_errors'])
     for u in ['/', '/app', '/privacy', '/terms', '/en', '/en/privacy', '/en/terms', '/i18n/en.js', '/fonts/fonts.css', '/vendor/supabase-2.119.0.js']:
         check(u in out['cached'], f'{u} is kept for offline', out['cached'])
+    check(len(out['built'])==2 and all(u in out['cached'] for u in out['built']), "the app's built JS and CSS are kept for offline", (out['built'], out['cached']))
+    check(not out['old_kept'], 'files from an older build are removed')
     check(out['tile']==1 and out['footer_link'] and out['prompted']==1, 'install tile and prompt', (out['tile'], out['footer_link'], out['prompted']))
     check('ออฟไลน์' in out['offline_toast'], 'going offline is announced', out['offline_toast'])
     check(out['offline_scenes']==1 and out['offline_lib_rows']>=2 and out['offline_font'], 'the app works offline with its scenes and fonts', (out['offline_scenes'], out['offline_lib_rows']))

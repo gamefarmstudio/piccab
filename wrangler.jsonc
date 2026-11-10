@@ -4,10 +4,13 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
 
-  // Static app files (index.html etc.). Requests that don't match a file fall
+  // Build the app before `wrangler deploy` / `wrangler dev` (also on Cloudflare's Workers Builds).
+  "build": { "command": "npm run build" },
+
+  // Static files: the built app plus everything in public/ (npm run build → dist/). Requests that don't match a file fall
   // through to the Worker, which handles /api/*.
   "assets": {
-    "directory": "./public",
+    "directory": "./dist",
     "binding": "ASSETS"
   },
 

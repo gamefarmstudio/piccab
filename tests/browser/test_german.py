@@ -12,7 +12,7 @@ async def route(r):
         out=[{'k':w['k'],'w':{'chair':'Stuhl','lamp':'Lampe'}.get(w['en'],'Ding'),'a':{'chair':'der','lamp':'die'}.get(w['en'],'das'),'alts':[]} for w in b['words']]
         return await r.fulfill(status=200, content_type='application/json', body=json.dumps({'items':out,'provider':'gemini'}))
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await page_or_built(r)
 async def main():
     out={}; errs=[]
     async with async_playwright() as p:

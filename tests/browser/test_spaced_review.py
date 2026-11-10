@@ -6,7 +6,7 @@ async def route(r):
     if u.endswith('/vendor/supabase-2.119.0.js'): return await r.fulfill(status=200, content_type='application/javascript', body=SBJS)
     if u.endswith('/api/health'): return await r.fulfill(status=200, content_type='application/json', body='{"ai":false}')
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await page_or_built(r)
 DAY=86400000
 def today():
     t=time.time()*1000; off=-time.localtime().tm_gmtoff*1000 if False else 0

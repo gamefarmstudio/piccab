@@ -56,7 +56,7 @@ async def route(r):
                     else: DB[t].pop((uid,kid))
                 return await r.fulfill(status=204, body='')
         return await r.fulfill(status=404, body='{}')
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await page_or_built(r)
 
 async def login(pg, email):
     await pg.click('#acctBtn'); await pg.fill('.mbox input[type=email]', email); await pg.click('.mbox button.primary'); await pg.wait_for_timeout(300)

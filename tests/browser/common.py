@@ -4,7 +4,8 @@ Run them all with tests/browser/run.sh (it also starts the fake Supabase and `wr
 import json, os, pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-PUB = ROOT / 'public'
+PUB = ROOT / 'dist'      # what Cloudflare serves: the built app + public/ (run.sh runs `npm run build` first)
+if not (PUB / 'app.html').is_file(): sys.exit('dist/app.html is missing: run `npm run build` (tests/browser/run.sh does it)')
 FIX = ROOT / 'tests' / 'fixtures'
 SHOTS = pathlib.Path(os.environ.get('SHOTS', '/tmp/piccab-shots')); SHOTS.mkdir(parents=True, exist_ok=True)
 SERVER = os.environ.get('SERVER', 'http://127.0.0.1:8788')        # wrangler dev (server tests)
@@ -33,6 +34,14 @@ async def app_route(r, health='{"ai":false}', extra=None):
     if '/fonts/' in u or u.endswith(('.svg', '.png', '.webp', '.ico', '.css')):
         path = PUB / u.split('piccab.test/', 1)[1].split('?')[0]
         return await r.fulfill(status=200, path=str(path)) if path.is_file() else await r.fulfill(status=404, body='')
+    return await page_or_built(r)
+
+async def page_or_built(r):
+    """The app page, or one of its built files (/assets/app-<hash>.js|css) from dist/."""
+    path = r.request.url.split('piccab.test', 1)[-1].split('?')[0].split('#')[0]
+    if path.startswith('/assets/') and (PUB / path[1:]).is_file():
+        ct = 'text/css' if path.endswith('.css') else 'application/javascript'
+        return await r.fulfill(status=200, content_type=ct, body=(PUB / path[1:]).read_bytes())
     return await r.fulfill(status=200, content_type='text/html', body=HTML)
 
 async def to_fake_supabase(r):

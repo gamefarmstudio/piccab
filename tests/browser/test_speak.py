@@ -8,7 +8,7 @@ async def route(r):
     if u.endswith('/api/health'): return await r.fulfill(status=200, content_type='application/json', body='{"ai":false}')
     if 'supabase.co' in u: return await r.fulfill(status=404, body='{}')
     if 'piccab.test' not in u: return await r.abort()
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await page_or_built(r)
 FAKE="""window.__said=[]; if(window.speechSynthesis){ speechSynthesis.speak=u=>{ __said.push(u.text); }; }
 class FakeSR{ start(){ window.__srLang=this.lang; window.__starts=(window.__starts||0)+1; setTimeout(()=>{ const t=window.__next;
   if(t==null){ this.onerror&&this.onerror({error:'no-speech'}); this.onend&&this.onend(); return; }

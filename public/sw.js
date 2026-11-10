@@ -2,11 +2,13 @@
 //  - Pages (the landing pages / and /en/, the app /app, /privacy, /terms and their English /en/… versions): network first, so updates show up straight away;
 //    the saved copy is used when offline or when the network takes too long.
 //  - Static files (fonts, icons, supabase-js, CSS): served from the cache, refreshed in the background.
+//  - The app's built files (/assets/app-<hash>.js|css): saved with the /app page that uses them, served from the cache
+//    (a new build has new names, so a saved file never changes). Files no saved page uses any more are removed.
 //  - English menus (/i18n/*): network first, like pages, so new words show up straight away.
 //  - /api/* (AI, pictures, account) and other sites (Supabase): never cached — they always go to the network.
 // Scenes, pictures and progress already live in the browser (localStorage / IndexedDB), so
 // practising works offline; sync and AI resume when the connection is back.
-const VERSION = 'piccab-v4';
+const VERSION = 'piccab-v5';
 const PAGES = ['/', '/app', '/privacy', '/terms', '/en', '/en/privacy', '/en/terms'];
 const PAGE_URL = { '/en': '/en/' };   // fetched at this address (no redirect), saved under the page's key
 const ASSETS = [
@@ -26,6 +28,8 @@ self.addEventListener('install', e => {
     await Promise.all(PAGES.map(u => fetch(new Request(PAGE_URL[u] || u, { cache: 'reload' }))
       .then(r => { if (r.ok && !r.redirected) return c.put(u, r); }).catch(() => {})));
     await Promise.all(ASSETS.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})));
+    const app = await c.match('/app');
+    if (app) await keepBuilt(c, await app.text());
     await self.skipWaiting();
   })());
 });
@@ -44,10 +48,22 @@ function pageKey(url) {
   return PAGES.includes(p) ? p : null;
 }
 
-async function pageFirstNetwork(req, key) {
+// The /app page names its built files (/assets/…); save them with it so it opens offline, and drop older ones.
+const BUILT = /\/assets\/[\w.-]+\.(?:js|css)/g;
+async function keepBuilt(c, html) {
+  const want = new Set(html.match(BUILT) || []);
+  if (!want.size) return;
+  await Promise.all([...want].map(async u => { if (!(await c.match(u))) await c.add(u).catch(() => {}); }));
+  for (const r of await c.keys()) { const p = new URL(r.url).pathname; if (p.startsWith('/assets/') && !want.has(p)) await c.delete(r); }
+}
+
+async function pageFirstNetwork(req, key, e) {
   const c = await caches.open(VERSION);
   const net = fetch(req).then(res => {
-    if (res.ok && !res.redirected) c.put(key, res.clone());
+    if (res.ok && !res.redirected) {
+      c.put(key, res.clone());
+      if (key === '/app') e.waitUntil(res.clone().text().then(h => keepBuilt(c, h)).catch(() => {}));
+    }
     return res;
   });
   const timeout = new Promise(r => setTimeout(r, NET_TIMEOUT, null));
@@ -71,6 +87,15 @@ async function netFirst(req) {
   }
 }
 
+async function builtFile(req) {
+  const c = await caches.open(VERSION);
+  const saved = await c.match(req, { ignoreSearch: true });
+  if (saved) return saved;
+  const res = await fetch(req);
+  if (res.ok) c.put(req, res.clone());
+  return res;
+}
+
 async function assetFromCache(req, e) {
   const c = await caches.open(VERSION);
   const saved = await c.match(req, { ignoreSearch: true });
@@ -87,7 +112,8 @@ self.addEventListener('fetch', e => {
   if (url.pathname.startsWith('/api/')) return;               // AI, pictures, account: never cached
   if (url.pathname === '/sw.js') return;
   const key = pageKey(url);                                   // only the app and the policy pages
-  if (key && (req.mode === 'navigate' || req.destination === 'document')) { e.respondWith(pageFirstNetwork(req, key)); return; }
+  if (key && (req.mode === 'navigate' || req.destination === 'document')) { e.respondWith(pageFirstNetwork(req, key, e)); return; }
+  if (url.pathname.startsWith('/assets/')) { e.respondWith(builtFile(req)); return; }
   if (url.pathname.startsWith('/i18n/')) { e.respondWith(netFirst(req)); return; }
   if (ASSETS.includes(url.pathname) || url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/vendor/')) {
     e.respondWith(assetFromCache(req, e));

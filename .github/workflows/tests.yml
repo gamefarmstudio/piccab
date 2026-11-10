@@ -38,7 +38,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: tests/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            tests/package-lock.json
+      - run: npm ci
       - run: npm ci --prefix tests
       - uses: actions/setup-python@v5
         with:
