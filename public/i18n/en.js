@@ -8,6 +8,7 @@
 (function(){
 'use strict';
 const D={
+  "โหลดหน้าดูแลระบบไม่สำเร็จ": "Couldn't load the admin page",
   "อีเมลของคุณ สำหรับให้เราตอบกลับ (ไม่บังคับ)": "Your e-mail, so we can reply (optional)",
   "เลื่อนขึ้น": "Scroll up",
   "เลื่อนลง": "Scroll down",

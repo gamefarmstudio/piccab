@@ -10,7 +10,8 @@ async def fwd(r):
     resp=await r.fetch(url=r.request.url.replace('https://oftzpfyydnmahkntucnj.supabase.co', FAKE)); await r.fulfill(response=resp)
 async def newpage(b, errs, vw=1200, vh=900, mobile=False):
     ctx=await b.new_context(locale='th-TH', viewport={'width':vw,'height':vh}, is_mobile=mobile, has_touch=mobile, service_workers='block')
-    pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); await pg.route('https://oftzpfyydnmahkntucnj.supabase.co/**', fwd); return pg
+    pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); await pg.route('https://oftzpfyydnmahkntucnj.supabase.co/**', fwd)
+    pg.admin_files=[]; pg.on('request', lambda q: '/assets/admin-page' in q.url and pg.admin_files.append(q.url)); return pg
 async def login(pg, em):
     await pg.click('#acctBtn'); await pg.fill('.mbox input[type=email]',em); await pg.click('.mbox button.primary'); await pg.wait_for_timeout(400)
     await pg.type('.mbox input.code','123456'); await pg.press('.mbox input.code','Enter'); await pg.wait_for_timeout(2500)
@@ -52,6 +53,7 @@ async def main():
         # /admin link opens the page for the admin
         await A.goto(BASE+'/admin'); await A.wait_for_timeout(3500); out['admin_link']=await A.locator('#adminView').is_visible()
         await N.goto(BASE+'/admin'); await N.wait_for_timeout(3500); out['n_admin_link']=await N.locator('#adminView').is_visible()
+        out['admin_file']=(len(A.admin_files), len(N.admin_files))
         # the suspended user can no longer use the API
         try: req(BASE,'GET','/api/friends',X); out['x_blocked']=False
         except urllib.error.HTTPError as e: out['x_blocked']=e.code
@@ -64,6 +66,7 @@ async def main():
     check(out['share_gone'], 'admin can delete the shared link')
     check('ไม่มีรายงานที่ต้องจัดการ' in out['empty'], 'closing the report empties the list', out['empty'])
     check(out['admin_link'] and not out['n_admin_link'], '/admin works only for admins', (out['admin_link'], out['n_admin_link']))
+    check(out['admin_file'][0]>=1 and out['admin_file'][1]==0, 'the admin page file loads for admins only', out['admin_file'])
     check(out['report_row'][0][1] and out['report_row'][0][3]=='ลบลิงก์ + ระงับแล้ว', 'report saved with the note', out['report_row'])
     finish('admin', out, errs)
 asyncio.run(main())

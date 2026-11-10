@@ -436,4 +436,4 @@ async function createSceneFromFile(f){
   }catch(err){ toast('เปิดรูปนี้ไม่ได้ ลองไฟล์ .jpg หรือ .png'); }
 }
 
-export { TLfail, aiCredits, aiCtl, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, autoLangState, autoTranslate, checkAI, createSceneFromFile, drag, dragMove, drawing, drewAt, loadImageFile, missingIn, onPickImage, openAI, openItemForm, orderHs, setDrawMode, toSvg, translateAll, translateScene, translating, updDraft };
+export { aiCredits, aiCtl, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, autoLangState, autoTranslate, checkAI, createSceneFromFile, drag, dragMove, drawing, drewAt, loadImageFile, missingIn, onPickImage, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft };

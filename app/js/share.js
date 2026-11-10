@@ -183,4 +183,4 @@ function openImported(rec){
   if(rec.scenes && rec.scenes[0]) openScene(rec.scenes[0],'learn');
 }
 
-export { blobToDataUrl, copyLink, importShare, myShares, openImported, openMyShares, openShare, openSharedLink, picturesUploaded, shareApi, shareErr, shareKey, shareLinkNative, sharePayload, sharedLinkId };
+export { blobToDataUrl, copyLink, importShare, myShares, openImported, openMyShares, openShare, openSharedLink, picturesUploaded, shareApi, sharedLinkId, shareErr, shareKey, shareLinkNative, sharePayload };
