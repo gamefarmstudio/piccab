@@ -1676,7 +1676,7 @@ export function buildAuthEmail(p, supabaseUrl) {
   const html = `<!doctype html><html lang="${lang}"><body style="margin:0;background:#fdf9f3;font-family:Sarabun,Tahoma,Arial,sans-serif;color:#2d2a5a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:18px;padding:28px">
-<tr><td style="padding-bottom:6px"><img src="https://piccab.com/icon-192.png" width="40" height="40" alt="" style="vertical-align:middle;border:0;border-radius:10px"> <span style="font-size:22px;font-weight:700;vertical-align:middle">Pic<span style="color:#e8607a">cab</span></span></td></tr>
+<tr><td style="padding-bottom:6px"><img src="https://piccab.com/icon-192.png" width="40" height="40" alt="" style="vertical-align:middle;border:0;border-radius:10px"> <span style="font-size:22px;font-weight:700;vertical-align:middle">Pic<span style="color:#fe5e7a">cab</span></span></td></tr>
 <tr><td style="font-size:20px;font-weight:700;padding:10px 0 6px">${esc(t.title)}</td></tr>
 ${code ? `<tr><td style="font-size:15px;color:#77728c">${esc(t.lead)}</td></tr>
 <tr><td style="padding:16px 0"><div style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;background:#efeaf7;border-radius:12px;padding:14px 0">${esc(code)}</div></td></tr>` : ''}
