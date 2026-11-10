@@ -7,10 +7,12 @@ let acorn, walk;
 try{ acorn=await import('acorn'); walk=await import('acorn-walk'); }
 catch(e){ console.error('Needs acorn: npm ci --prefix tests'); process.exit(2); }
 const html=fs.readFileSync(root+'app/app.html','utf8');
-const main=fs.readFileSync(root+'app/main.js','utf8');   // the app's code (a module, built by Vite)
+// the app's code: app/main.js + its parts in app/js/ (modules, built by Vite)
+const jsFiles=['app/main.js', ...fs.readdirSync(root+'app/js').filter(f=>f.endsWith('.js')).sort().map(f=>'app/js/'+f)];
+const main=jsFiles.map(f=>fs.readFileSync(root+f,'utf8')).join('\n');
 const TH=/[฀-๿]/;
 const found=new Set();
-const codes=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>[m[1],'script']).concat([[main,'module']]);
+const codes=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>[m[1],'script']).concat(jsFiles.map(f=>[fs.readFileSync(root+f,'utf8'),'module']));
 for(const [code,sourceType] of codes){
   walk.full(acorn.parse(code,{ecmaVersion:'latest',sourceType}), n=>{
     if(n.type==='Literal' && typeof n.value==='string' && TH.test(n.value)) found.add(n.value);

@@ -10,6 +10,8 @@
   "devDependencies": {
     "acorn": "^8.14.0",
     "acorn-walk": "^8.3.4",
+    "eslint-scope": "^8.4.0",
+    "globals": "^16.5.0",
     "wrangler": "4.158.0"
   }
 }
