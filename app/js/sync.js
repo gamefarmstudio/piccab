@@ -228,4 +228,4 @@ function syncSignedOut(){
   if(changed) afterSyncChange();
 }
 
-export { SYNC, accessToken, metaFrom, saveSyncMem, syncDeleted, syncMem, syncNow, syncSignedOut, syncSoon, syncStart, syncText };
+export { accessToken, metaFrom, saveSyncMem, SYNC, syncDeleted, syncMem, syncNow, syncSignedOut, syncSoon, syncStart, syncText };

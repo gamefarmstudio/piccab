@@ -231,4 +231,4 @@ async function openFriendLink(code){
   else renderFriends();
 }
 
-export { CHEER_TEXT, FR, ago2, badgeEl, friendLinkCode, loadFriends, openFriendLink, renderFriends, reportFriendStatsSoon, setSocialBadge };
+export { ago2, badgeEl, CHEER_TEXT, FR, friendLinkCode, loadFriends, openFriendLink, renderFriends, reportFriendStatsSoon, setSocialBadge };

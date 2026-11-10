@@ -24,6 +24,8 @@ app/main.js        จุดเริ่มของแอป: โหลดท�
 app/js/           โค้ดแอปแยกตามส่วน (ES modules) แต่ละไฟล์ import สิ่งที่ใช้จากไฟล์อื่น:
                      core (ตัวช่วยพื้นฐาน, ภาษา, state S และ G — ไม่ import ใคร) · progress · scene · home · decks · games · editor · sheets
                      account · classes · friends · admin · gallery · share · pwa · sync · layout
+                     admin-page.js = หน้า 🛡️ ดูแลระบบ โหลดด้วย import() เฉพาะตอนแอดมินเปิด (คนทั่วไปไม่ต้องโหลด)
+                     ย้ายโค้ดข้ามไฟล์แล้วรัน node tools/fix-imports.mjs → เขียนบรรทัด import/export ใหม่ให้ทุกไฟล์
                      ค่าที่หลายไฟล์ต้องแก้ (เช่น G.selId, G.modalClose, G.decks) อยู่บน G ใน core.js เพราะค่าที่ import มาแก้ตรงๆ ไม่ได้
                      โค้ดที่รันตอนโหลด (นอกฟังก์ชัน) ควรใช้แค่ core หรือของในไฟล์ตัวเอง ถ้าต้องใช้ส่วนอื่นให้ไว้ใน main.js (ส่วน start) — ถ้าผิดลำดับ แอปจะ error ตอนเปิดและเทสต์ทุกชุดจับได้
 vite.config.js     ตั้งค่า Vite · package.json มีแค่ vite + wrangler (Cloudflare ติดตั้งและรัน npm run build เองก่อน deploy)

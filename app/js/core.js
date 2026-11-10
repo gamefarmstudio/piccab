@@ -281,4 +281,4 @@ function anchor(id){
 }
 function clampX(elm, x, W){ const half=elm.offsetWidth/2+4; return Math.max(half, Math.min(W-half, x)); }
 
-export { $, BUILTIN, HL, LANGS, LOC, MQ, NS, S, UI, anchor, artNote, box, check, chips, clampX, cleanLang, countOpen, el, errPage, foldDe, ic, ids, isMobile, itemIn, items, itemsOf, labelOf, langMap, langOk, lev, mean, norm, normFor, overlay, pk, progress, qcard, scene, scenes, shuffle, speak, store, sub, svg, tag, tally, thaiToday, toast, tx, usageFlush, wrap };
+export { $, anchor, artNote, box, BUILTIN, check, chips, clampX, cleanLang, countOpen, el, errPage, foldDe, HL, ic, ids, isMobile, itemIn, items, itemsOf, labelOf, langMap, langOk, LANGS, lev, LOC, mean, MQ, norm, normFor, NS, overlay, pk, progress, qcard, S, scene, scenes, shuffle, speak, store, sub, svg, tag, tally, thaiToday, toast, tx, UI, usageFlush, wrap };

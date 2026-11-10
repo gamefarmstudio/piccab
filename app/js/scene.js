@@ -618,4 +618,4 @@ function ask(msg, okText){
   });
 }
 
-export { IMG_PENDING, UI_LANGS, accentKey, ask, closeModal, doFlash, fsCues, fullRender, goHome, langLabel, layoutHs, openModal, openScene, practised, progOf, refresh, renderChips, renderScene, renderSub, rrPath, sayOf, sceneImg, select, selectBox, setHL, setLang, uiRow, updateOverlay, updateTag };
+export { accentKey, ask, closeModal, doFlash, fsCues, fullRender, goHome, IMG_PENDING, langLabel, layoutHs, openModal, openScene, practised, progOf, refresh, renderChips, renderScene, renderSub, rrPath, sayOf, sceneImg, select, selectBox, setHL, setLang, UI_LANGS, uiRow, updateOverlay, updateTag };

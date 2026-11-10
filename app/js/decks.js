@@ -419,4 +419,4 @@ function openPreview(id){
   });
 }
 
-export { SAVED_DECK, deckCount, deckList, deckName, deckNameDialog, deckSig, dsig, getDeck, isKept, listCards, liveKeys, newDeck, openDeckPicker, openPreview, renderWords, saveDecks, savedHas, sceneWord, startDueReview, startReview, toggleWord, wkey };
+export { deckCount, deckList, deckName, deckNameDialog, deckSig, dsig, getDeck, isKept, listCards, liveKeys, newDeck, openDeckPicker, openPreview, renderWords, SAVED_DECK, saveDecks, savedHas, sceneWord, startDueReview, startReview, toggleWord, wkey };
