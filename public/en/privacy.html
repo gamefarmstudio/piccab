@@ -17,7 +17,7 @@
 <header class="top"><a class="brand" href="/en/?home"><img src="/icon.svg" alt="" width="36" height="36"><span><b><span class="pic">Pic</span><span class="cab">cab</span></b><small>Picture Vocab · Learn words from pictures</small></span></a><a class="back" href="/app">← Back to the app</a></header>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Effective 8 November 2026 · <a href="/en/terms">Terms of Use</a> · <a href="/privacy" lang="th">ภาษาไทย</a></p>
+<p class="meta">Effective 16 November 2026 · <a href="/en/terms">Terms of Use</a> · <a href="/privacy" lang="th">ภาษาไทย</a></p>
 <p class="note">This is an English translation of our Thai Privacy Policy, provided for convenience. If the two versions differ, the <a href="/privacy" lang="th">Thai version</a> prevails.</p>
 
 <div class="summary">
@@ -25,7 +25,7 @@
   <ul>
     <li>If you don't sign in, your scenes, pictures and progress <strong>stay in your browser only</strong>.</li>
     <li>If you sign in, we keep your email, scenes, pictures, progress and word sets so they sync across your devices.</li>
-    <li>When you tap <strong>✨ Let AI find words</strong>, that picture is sent to AI (Google's Gemini) for processing. The words you get are made by AI, not by people.</li>
+    <li>When you tap <strong>✨ Let AI find words</strong>, that picture is sent to AI (Google's Gemini or Anthropic's Claude) for processing. The words you get are made by AI, not by people.</li>
     <li>We don't sell data, we show no ads, and we use no third-party tracking.</li>
     <li>You can delete scenes, word sets, or <strong>your account with all its data</strong> yourself in the app.</li>
   </ul>
@@ -65,10 +65,11 @@
 <p>We don't sell or rent personal data, we don't use it for advertising, and we don't send marketing email. The only email we send is the sign-in code you ask for.</p>
 
 <h2 id="ai">4. AI in the app</h2>
-<p>When you tap <strong>✨ Let AI find words</strong>, the scene's picture is sent through our server to Google's Gemini API to find the things in it, along with English words, Thai meanings and box positions, and the result comes back to the app. Pictures are sent only when you tap this button.</p>
+<p>When you tap <strong>✨ Let AI find words</strong>, the scene's picture is sent through our server to Google's Gemini API to find the things in it, along with English words, Thai meanings and box positions, and the result comes back to the app. Pictures are sent only when you tap this button. If Gemini has used up that day's free quota or is busy, the picture is sent to Anthropic's Claude API instead.</p>
 <ul>
   <li>We use the Gemini API free of charge. Under Google's terms, the pictures sent and the results may be used by Google to provide, improve and develop Google products and AI technology, and may be read by Google reviewers; Google separates the data from your account before reviewers see it. See the <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Gemini API terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
-  <li id="wordlist">When you tap <strong>📝 Photo of the list — AI reads it</strong>, the photo of the word list is sent to Gemini in the same way to read the words and meanings, using 1 AI credit. We don't keep the photo; we keep only the word list you save and the word-card picture the app draws from it. Before taking the photo, cover or crop out student names, school names and other personal information.</li>
+  <li>When a picture goes to Claude: under Anthropic's Commercial Terms, data sent through the API is not used to train AI models. See <a href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noopener">Anthropic's Commercial Terms</a> and <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener">Anthropic's Privacy Policy</a>.</li>
+  <li id="wordlist">When you tap <strong>📝 Photo of the list — AI reads it</strong>, the photo of the word list is sent to AI in the same way (Gemini first, Claude if Gemini isn't available) to read the words and meanings, using 1 AI credit. We don't keep the photo; we keep only the word list you save and the word-card picture the app draws from it. Before taking the photo, cover or crop out student names, school names and other personal information.</li>
   <li>The words and boxes are <strong>made by AI</strong> and may not all be correct. You can edit or delete every word.</li>
   <li>When you practise another language (such as German) while signed in, the app automatically sends only the English words and Thai meanings in your scenes to AI for translation — <strong>no pictures</strong>.</li>
   <li>Please <strong>don't send AI pictures showing people's faces, documents or personal information</strong>. Photograph only the things around you, because pictures you send may be used as described above.</li>
@@ -125,6 +126,7 @@
   <tr><td>Cloudflare</td><td>Hosting the website and the app's server, storing pictures (R2), and checking you're not a bot (Turnstile) when signing in with email or joining a class without email</td><td>Technical data (such as IP address and browser data used for the bot check), scene pictures</td></tr>
   <tr><td>Supabase</td><td>Accounts and database</td><td>Email, scenes (except pictures), progress, word sets, AI credits, feedback you send, app errors and daily usage counts</td></tr>
   <tr><td>Google</td><td>AI that finds words in pictures (Gemini API), and Sign in with Google (if you choose it)</td><td>Pictures you send to AI and the results · authentication with your Google account</td></tr>
+  <tr><td>Anthropic</td><td>AI that finds words in pictures, reads word lists and translates words (Claude API) when Gemini has used up its free quota or is busy</td><td>Pictures you send to AI, words sent for translation, and the results</td></tr>
   <tr><td>Resend</td><td>Sending sign-in code emails, and sending reports and feedback to the Piccab team</td><td>Email address and sign-in code · feedback messages (and the reply email, if given)</td></tr>
 </table>
 <p>These providers may store or process data on servers outside Thailand, such as in the United States or other countries in Asia. We choose providers with data protection measures that meet international standards. We may also disclose data when the law requires it or a competent authority orders it.</p>
