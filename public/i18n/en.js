@@ -582,6 +582,7 @@ const D={
   "👁 แสดงกรอบทั้งหมด: เปิด": "👁 Show all boxes: on",
   "👁 แสดงกรอบทั้งหมด: ปิด": "👁 Show all boxes: off",
   "ฉากนี้ยังไม่มีประโยค": "This scene has no sentences yet",
+  "{0} ประโยค · เล่นเกมแต่งประโยคได้": "{0} sentences · has the sentence game",
   "🎉 เรียงครบ {0} ประโยคแล้ว!": "🎉 All {0} sentences done!",
   "ถูกตั้งแต่ครั้งแรก {0}/{1} ประโยค": "Right first time: {0}/{1} sentences",
   " · ดีที่สุด ★ {0}": " · best ★ {0}",

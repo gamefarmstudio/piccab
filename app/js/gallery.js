@@ -46,7 +46,9 @@ function galCard(g){
   return el('button',{class:'card lcard galcard',onclick:()=>openGalleryScene(g),'aria-label':'ดูฉาก '+g.title},
     el('div',{class:'thumb'}, el('img',{alt:'',loading:'lazy',src:galImg(g,true)}),
       mine ? el('span',{class:'own mine',title:'เก็บแล้ว'}, ic('check_circle-fill')) : null,
-      el('span',{class:'cnt',title:`${g.word_count} คำ`}, ic('sell-fill'), String(g.word_count))),
+      el('span',{class:'cnts'},
+        g.sentence_count ? el('span',{class:'cnt sent',title:`${g.sentence_count} ประโยค · เล่นเกมแต่งประโยคได้`}, '💬 ', String(g.sentence_count)) : null,
+        el('span',{class:'cnt',title:`${g.word_count} คำ`}, ic('sell-fill'), String(g.word_count)))),
     el('div',{class:'cbody'}, el('b',{text:g.title}),
       el('div',{class:'meta2'}, UI==='en' ? null : el('span',{'data-noi18n':'',text:g.title_th||''}), el('span',{class:'lv',text:GAL_LV[g.level]||''}))));
 }
@@ -68,7 +70,8 @@ function openGalleryScene(g){
     });
     m.append(el('div',{class:'pv-head'},
         el('div',{}, el('h3',{'data-noi18n':'',text:g.title+(g.title_th && UI!=='en' ? ' · '+g.title_th : '')}),
-          el('div',{class:'meta'}, cat ? el('span',{'data-noi18n':'',text:`${cat.emoji} ${catName(cat)} · `}) : null, el('span',{text:`${g.word_count} คำศัพท์ · ระดับ${GAL_LV[g.level]||''}`}))),
+          el('div',{class:'meta'}, cat ? el('span',{'data-noi18n':'',text:`${cat.emoji} ${catName(cat)} · `}) : null, el('span',{text:`${g.word_count} คำศัพท์ · ระดับ${GAL_LV[g.level]||''}`}),
+            g.sentence_count ? el('span',{text:` · ${g.sentence_count} ประโยค`}) : null)),
         el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('div',{class:'pv-fig sharefig'}, el('img',{alt:'',src:galImg(g)})),
       words,

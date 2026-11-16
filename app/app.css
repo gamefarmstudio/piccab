@@ -698,6 +698,9 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .thumb .cnt{display:inline-flex;align-items:center;gap:3px;font-family:'Fredoka',sans-serif;font-weight:600;padding:3px 9px 3px 7px;background:rgba(35,32,70,.82);backdrop-filter:blur(4px)}
 .thumb .cnt .ico{width:14px;height:14px}
 .thumb .cnt.full{background:#24a164}
+.thumb .cnts{position:absolute;top:8px;right:8px;display:flex;gap:5px}
+.thumb .cnts .cnt{position:static}
+.thumb .cnt.sent{background:rgba(254,94,122,.92)}
 .meta2{align-items:center;font-family:'Fredoka','Sarabun',sans-serif}
 .meta2.okt{color:#24a164;font-weight:600}
 .meta2 .ico{width:17px;height:17px}

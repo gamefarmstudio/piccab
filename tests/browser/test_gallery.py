@@ -153,6 +153,7 @@ async def main():
     check('คลังภาพ Piccab' in out['lib'] and 'อาหารและผลไม้' in out['lib'] and 'Kitchen' in out['lib'] and out['thumb'], 'visitor sees the library by category with a thumbnail', (out['lib'], out['thumb']))
     check('red box' in out['modal'] and 'เก็บเข้าคลัง' in out['modal'], 'preview lists the words', out['modal'])
     check(out['opened']==3 and out['saved']==1 and out['check']==1, 'added to my library and opened; marked as added', (out['opened'], out['saved'], out['check']))
+    check('💬 2' in out['lib'], 'library card shows how many sentences', out['lib'])
     check(out['sent_btn'], 'sentence game shows for a library scene with sentences', out['sent_btn'])
     p=out['sent_play']
     check(len(p)==2 and p[0][1] and p[0][2]==1 and p[0][3] and p[0][4]=='✓ ถูกต้อง' and p[1][2]=='✓ ถูกต้อง ได้ ★' and p[1][3].endswith('★ 1'),
