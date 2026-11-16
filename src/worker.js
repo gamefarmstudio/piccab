@@ -1184,6 +1184,19 @@ export function cleanGalleryItems(items, w, h) {
   }
   return out;
 }
+// Sentences about a library scene, for the sentence game: [{en, th, words}] (words = the scene's words used in it).
+export function cleanGallerySentences(list) {
+  const str = (v, n) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, n);
+  const out = [], seen = new Set();
+  for (const r of Array.isArray(list) ? list : []) {
+    if (out.length >= 12) break;
+    const en = str(r && r.en, 160); if (!en || seen.has(en.toLowerCase())) continue;
+    seen.add(en.toLowerCase());
+    const words = [...new Set((Array.isArray(r.words) ? r.words : []).map(w => str(w, 60).toLowerCase()).filter(Boolean))].slice(0, 8);
+    out.push({ en, th: str(r.th, 240), words });
+  }
+  return out;
+}
 export function cleanGalleryScene(b, partial) {
   const o = {};
   const str = (v, n) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, n);
@@ -1193,6 +1206,7 @@ export function cleanGalleryScene(b, partial) {
   if (!partial || 'level' in b) o.level = GALLERY_LEVELS.includes(b.level) ? b.level : 'beginner';
   if ('published' in b) o.published = !!b.published;
   if ('sort' in b) o.sort = Math.max(-100000, Math.min(100000, Math.round(Number(b.sort)) || 0));
+  if ('sentences' in b) o.sentences = cleanGallerySentences(b.sentences);
   if (!partial || 'items' in b) {
     const w = Math.round(Number(b.w)), h = Math.round(Number(b.h));
     if (!(w >= 50 && w <= 4000 && h >= 50 && h <= 4000)) return { error: 'bad_size' };
@@ -1237,22 +1251,36 @@ async function galleryImage(request, env, url) {
     'cache-control': 'public, max-age=31536000, immutable',
   } });
 }
+// Saves a library scene; until supabase/2026-11-gallery-sentences.sql is run the sentences column is missing,
+// so it saves the rest and says the sentences were not kept.
+async function galSaveSentences(o, save) {
+  if (!('sentences' in o)) { await save(o); return {}; }
+  try { await save(o); return { sentences: o.sentences.length }; }
+  catch (e) {
+    if (e.status !== 400 || !/sentences/.test(e.body || '')) throw e;
+    const { sentences, ...rest } = o; await save(rest); return { sentences_not_saved: true };
+  }
+}
 async function galleryAdmin(request, env, m, id, act, body) {
   if (!id && m === 'GET') {
+    let noSentences = false;
     try {
       const [categories, scenes] = await Promise.all([
         q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
-        q(env, `gallery_scenes?select=${GAL_LIST},items,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`),
+        q(env, `gallery_scenes?select=${GAL_LIST},items,sentences,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`)
+          .catch(e => { if (e.status !== 400) throw e;      // supabase/2026-11-gallery-sentences.sql not run yet
+            noSentences = true; return q(env, `gallery_scenes?select=${GAL_LIST},items,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`); }),
       ]);
-      return json({ categories: categories || [], scenes: scenes || [] });
+      return json({ categories: categories || [], scenes: scenes || [], ...(noSentences ? { no_sentences: true } : {}) });
     } catch (e) { if (e.status === 404) return json({ setup: true }); throw e; }
   }
   if (!id && m === 'POST') {
     const o = cleanGalleryScene(body, false);
     if (o.error) return error(o.error, 400);
     const nid = [...crypto.getRandomValues(new Uint8Array(8))].map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('') + Date.now().toString(36).slice(-4);
-    await q(env, 'gallery_scenes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ ...o, id: nid, published: false }) });
-    return json({ id: nid });
+    const save = x => q(env, 'gallery_scenes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ ...x, id: nid, published: false }) });
+    const r = await galSaveSentences(o, save);
+    return json({ id: nid, ...r });
   }
   if (!GAL_ID.test(id || '')) return error('bad_id', 400);
   if (act === 'img' && m === 'PUT') {
@@ -1272,8 +1300,8 @@ async function galleryAdmin(request, env, m, id, act, body) {
   if (!act && m === 'PATCH') {
     const o = cleanGalleryScene(body, true);
     if (o.error) return error(o.error, 400);
-    await q(env, `gallery_scenes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ ...o, updated_at: new Date().toISOString() }) });
-    return json({ ok: true });
+    const r = await galSaveSentences(o, x => q(env, `gallery_scenes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ ...x, updated_at: new Date().toISOString() }) }));
+    return json({ ok: true, ...r });
   }
   if (!act && m === 'DELETE') {
     await q(env, `gallery_scenes?id=eq.${id}`, { method: 'DELETE' });
