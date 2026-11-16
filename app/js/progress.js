@@ -59,9 +59,9 @@ const IDB=(()=>{
 })();
 let useIDB=false;                       // decided in boot()
 const imgSaved=new Set();               // scene ids whose current picture is already in IndexedDB
-const SCENE_FIELDS=['id','name','w','h','items','updatedAt','owner','meta'];
+const SCENE_FIELDS=['id','name','w','h','items','updatedAt','owner','meta','sentences'];
 const metaOf=sc=>{ const o={}; SCENE_FIELDS.forEach(k=>{ if(sc[k]!==undefined) o[k]=sc[k]; }); return o; };
-const sigOf=sc=>JSON.stringify(sc.meta ? [sc.name,sc.w,sc.h,sc.items,sc.meta] : [sc.name,sc.w,sc.h,sc.items]);
+const sigOf=sc=>JSON.stringify([sc.name,sc.w,sc.h,sc.items, ...(sc.meta?[sc.meta]:[]), ...(sc.sentences && sc.sentences.length ? [{s:sc.sentences}] : [])]);
 function saveScenes(){
   // Stamp scenes whose content changed, so sync knows what is newer.
   const now=Date.now();

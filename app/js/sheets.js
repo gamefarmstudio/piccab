@@ -320,4 +320,4 @@ $('#fileJson').addEventListener('change', e=>{
   const f=e.target.files[0]; e.target.value=''; importFile(f);
 });
 
-export { deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, shareScene };
+export { aiAuth, deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, shareScene };
