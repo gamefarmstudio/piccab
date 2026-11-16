@@ -6,6 +6,7 @@ import { closeModal, fullRender, goHome, langLabel, openModal, refresh, renderSc
 import './js/home.js';
 import './js/decks.js';
 import './js/games.js';
+import './js/sentence.js';
 import './js/editor.js';
 import './js/sheets.js';
 import { openLogin, user } from './js/account.js';

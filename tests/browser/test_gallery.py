@@ -102,6 +102,35 @@ async def main():
         await V.click('#bnav [data-view=library]') if await V.locator('#bnav [data-view=library]').is_visible() else (await V.click('#homeBtn'), await V.click('#bnav [data-view=library]'))
         await V.wait_for_timeout(800)
         out['check']=await V.locator('#galBox .galcard .own').count()
+        # ✍️ sentence game: the library scene's sentences, words put in order
+        await V.click('#galBox .galcard'); await V.wait_for_timeout(800); await V.click('#mbox button.primary'); await V.wait_for_timeout(1500)
+        sb=V.locator('#modes button[data-mode="sent"]')
+        out['sent_btn']=await sb.is_visible()
+        await sb.click(); await V.wait_for_timeout(500)
+        EN={'โต๊ะใหญ่':'The desk and the red box.','โต๊ะกลางแดด':'A sunny table.'}
+        out['sent_play']=[]
+        async def tap(t):
+            await V.locator('.sentgame .spool .stile').filter(has_text=t).filter(has=V.locator(f'text="{t}"')).first.click(); await V.wait_for_timeout(120)
+        for rnd in range(2):
+            th=await V.inner_text('.sentgame .sth'); words=EN[th].split()
+            lit=await V.locator('#scene .hs.sw').count()
+            if rnd==0:
+                pool=await V.locator('.sentgame .spool .stile').all_inner_texts()
+                for t in pool: await tap(t)
+                bad=await V.locator('.sentgame .sline.bad').count()
+                await V.screenshot(path=shot('gal5_sent_bad.png'))
+                await V.wait_for_timeout(1300)
+                kept=await V.locator('.sentgame .sline .stile').all_inner_texts()
+                for t in words[len(kept):]: await tap(t)
+                out['sent_play'].append((th, lit>0, bad, kept==words[:len(kept)], await V.inner_text('.sentgame .smsg')))
+            else:
+                for t in words: await tap(t)
+                await V.screenshot(path=shot('gal6_sent_good.png'))
+                out['sent_play'].append((th, lit>0, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
+            await V.wait_for_timeout(2500)
+        out['sent_done']=await V.inner_text('.sentgame')
+        await V.screenshot(path=shot('gal7_sent_done.png'))
+        out['sent_meta']=await V.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); return a.map(x=>x.meta&&x.meta.gal).filter(Boolean).length; })()")
         await b.close()
     check('หมวด\n4' in out['empty'] and 'ฉาก\n0' in out['empty'], 'admin: counts before import', out['empty'])
     check('นำเข้าแล้ว 1 ฉาก' in out['result'] and 'Kitchen: 3 คำ · ประโยค 3' in out['result'] and 'lonely (ไม่มีรูป)' in out['result'], 'import result: 1 scene, 3 words, 3 sentences, a file without its pair', out['result'])
@@ -124,5 +153,11 @@ async def main():
     check('คลังภาพ Piccab' in out['lib'] and 'อาหารและผลไม้' in out['lib'] and 'Kitchen' in out['lib'] and out['thumb'], 'visitor sees the library by category with a thumbnail', (out['lib'], out['thumb']))
     check('red box' in out['modal'] and 'เก็บเข้าคลัง' in out['modal'], 'preview lists the words', out['modal'])
     check(out['opened']==3 and out['saved']==1 and out['check']==1, 'added to my library and opened; marked as added', (out['opened'], out['saved'], out['check']))
+    check(out['sent_btn'], 'sentence game shows for a library scene with sentences', out['sent_btn'])
+    p=out['sent_play']
+    check(len(p)==2 and p[0][1] and p[0][2]==1 and p[0][3] and p[0][4]=='✓ ถูกต้อง' and p[1][2]=='✓ ถูกต้อง ได้ ★' and p[1][3].endswith('★ 1'),
+          'play: wrong order shakes and keeps the right start; right first time earns ★; scene words lit', p)
+    check('เรียงครบ 2 ประโยคแล้ว' in out['sent_done'] and '★☆' in out['sent_done'] and 'ถูกตั้งแต่ครั้งแรก 1/2' in out['sent_done'], 'round summary with stars', out['sent_done'])
+    check(out['sent_meta']>=1, 'the copy remembers its library scene (meta.gal)', out['sent_meta'])
     finish('picture library', out, errs)
 asyncio.run(main())

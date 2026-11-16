@@ -936,3 +936,23 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox .meta.exam{display:inline-flex;align-items:center;gap:4px;color:#b07800;font-weight:600}
 .mbox .meta.exam .ico{width:16px;height:16px}
 .wsimp{margin-top:10px;width:100%}
+/* ✍️ sentence game (เรียงคำ) */
+.hs.sw .box{fill:rgba(255,201,40,.10);stroke:var(--gold);stroke-dasharray:7 5}
+.sentgame{flex-basis:100%;display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px}
+.sentgame .shead{display:flex;align-items:center;gap:10px}
+.sentgame .shead .say{font-size:20px;padding:6px 10px}
+.sentgame .sth{font-size:17px;font-weight:600}
+.sentgame .sline{min-height:54px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;border-radius:12px;border:2px dashed var(--line);background:var(--bg);transition:border-color .2s,background .2s}
+.sentgame .sline.good,.sentgame .sline.shown{border:2px solid var(--ok);background:var(--mint)}
+.sentgame .sline.bad{border:2px solid var(--bad);background:#fdeeee;animation:shake .4s}
+.sentgame .sph{color:var(--muted);font-size:14px;padding:0 4px}
+.sentgame .spool{display:flex;flex-wrap:wrap;gap:8px;min-height:44px}
+.sentgame .stile{font-family:'Fredoka','Sarabun',sans-serif;font-weight:600;font-size:19px;padding:8px 14px;border-radius:12px;border:1px solid #d8cdbd;border-bottom-width:3px;background:#fff}
+.sentgame .stile:disabled{cursor:default;opacity:1}
+.sentgame .srow{display:flex;align-items:center;gap:8px}
+.sentgame .smsg{margin:0}
+.sentgame.done .sdone{text-align:center}
+.sentgame.done .sdone b{font-size:19px}
+.sentgame .sstars{font-size:30px;color:var(--gold);letter-spacing:4px;margin:6px 0}
+.sentgame .sstars:empty{display:none}
+@media (max-width:640px){ .sentgame .stile{font-size:17px;padding:7px 11px} .sentgame .sth{font-size:15.5px} }

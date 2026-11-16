@@ -4,6 +4,7 @@ import { prog, saveScenes } from './progress.js';
 import { allWords, lastMode, LIB, markActive, recent, renderGallery, renderLibrary, streakPill, wordEl } from './home.js';
 import { isKept, listCards, openDeckPicker, sceneWord } from './decks.js';
 import { closeQuiz, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
+import { hasSentences, loadSentences, renderSentSub, sentIds, sentReset } from './sentence.js';
 import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, missingIn, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft } from './editor.js';
 import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
 import { openLogin } from './account.js';
@@ -149,7 +150,7 @@ function openScene(id, mode, edit){
   apReset();
   recent[id]=Date.now(); lastMode[id]=mode||'learn'; store.set('pv-recent',recent); store.set('pv-lastmode',lastMode); markActive(0);
   S.sceneId=id; store.set('pv-scene',id); G.help={}; G.used={}; G.qMiss={};
-  S.view='play'; S.mode=mode||'learn'; S.editing=!!edit; G.selId=null; S.showAll=false;
+  S.view='play'; S.mode=mode||'learn'; S.editing=!!edit; G.selId=null; S.showAll=false; sentReset();
   fullRender();
   if(S.mode==='find' && ids().length){ startFind(); renderSub(); }
   if(S.mode==='speak'){ startSpeak(); }
@@ -171,6 +172,8 @@ function refresh(){
   document.body.classList.toggle('editing', S.editing);
   document.body.classList.toggle('drawmode', S.editing && G.drawMode);
   applySel();
+  if(S.view==='play'){ loadSentences(scene()); if(S.mode==='sent' && !S.editing && !hasSentences(scene())) S.mode='learn'; }
+  const sentBtn=$('#modes button[data-mode="sent"]'); if(sentBtn) sentBtn.hidden=!hasSentences(scene());
   document.querySelectorAll('#modes button[data-mode]').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
   $('#editBtn').hidden = $('#renameBtn').hidden = scene().builtin || S.editing;
   renderView();
@@ -224,13 +227,14 @@ function fullRender(){
 
 function setHL(){
   // Only ONE item is highlighted at a time: the one under the pointer, otherwise the clicked/open one.
-  const active = G.hoverId || G.pinnedId || G.quizId || spkTarget();
+  const active = G.hoverId || G.pinnedId || G.quizId || spkTarget(), sw=new Set(sentIds());
   svg.querySelectorAll('.item').forEach(e=>{
     const id=e.dataset.id;
     const f = G.flash && G.flash.id===id ? G.flash.kind : '';
     e.classList.toggle('good', f==='good');
     e.classList.toggle('bad', f==='bad');
     e.classList.toggle('hl', !f && id===active);
+    e.classList.toggle('sw', sw.has(id));
   });
   updateSpot(); fsFollow();
 }
@@ -437,6 +441,8 @@ function renderSub(){
     );
   } else if(S.mode==='speak'){
     renderSpeakSub(put);
+  } else if(S.mode==='sent'){
+    renderSentSub(put);
   } else if(S.mode==='find'){
     if(G.find.target){
       const word = G.find.showWord ? el('span',{class:'target',text:items()[G.find.target].word}) : null;
@@ -469,7 +475,7 @@ function findKeepBtn(){
 }
 function renderChips(){
   chips.innerHTML='';
-  const hide = !S.editing && S.mode==='find';
+  const hide = !S.editing && (S.mode==='find' || S.mode==='sent');
   chips.hidden = hide; if(hide) return;
   const its=items(), p=prog();
   ids().forEach((id,i)=>{
@@ -536,6 +542,7 @@ function select(id){
     else openQuiz(id);
   } else if(S.mode==='find'){ findTap(id); }
   else if(S.mode==='speak'){ spkPick(id); }
+  else if(S.mode==='sent'){ speak(sayOf(id)); doFlash(id,'good',900); }
 }
 svg.addEventListener('pointermove', e=>{
   if(drawing){ updDraft(toSvg(e)); return; }
@@ -568,6 +575,7 @@ document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListe
   apReset(); spkStop(); S.mode=b.dataset.mode; G.pinnedId=G.hoverId=null; G.flash=null; closeQuiz(true); tally('mode:'+S.mode);
   try{ speechSynthesis.cancel(); }catch(e){}
   if(isList(scene())) renderScene();   // a word sheet shows the English words only while learning
+  if(S.mode==='sent') sentReset();
   if(S.mode==='find' && ids().length) startFind();
   if(S.mode==='speak') startSpeak();
   refresh();

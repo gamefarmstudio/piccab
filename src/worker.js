@@ -1224,7 +1224,8 @@ async function galleryPublic(request, env, url) {
   try {
     if (id) {
       if (!GAL_ID.test(id)) return error('not_found', 404);
-      const r = await q(env, `gallery_scenes?select=${GAL_LIST},items&id=eq.${id}&published=is.true&img_ver=gt.0`);
+      const one = cols => q(env, `gallery_scenes?select=${GAL_LIST},${cols}&id=eq.${id}&published=is.true&img_ver=gt.0`);
+      const r = await one('items,sentences').catch(e => { if (e.status !== 400) throw e; return one('items'); });   // before 2026-11-gallery-sentences.sql
       if (!r || !r[0]) return error('not_found', 404);
       return json(r[0]);
     }

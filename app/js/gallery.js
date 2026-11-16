@@ -81,7 +81,7 @@ async function galCopy(g, full, name){
   if(!full) throw new Error('scene');
   const res=await fetch(galImg(g)); if(!res.ok) throw new Error('picture');
   const img=await blobToDataUrl(await res.blob());
-  const sc={ id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(name||full.title).slice(0,50), w:full.w, h:full.h, items:JSON.parse(JSON.stringify(full.items||{})), img };
+  const sc={ id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:String(name||full.title).slice(0,50), w:full.w, h:full.h, items:JSON.parse(JSON.stringify(full.items||{})), img, meta:{ gal:g.id } };
   G.customs.push(sc); saveScenes();
   return sc.id;
 }
@@ -122,4 +122,4 @@ function galEditBar(){
     save);
 }
 
-export { catName, GAL, GAL_LV, galCopy, galEditBar, galEditOf, galEdits, galImg, galPushEdit, renderPicLib };
+export { catName, GAL, GAL_LV, galAdded, galCopy, galEditBar, galEditOf, galEdits, galImg, galPushEdit, renderPicLib };
