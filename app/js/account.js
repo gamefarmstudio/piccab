@@ -285,7 +285,8 @@ if(sb){
     const before = user && user.id;
     user = session && session.user || null;
     renderAcct();
-    if(location.href.endsWith('#')){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }   // left over from the Google sign-in return
+    // left over from the sign-in return: a bare '#', or the tokens themselves (never leave them in the address bar)
+    if(location.href.endsWith('#') || /[#&](access_token|refresh_token)=/.test(location.hash)){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }
     if(user && user.id!==before){ setTimeout(()=>syncNow(true),0); if(aiCredits && !isStudent()) loadCredits(); setTimeout(reportClassProgress, 4000); if(store.get('pv-friends-on',false)) setTimeout(()=>loadFriends().then(()=>{ if(S.view==='class' && FR.tab==='friends') renderFriends(); }), 2500); }
     if(!user && before){ FR.data=null; setSocialBadge(0); ADM.ok=false; }
     if(user && user.id!==before && !isStudent()) checkAdmin();   // signed in (or first load with a session)

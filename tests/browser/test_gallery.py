@@ -124,7 +124,29 @@ async def main():
                 for t in words[len(kept):]: await tap(t)
                 out['sent_play'].append((th, lit>0, bad, kept==words[:len(kept)], await V.inner_text('.sentgame .smsg')))
             else:
-                for t in words: await tap(t)
+                # drag: the 2nd word into the line, then the 1st word in front of it, the rest by tapping
+                cdp=await V.context.new_cdp_session(V)
+                async def drag(t, to, touch=False):   # with the mouse, or a finger
+                    b=await V.locator('.sentgame .spool .stile').filter(has=V.locator(f'text="{t}"')).first.bounding_box()
+                    x0,y0=b['x']+b['width']/2, b['y']+b['height']/2; x1,y1=await to()
+                    if touch: await cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x0,'y':y0}]})
+                    else: await V.mouse.move(x0,y0); await V.mouse.down()
+                    for i in range(1,11):
+                        x,y=x0+(x1-x0)*i/10, y0+(y1-y0)*i/10
+                        if touch: await cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x,'y':y}]})
+                        else: await V.mouse.move(x,y)
+                        await V.wait_for_timeout(16)
+                    out['sent_caret']=out.get('sent_caret',0)+await V.locator('.sentgame .scaret').count()
+                    if touch: await cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+                    else: await V.mouse.up()
+                    await V.wait_for_timeout(200)
+                async def line_mid():
+                    b=await V.locator('.sentgame .sline').bounding_box(); return b['x']+b['width']/2, b['y']+b['height']/2
+                async def before_first():
+                    b=await V.locator('.sentgame .sline .stile').first.bounding_box(); return b['x']+4, b['y']+b['height']/2
+                await drag(words[1], line_mid); await drag(words[0], before_first, True)
+                out['sent_dragged']=await V.locator('.sentgame .sline .stile').all_inner_texts()
+                for t in words[2:]: await tap(t)
                 await V.screenshot(path=shot('gal6_sent_good.png'))
                 out['sent_play'].append((th, lit>0, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
             await V.wait_for_timeout(2500)
@@ -158,6 +180,7 @@ async def main():
     p=out['sent_play']
     check(len(p)==2 and p[0][1] and p[0][2]==1 and p[0][3] and p[0][4]=='✓ ถูกต้อง' and p[1][2]=='✓ ถูกต้อง ได้ ★' and p[1][3].endswith('★ 1'),
           'play: wrong order shakes and keeps the right start; right first time earns ★; scene words lit', p)
+    check(out['sent_dragged']==[w for w in ({'โต๊ะใหญ่':'The desk and the red box.','โต๊ะกลางแดด':'A sunny table.'}[p[1][0]]).split()][:2] and out['sent_caret']==2, 'drag words into the line, and in front of another', (out['sent_dragged'], out.get('sent_caret')))
     check('เรียงครบ 2 ประโยคแล้ว' in out['sent_done'] and '★☆' in out['sent_done'] and 'ถูกตั้งแต่ครั้งแรก 1/2' in out['sent_done'], 'round summary with stars', out['sent_done'])
     check(out['sent_meta']>=1, 'the copy remembers its library scene (meta.gal)', out['sent_meta'])
     finish('picture library', out, errs)
