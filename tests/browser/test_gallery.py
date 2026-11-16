@@ -65,12 +65,12 @@ async def main():
         out['sent_db2']=[(x['en'],x['words']) for x in fake('/rest/v1/gallery_scenes')[0].get('sentences')]
         # 💬 see and fix them
         await A.click('.galrow button:has-text("ประโยค")'); await A.wait_for_timeout(500)
-        out['sent_modal']=await A.inner_text('#mbox')+'|'+'|'.join(await A.locator('#mbox .galsent input').evaluate_all("a=>a.map(i=>i.value)"))
+        out['sent_modal']=await A.inner_text('#mbox')+'|'+'|'.join(await A.locator('#mbox .galsent textarea').evaluate_all("a=>a.map(i=>i.value)"))
         await A.screenshot(path=shot('gal4_sentences.png'))
-        await A.fill('#mbox .galsent:nth-child(1) input.en','The desk and the red box.'); await A.wait_for_timeout(100)
+        await A.fill('#mbox .galsent:nth-child(1) textarea.en','The desk and the red box.'); await A.wait_for_timeout(100)
         out['sent_words_live']=await A.inner_text('#mbox .galsent:nth-child(1) .galsw')
         await A.click('#mbox .galsent:nth-child(2) button.danger'); await A.wait_for_timeout(100)
-        await A.click('#mbox button:has-text("เพิ่มประโยค")'); await A.fill('#mbox .galsent:nth-child(2) input.en','A sunny table.'); await A.fill('#mbox .galsent:nth-child(2) input.th','โต๊ะกลางแดด')
+        await A.click('#mbox button:has-text("เพิ่มประโยค")'); await A.fill('#mbox .galsent:nth-child(2) textarea.en','A sunny table.'); await A.fill('#mbox .galsent:nth-child(2) textarea.th','โต๊ะกลางแดด')
         await A.click('#mbox button:has-text("บันทึก")'); await A.wait_for_timeout(1500)
         out['sent_db3']=[(x['en'],x['th'],x['words']) for x in fake('/rest/v1/gallery_scenes')[0].get('sentences')]
         out['row_sent']=await A.inner_text('#adminView .galrow')
@@ -138,8 +138,8 @@ async def main():
     check(out['sent_db']==[{'en':'The red box is on the table.','th':'กล่องสีแดงอยู่บนโต๊ะ','words':['red box','table']},{'en':'There are two suns.','th':'มีดวงอาทิตย์สองดวง','words':['sun']},{'en':'It is a nice day.','th':'วันนี้อากาศดี','words':[]}], 'sentences saved; their words found in the scene (plural too)', out['sent_db'])
     check('เติมประโยคแล้ว 1 ฉาก' in out['result2'] and 'kitchen-sentences → Kitchen · ห้องครัว: 2 ประโยค' in out['result2'], 'a JSON alone adds sentences to the scene by title', out['result2'])
     check(out['sent_db2']==[('The desk is big.',['table']),('The sun is hot.',['sun'])], 'sentences replaced; an other name (desk) counts as the word', out['sent_db2'])
-    check('The desk is big.' in out['sent_modal'] and 'คำจากฉาก: table' in out['sent_modal'], 'sentence editor lists them with their scene words', out['sent_modal'])
-    check(out['sent_words_live']=='คำจากฉาก: red box, table', 'scene words update while typing', out['sent_words_live'])
+    check('The desk is big.' in out['sent_modal'] and '4 คำ · คำจากฉาก: table' in out['sent_modal'], 'sentence editor lists them with their scene words', out['sent_modal'])
+    check(out['sent_words_live']=='6 คำ · คำจากฉาก: red box, table', 'scene words update while typing', out['sent_words_live'])
     check(out['sent_db3']==[('The desk and the red box.','โต๊ะใหญ่',['red box','table']),('A sunny table.','โต๊ะกลางแดด',['table'])], 'edited sentences saved', out['sent_db3'])
     check('ประโยค 2' in out['row_sent'], 'row shows the sentence count', out['row_sent'])
     check(out['db']==('food','Kitchen','ห้องครัว',1152,864,3,1,False), 'saved as a draft: cropped 4%, picture uploaded', out['db'])
