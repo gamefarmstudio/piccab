@@ -977,3 +977,11 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .sentgame .sstars{font-size:30px;color:var(--gold);letter-spacing:4px;margin:6px 0}
 .sentgame .sstars:empty{display:none}
 @media (max-width:640px){ .stile{font-size:17px;padding:7px 11px} .sentgame .sth{font-size:15.5px} }
+.sentgame .slv{align-self:flex-start}
+.sentgame .sfill{margin:4px 2px;font-family:'Fredoka','Sarabun',sans-serif;font-weight:600;font-size:22px;line-height:1.6}
+.sentgame .sblank{display:inline-block;min-width:96px;text-align:center;padding:0 10px;margin:0 2px;border-bottom:3px solid var(--ink);border-radius:6px 6px 0 0;background:var(--lav);color:var(--muted)}
+.sentgame .sblank.good{background:var(--mint);border-color:var(--ok);color:var(--ok)}
+.sentgame .sblank.shown{background:#fff4d6;border-color:var(--gold);color:var(--ink)}
+.stile.bad{border-color:#f0c9c9;color:var(--bad);text-decoration:line-through;opacity:.6}
+.stile.good{border-color:var(--ok);background:var(--mint);color:var(--ok)}
+@media (max-width:640px){ .sentgame .sfill{font-size:19px} }

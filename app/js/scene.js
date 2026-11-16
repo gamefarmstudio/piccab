@@ -4,7 +4,7 @@ import { prog, saveScenes } from './progress.js';
 import { allWords, lastMode, LIB, markActive, recent, renderGallery, renderLibrary, streakPill, wordEl } from './home.js';
 import { isKept, listCards, openDeckPicker, sceneWord } from './decks.js';
 import { closeQuiz, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
-import { hasSentences, loadSentences, renderSentSub, sentIds, sentReset } from './sentence.js';
+import { hasSentences, loadSentences, renderSentSub, sentIds, sentReset, sentTap } from './sentence.js';
 import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, missingIn, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft } from './editor.js';
 import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
 import { openLogin } from './account.js';
@@ -542,7 +542,7 @@ function select(id){
     else openQuiz(id);
   } else if(S.mode==='find'){ findTap(id); }
   else if(S.mode==='speak'){ spkPick(id); }
-  else if(S.mode==='sent'){ speak(sayOf(id)); doFlash(id,'good',900); }
+  else if(S.mode==='sent'){ if(!sentTap(id)){ speak(sayOf(id)); doFlash(id,'good',900); } }
 }
 svg.addEventListener('pointermove', e=>{
   if(drawing){ updDraft(toSvg(e)); return; }

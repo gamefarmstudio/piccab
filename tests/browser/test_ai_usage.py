@@ -15,13 +15,16 @@ async def main():
             t=now-d*86400+random.randint(0,80000)
             rows.append({'kind':'scan','provider':'gemini','model':random.choice(['gemini-3.8-flash']*2+['gemini-3.5-flash-lite']*5),'outcome':'ok','ms':30000,'tok_in':1800,'tok_out':random.randint(1500,5000),'created_at':iso(t)})
         if d%3==0: rows.append({'kind':'translate','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':4000,'tok_in':600,'tok_out':500,'created_at':iso(now-d*86400)})
-    # today (the last hour): 3.8 used up, the rest on Lite
-    for i in range(20): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'ok','ms':25000,'tok_in':1900,'tok_out':4200,'created_at':iso(now-3000+i)})
-    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'quota_day','ms':300,'tok_in':None,'tok_out':None,'created_at':iso(now-1500+i)})
-    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.6-flash','outcome':'ok' if i<4 else 'quota_minute','ms':22000,'tok_in':1900 if i<4 else None,'tok_out':3000 if i<4 else None,'created_at':iso(now-1400+i)})
-    for i in range(35): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':12000,'tok_in':1800,'tok_out':2600,'created_at':iso(now-1200+i)})
-    rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'invalid_json','ms':9000,'tok_in':None,'tok_out':None,'created_at':iso(now-100)})
-    rows.append({'kind':'translate','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':4000,'tok_in':700,'tok_out':600,'created_at':iso(now-50)})
+    # today (the last hour, but inside Google's free-quota day, which starts at midnight Pacific time): 3.8 used up, the rest on Lite
+    import datetime, zoneinfo
+    pt=datetime.datetime.now(zoneinfo.ZoneInfo('America/Los_Angeles')); day0=pt.replace(hour=0,minute=0,second=0,microsecond=0).timestamp()
+    at=lambda ago: max(now-ago, min(now-1, day0+(3000-ago)/30+1))   # squeezed in after midnight when it is just past it
+    for i in range(20): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'ok','ms':25000,'tok_in':1900,'tok_out':4200,'created_at':iso(at(3000-i))})
+    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'quota_day','ms':300,'tok_in':None,'tok_out':None,'created_at':iso(at(1500-i))})
+    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.6-flash','outcome':'ok' if i<4 else 'quota_minute','ms':22000,'tok_in':1900 if i<4 else None,'tok_out':3000 if i<4 else None,'created_at':iso(at(1400-i))})
+    for i in range(35): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':12000,'tok_in':1800,'tok_out':2600,'created_at':iso(at(1200-i))})
+    rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'invalid_json','ms':9000,'tok_in':None,'tok_out':None,'created_at':iso(at(100))})
+    rows.append({'kind':'translate','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':4000,'tok_in':700,'tok_out':600,'created_at':iso(at(50))})
     seed(rows)
     async with async_playwright() as p:
         b=await launch(p); errs=[]; out={}

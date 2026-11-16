@@ -152,6 +152,26 @@ async def main():
             await V.wait_for_timeout(2500)
         out['sent_done']=await V.inner_text('.sentgame')
         await V.screenshot(path=shot('gal7_sent_done.png'))
+        # level 2: the missing word, from the choices or by tapping it in the picture
+        await V.click('.sentgame .slv button:has-text("เติมคำ")'); await V.wait_for_timeout(300)
+        its=await V.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); const sc=a[a.length-1]; return Object.fromEntries(Object.entries(sc.items).map(([k,v])=>[v.word,k])); })()")
+        out['fill']=[]
+        for rnd in range(2):
+            txt=await V.inner_text('.sentgame .sfill'); opts=await V.locator('.sentgame .sopts .stile').all_inner_texts()
+            ans='red box' if txt.strip().endswith('the ?.') else 'Table'   # 'The desk and the ?.' / 'The ? and the red box.' / 'A sunny ?.'
+            lit_before=await V.locator('#scene .hs.sw').count()
+            if rnd==0:
+                await V.locator('.sentgame .sopts .stile').filter(has_not_text=ans).first.click(); await V.wait_for_timeout(200)
+                wrong=(await V.locator('.sentgame .sopts .stile.bad').count(), await V.inner_text('.sentgame .smsg'))
+                bb=await V.locator(f'#scene .hs[data-id="{its[ans]}"]').bounding_box()
+                await V.mouse.click(bb['x']+bb['width']/2, bb['y']+bb['height']/2); await V.wait_for_timeout(300)
+                out['fill'].append((txt, lit_before, wrong, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .sblank'), await V.locator('#scene .hs.sw').count()))
+                await V.screenshot(path=shot('gal8_fill.png'))
+            else:
+                await V.locator('.sentgame .sopts .stile', has_text=ans).first.click(); await V.wait_for_timeout(300)
+                out['fill'].append((txt, lit_before, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
+            await V.wait_for_timeout(2600)
+        out['fill_done']=await V.inner_text('.sentgame')
         out['sent_meta']=await V.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); return a.map(x=>x.meta&&x.meta.gal).filter(Boolean).length; })()")
         await b.close()
     check('หมวด\n4' in out['empty'] and 'ฉาก\n0' in out['empty'], 'admin: counts before import', out['empty'])
@@ -182,6 +202,10 @@ async def main():
           'play: wrong order shakes and keeps the right start; right first time earns ★; scene words lit', p)
     check(out['sent_dragged']==[w for w in ({'โต๊ะใหญ่':'The desk and the red box.','โต๊ะกลางแดด':'A sunny table.'}[p[1][0]]).split()][:2] and out['sent_caret']==2, 'drag words into the line, and in front of another', (out['sent_dragged'], out.get('sent_caret')))
     check('เรียงครบ 2 ประโยคแล้ว' in out['sent_done'] and '★☆' in out['sent_done'] and 'ถูกตั้งแต่ครั้งแรก 1/2' in out['sent_done'], 'round summary with stars', out['sent_done'])
+    f=out['fill']
+    check(len(f)==2 and '?' in f[0][0] and f[0][1]==0 and f[0][2][0]==1 and 'ยังไม่ใช่' in f[0][2][1] and f[0][3]=='✓ ถูกต้อง' and f[0][4]!='?' and f[0][5]==1
+          and f[1][2]=='✓ ถูกต้อง ได้ ★' and f[1][3].endswith('★ 1'), 'level 2: a wrong choice is crossed out, tapping the thing in the picture answers; no picture hint before', f)
+    check('เติมครบ 2 ประโยคแล้ว' in out['fill_done'] and '★☆' in out['fill_done'], 'level 2 summary', out['fill_done'])
     check(out['sent_meta']>=1, 'the copy remembers its library scene (meta.gal)', out['sent_meta'])
     finish('picture library', out, errs)
 asyncio.run(main())
