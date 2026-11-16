@@ -106,9 +106,10 @@ function renderSentSub(put){
     return;
   }
   const c=sg.cur;
-  const tile=(x, from, to)=>el('button',{type:'button',class:'stile','data-noi18n':'',text:x.t,disabled:c.state?'':null,onclick:()=>sentMove(from, to, x.k)});
+  const tile=(x, from, to, where)=>el('button',{type:'button',class:'stile','data-noi18n':'',text:x.t,disabled:c.state?'':null,
+    onpointerdown:e=>sentDragStart(e, x, where), onclick:e=>{ if(e.currentTarget===sentDragged) return; sentMove(from, to, x.k); }});
   const line=el('div',{class:'sline'+(c.state?' '+c.state:'')},
-    ...(c.line.length ? c.line.map(x=>tile(x, c.line, c.pool)) : [el('span',{class:'sph',text:'แตะคำด้านล่าง เรียงเป็นประโยค'})]));
+    ...(c.line.length ? c.line.map(x=>tile(x, c.line, c.pool, 'line')) : [el('span',{class:'sph',text:'แตะหรือลากคำด้านล่าง มาเรียงเป็นประโยค'})]));
   const th=UI==='en' ? '' : (c.s.th||'');
   put(el('div',{class:'sentgame'},
     el('div',{class:'shead'},
@@ -117,13 +118,63 @@ function renderSentSub(put){
       el('span',{class:'grow'}),
       el('span',{class:'pill',text:`${sg.i+1}/${n} · ★ ${sg.stars}`})),
     line,
-    el('div',{class:'spool'}, ...c.pool.map(x=>tile(x, c.pool, c.line))),
+    el('div',{class:'spool'}, ...c.pool.map(x=>tile(x, c.pool, c.line, 'pool'))),
     el('div',{class:'srow'},
       el('span',{class:'note small smsg',text: c.state==='good' ? (c.tries ? '✓ ถูกต้อง' : '✓ ถูกต้อง ได้ ★') : c.state==='bad' ? '✗ ยังไม่ถูก ลองอีกครั้ง' :
         c.state==='shown' ? 'ประโยคที่ถูกคือแบบนี้' : c.tries ? 'คำที่อยู่ถูกที่แล้วจะอยู่ต่อ' : ''}),
       el('span',{class:'grow'}),
       c.state==='shown' ? el('button',{class:'primary',text:'ต่อไป ›',onclick:sentNext})
         : el('button',{text:'ข้าม ⏭',disabled:c.state?'':null,onclick:sentSkip}))));
+}
+
+
+// ---------- dragging a word (tapping still works) ----------
+// From the pool into the line at any place, to another place in the line, or back to the pool.
+var sDrag=null, sentDragged=null;   // sentDragged: the tile just dragged (its click is not a tap)
+function sentDragStart(e, x, from){
+  const c=sg && sg.cur; if(!c || c.state || e.button>0 || sDrag) return;
+  const t=e.currentTarget, r=t.getBoundingClientRect();
+  sDrag={ x, from, t, pid:e.pointerId, sx:e.clientX, sy:e.clientY, dx:e.clientX-r.left, dy:e.clientY-r.top, on:false, ghost:null, caret:null, to:null };
+  document.addEventListener('pointermove', sentDragMove, { passive:false });
+  document.addEventListener('pointerup', sentDragEnd); document.addEventListener('pointercancel', sentDragEnd);
+}
+function sentDragMove(e){
+  const d=sDrag; if(!d || e.pointerId!==d.pid) return;
+  if(!d.on){
+    if(Math.hypot(e.clientX-d.sx, e.clientY-d.sy)<6) return;
+    d.on=true; d.ghost=d.t.cloneNode(true); d.ghost.classList.add('sghost'); document.body.append(d.ghost); d.t.classList.add('sdragging');
+  }
+  e.preventDefault();
+  d.ghost.style.left=(e.clientX-d.dx)+'px'; d.ghost.style.top=(e.clientY-d.dy)+'px';
+  const line=document.querySelector('.sentgame .sline'), pool=document.querySelector('.sentgame .spool');
+  if(d.caret){ d.caret.remove(); d.caret=null; }
+  const near=(box,pad)=>{ const r=box.getBoundingClientRect(); return e.clientX>=r.left-pad && e.clientX<=r.right+pad && e.clientY>=r.top-pad && e.clientY<=r.bottom+pad; };
+  d.to=null;
+  if(line && near(line,18)){
+    const tiles=[...line.querySelectorAll('.stile')].filter(t=>t!==d.t);
+    let i=tiles.findIndex(t=>{ const r=t.getBoundingClientRect(); return e.clientY<r.top || (e.clientY<r.bottom && e.clientX<r.left+r.width/2); });
+    if(i<0) i=tiles.length;
+    d.to={ where:'line', i };
+    d.caret=el('span',{class:'scaret'});
+    if(i<tiles.length) line.insertBefore(d.caret, tiles[i]); else line.append(d.caret);
+  } else if(pool && near(pool,18)) d.to={ where:'pool' };
+  if(line) line.classList.toggle('sover', !!d.to && d.to.where==='line');
+  if(pool) pool.classList.toggle('sover', !!d.to && d.to.where==='pool');
+}
+function sentDragEnd(e){
+  const d=sDrag; if(!d || e.pointerId!==d.pid) return;
+  sDrag=null;
+  document.removeEventListener('pointermove', sentDragMove); document.removeEventListener('pointerup', sentDragEnd); document.removeEventListener('pointercancel', sentDragEnd);
+  if(!d.on) return;                                  // a tap: its click moves the word
+  sentDragged=d.t;
+  d.ghost.remove(); if(d.caret) d.caret.remove(); d.t.classList.remove('sdragging');
+  const c=sg && sg.cur;
+  if(!c || c.state || !d.to || e.type==='pointercancel'){ renderSub(); return; }
+  const src=d.from==='line' ? c.line : c.pool, j=src.findIndex(y=>y.k===d.x.k);
+  if(j<0){ renderSub(); return; }
+  const [it]=src.splice(j,1);
+  if(d.to.where==='line') c.line.splice(Math.min(d.to.i, c.line.length), 0, it); else c.pool.push(it);
+  if(!c.pool.length) sentCheck(); else renderSub();
 }
 
 export { hasSentences, loadSentences, renderSentSub, sentIds, sentReset };

@@ -50,8 +50,10 @@ async def main():
             await ctx.close()
         # sign-in return lands on / with tokens → passed to /app with the hash
         ctx=await b.new_context(locale='th-TH', service_workers='block'); pg=await ctx.new_page(); await pg.route('**/*', route)
-        await pg.goto('https://piccab.test/#access_token=abc&refresh_token=x&type=magiclink'); await pg.wait_for_timeout(600)
-        out['auth_forward']=pg.url.split('piccab.test')[1][:40]
+        went=[]; pg.on('framenavigated', lambda f: went.append(f.url.split('piccab.test')[1]) if f==pg.main_frame else None)
+        await pg.goto('https://piccab.test/#access_token=abc&refresh_token=x&type=magiclink'); await pg.wait_for_timeout(1500)
+        out['auth_forward']=next((u for u in went if u.startswith('/app')), '')[:40]
+        out['auth_clean']=pg.url.split('piccab.test')[1]
         await pg.goto('https://piccab.test/app?login'); await pg.wait_for_timeout(1500)
         out['login_param']=(pg.url.split('piccab.test')[1], await pg.locator('.mbox h3').first.inner_text() if await pg.locator('.mbox h3').count() else None)
         await pg.goto('https://piccab.test/app?install'); await pg.wait_for_timeout(1500)
@@ -77,6 +79,7 @@ async def main():
         check(out[name+'_return']=='https://piccab.test/app', f'{name}: returning visitors go straight to the app', out[name+'_return'])
         check(out[name+'_home']=='https://piccab.test/?home', f'{name}: ?home stays on the landing page', out[name+'_home'])
     check(out['auth_forward'].startswith('/app#access_token=abc'), 'sign-in links are passed to the app', out['auth_forward'])
+    check('access_token' not in out['auth_clean'], 'the app takes the tokens out of the address bar', out['auth_clean'])
     check(out['login_param'][1] and 'เข้าสู่ระบบ' in out['login_param'][1], '/app?login opens sign-in', out['login_param'])
     check(out['install_param'][1] and 'ติดตั้ง' in out['install_param'][1], '/app?install opens install help', out['install_param'])
     check(out['en_url']=='https://piccab.test/en/' and out['en_thai']==[] and out['en_cta']=='/app?hl=en', 'English browsers get the English page', (out['en_url'], out['en_thai'], out['en_cta']))

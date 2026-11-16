@@ -589,7 +589,7 @@ const D={
   "🎉 เรียงครบ {0} ประโยคแล้ว!": "🎉 All {0} sentences done!",
   "ถูกตั้งแต่ครั้งแรก {0}/{1} ประโยค": "Right first time: {0}/{1} sentences",
   " · ดีที่สุด ★ {0}": " · best ★ {0}",
-  "แตะคำด้านล่าง เรียงเป็นประโยค": "Tap the words below to make the sentence",
+  "แตะหรือลากคำด้านล่าง มาเรียงเป็นประโยค": "Tap or drag the words below to make the sentence",
   "ฟังประโยค": "Listen to the sentence",
   "✓ ถูกต้อง": "✓ Correct",
   "✓ ถูกต้อง ได้ ★": "✓ Correct, you get a ★",
