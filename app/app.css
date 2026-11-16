@@ -879,6 +879,13 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .galwords{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .galwords .pill{font-size:13px}
 .galrow{display:flex;gap:14px;align-items:flex-start}
+.galsents{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto;margin:8px 0 12px}
+.galsent{display:flex;gap:8px;align-items:flex-start}
+.galsent .n{flex:none;width:22px;text-align:right;padding-top:9px;color:var(--muted);font-size:13px}
+.galsent .grow{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.galsent input{width:100%;box-sizing:border-box}
+.galsent input.en{font-weight:600}
+.galsent .galsw{margin:0}
 .galrow .galthumb{width:150px;flex:none;border-radius:10px;aspect-ratio:4/3;object-fit:cover;background:#f2ede6}
 .galrow .galthumb.none{display:grid;place-items:center;color:var(--muted);font-size:13px}
 .galrow .galinfo{flex:1;min-width:0}

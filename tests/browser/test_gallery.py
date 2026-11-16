@@ -31,10 +31,14 @@ def files():
         {"word":"red box","th":"กล่องสีแดง","alts":[],"de":"Kiste","de_art":"die","de_alts":[],"box_2d":[111,83,444,333]},
         {"word":"sun","th":"ดวงอาทิตย์","alts":[],"box_2d":[167,500,389,667]},
         {"word":"Table","th":"","alts":["desk"],"box_2d":[611,250,889,750]},
-        {"word":"sun","th":"ซ้ำ","box_2d":[0,0,100,100]}]}
+        {"word":"sun","th":"ซ้ำ","box_2d":[0,0,100,100]}],
+        "sentences":[{"en":"The red box is on the table.","th":"กล่องสีแดงอยู่บนโต๊ะ","words":["red box"]},
+                     {"en":"There are two suns.","th":"มีดวงอาทิตย์สองดวง","words":[]},
+                     {"en":"It is a nice day.","th":"วันนี้อากาศดี","words":["day"]}]}
     open(os.path.join(d,'Kitchen.json'),'w').write('Here you go:\n```json\n'+json.dumps(gem, ensure_ascii=False)+'\n```')
     open(os.path.join(d,'lonely.json'),'w').write('{}')
-    return [os.path.join(d,f) for f in ('Kitchen.png','Kitchen.json','lonely.json')]
+    open(os.path.join(d,'kitchen-sentences.json'),'w').write(json.dumps({"title":"kitchen","sentences":[{"en":"The desk is big.","th":"โต๊ะใหญ่","words":["desk"]},{"en":"The sun is hot.","th":"ดวงอาทิตย์ร้อน"}]}, ensure_ascii=False))
+    return [os.path.join(d,f) for f in ('Kitchen.png','Kitchen.json','lonely.json','kitchen-sentences.json')]
 async def main():
     out={}; errs=[]
     async with async_playwright() as p:
@@ -44,8 +48,10 @@ async def main():
         await A.click('.admtabs button:has-text("คลังภาพ")'); await A.wait_for_timeout(1200)
         out['empty']=await A.inner_text('#adminView .aicards')
         await A.select_option('.galimp select.galcat', 'food')                    # the admin's choice wins over the JSON's "home"
-        await A.set_input_files('.galfiles', files()); await A.wait_for_selector('#mbox h3:has-text("นำเข้าคลังภาพ")', timeout=30000)
+        F=files()
+        await A.set_input_files('.galfiles', F[:3]); await A.wait_for_selector('#mbox h3:has-text("นำเข้าคลังภาพ")', timeout=30000)
         out['result']=await A.inner_text('#mbox'); await A.click('#mbox button.primary'); await A.wait_for_timeout(1500)
+        out['sent_db']=fake('/rest/v1/gallery_scenes')[0].get('sentences')
         out['cards']=await A.inner_text('#adminView .aicards')
         out['table']=await A.inner_text('#adminView table')
         out['row']=await A.inner_text('#adminView .galrow')
@@ -53,6 +59,21 @@ async def main():
         g=fake('/rest/v1/gallery_scenes')[0]
         out['db']=(g['category'], g['title'], g['title_th'], g['w'], g['h'], g['word_count'], g['img_ver'], g['published'])
         it=sorted(g['items'].values(), key=lambda x:x['word'])
+        # a JSON file alone adds sentences to the scene with that title
+        await A.set_input_files('.galfiles', F[3:]); await A.wait_for_selector('#mbox h3:has-text("นำเข้าคลังภาพ")', timeout=30000)
+        out['result2']=await A.inner_text('#mbox'); await A.click('#mbox button.primary'); await A.wait_for_timeout(1500)
+        out['sent_db2']=[(x['en'],x['words']) for x in fake('/rest/v1/gallery_scenes')[0].get('sentences')]
+        # 💬 see and fix them
+        await A.click('.galrow button:has-text("ประโยค")'); await A.wait_for_timeout(500)
+        out['sent_modal']=await A.inner_text('#mbox')+'|'+'|'.join(await A.locator('#mbox .galsent input').evaluate_all("a=>a.map(i=>i.value)"))
+        await A.screenshot(path=shot('gal4_sentences.png'))
+        await A.fill('#mbox .galsent:nth-child(1) input.en','The desk and the red box.'); await A.wait_for_timeout(100)
+        out['sent_words_live']=await A.inner_text('#mbox .galsent:nth-child(1) .galsw')
+        await A.click('#mbox .galsent:nth-child(2) button.danger'); await A.wait_for_timeout(100)
+        await A.click('#mbox button:has-text("เพิ่มประโยค")'); await A.fill('#mbox .galsent:nth-child(2) input.en','A sunny table.'); await A.fill('#mbox .galsent:nth-child(2) input.th','โต๊ะกลางแดด')
+        await A.click('#mbox button:has-text("บันทึก")'); await A.wait_for_timeout(1500)
+        out['sent_db3']=[(x['en'],x['th'],x['words']) for x in fake('/rest/v1/gallery_scenes')[0].get('sentences')]
+        out['row_sent']=await A.inner_text('#adminView .galrow')
         out['items']=[(x['word'], x['x'], x['y'], x['w'], x['h'], x.get('l')) for x in it]
         # fix boxes with the normal editor, then send them back
         await A.click('.galrow button:has-text("แก้กรอบ")'); await A.wait_for_timeout(1500)
@@ -83,7 +104,15 @@ async def main():
         out['check']=await V.locator('#galBox .galcard .own').count()
         await b.close()
     check('หมวด\n4' in out['empty'] and 'ฉาก\n0' in out['empty'], 'admin: counts before import', out['empty'])
-    check('นำเข้าแล้ว 1 ฉาก' in out['result'] and 'Kitchen: 3 คำ' in out['result'] and 'lonely (ไม่มีรูป)' in out['result'], 'import result: 1 scene, 3 words, a file without its pair', out['result'])
+    check('นำเข้าแล้ว 1 ฉาก' in out['result'] and 'Kitchen: 3 คำ · ประโยค 3' in out['result'] and 'lonely (ไม่มีรูป)' in out['result'], 'import result: 1 scene, 3 words, 3 sentences, a file without its pair', out['result'])
+    check('null' not in out['result'], 'no stray null in the import result', out['result'])
+    check(out['sent_db']==[{'en':'The red box is on the table.','th':'กล่องสีแดงอยู่บนโต๊ะ','words':['red box','table']},{'en':'There are two suns.','th':'มีดวงอาทิตย์สองดวง','words':['sun']},{'en':'It is a nice day.','th':'วันนี้อากาศดี','words':[]}], 'sentences saved; their words found in the scene (plural too)', out['sent_db'])
+    check('เติมประโยคแล้ว 1 ฉาก' in out['result2'] and 'kitchen-sentences → Kitchen · ห้องครัว: 2 ประโยค' in out['result2'], 'a JSON alone adds sentences to the scene by title', out['result2'])
+    check(out['sent_db2']==[('The desk is big.',['table']),('The sun is hot.',['sun'])], 'sentences replaced; an other name (desk) counts as the word', out['sent_db2'])
+    check('The desk is big.' in out['sent_modal'] and 'คำจากฉาก: table' in out['sent_modal'], 'sentence editor lists them with their scene words', out['sent_modal'])
+    check(out['sent_words_live']=='คำจากฉาก: red box, table', 'scene words update while typing', out['sent_words_live'])
+    check(out['sent_db3']==[('The desk and the red box.','โต๊ะใหญ่',['red box','table']),('A sunny table.','โต๊ะกลางแดด',['table'])], 'edited sentences saved', out['sent_db3'])
+    check('ประโยค 2' in out['row_sent'], 'row shows the sentence count', out['row_sent'])
     check(out['db']==('food','Kitchen','ห้องครัว',1152,864,3,1,False), 'saved as a draft: cropped 4%, picture uploaded', out['db'])
     check(out['items'][0][0]=='Table' and out['items'][1]==('red box',100,100,300,300,{'de':{'w':'Kiste','a':'die','alts':[]}}), 'boxes from box_2d in pixels, German kept', out['items'])
     check('คำศัพท์ทั้งหมด\n3' in out['cards'] and 'คำไม่ซ้ำ 3 คำ' in out['cards'] and 'ต้องตรวจ\n1' in out['cards'] and 'เผยแพร่ 0 · ฉบับร่าง 1' in out['cards'], 'counts after import', out['cards'])

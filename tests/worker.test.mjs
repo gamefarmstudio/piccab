@@ -850,6 +850,13 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.equal(cleanGalleryScene({ category:'Home!', title:'x', w:100, h:100, items:{} }, false).error, 'bad_category');
   assert.equal(cleanGalleryScene({ category:'home', title:'x', w:10, h:100, items:{} }, false).error, 'bad_size');
   assert.deepEqual(cleanGalleryScene({ published:1 }, true), { published:true });
+  // sentences for the sentence game
+  const { cleanGallerySentences } = await import('../src/worker.js');
+  assert.deepEqual(cleanGallerySentences([{ en:'  The girl is   sleeping. ', th:' เด็กหลับ ', words:['Bed','bed',' ',7] }, { en:'the girl is sleeping.' }, { en:'' }, null, 'x']),
+    [{ en:'The girl is sleeping.', th:'เด็กหลับ', words:['bed','7'] }]);
+  assert.equal(cleanGallerySentences(Array.from({ length:20 }, (_, i) => ({ en:'Sentence '+i }))).length, 12);
+  assert.deepEqual(cleanGallerySentences('nope'), []);
+  assert.deepEqual(cleanGalleryScene({ sentences:[{ en:'A cat.', th:'แมว', words:['cat'] }] }, true), { sentences:[{ en:'A cat.', th:'แมว', words:['cat'] }] });
   const saved = globalThis.fetch;
   globalThis.fetch = async (url) => { const u = String(url);
     if (u.includes('gallery_categories')) return new Response(JSON.stringify([{ id:'home', name_th:'บ้าน', name_en:'Home', emoji:'🏠', sort:10 }]), { status:200 });

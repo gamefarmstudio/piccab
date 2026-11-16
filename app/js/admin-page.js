@@ -128,13 +128,15 @@ function renderGalleryAdmin(v){
   const card=(title,big,sub)=>el('div',{class:'aicard'}, el('h4',{text:title}), el('div',{class:'aibig'}, el('b',{text:String(big)})), sub?el('p',{class:'note small',text:sub}):null);
   v.append(el('div',{class:'aicards'},
     card('หมวด', D.categories.length, `มีฉากแล้ว ${st.used} หมวด`),
-    card('ฉาก', D.scenes.length, `เผยแพร่ ${pub} · ฉบับร่าง ${D.scenes.length-pub}`),
+    card('ฉาก', D.scenes.length, `เผยแพร่ ${pub} · ฉบับร่าง ${D.scenes.length-pub} · มีประโยค ${D.scenes.filter(g=>(g.sentences||[]).length).length}`),
     card('คำศัพท์ทั้งหมด', st.words, `คำไม่ซ้ำ ${st.uniq} คำ`),
     card('ต้องตรวจ', st.noTh, `คำที่ยังไม่มีคำแปลไทย · ไม่มีภาษาเยอรมัน ${st.noDe} คำ`)));
   const tb=el('table',{class:'aitable stat'}, el('tr',{}, ...['หมวด','เผยแพร่','ฉบับร่าง','คำ','คำไม่ซ้ำ'].map(h=>el('th',{text:h}))));
   D.categories.forEach(c=>{ const p=st.per[c.id]; tb.append(el('tr',{}, el('td',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), ...[p.pub,p.draft,p.words,p.uniq.size].map(x=>el('td',{text:String(x)})))); });
   tb.append(el('tr',{class:'tot'}, el('td',{text:'รวม'}), ...[pub, D.scenes.length-pub, st.words, st.uniq].map(x=>el('td',{text:String(x)}))));
   v.append(el('h4',{class:'aih',text:'แต่ละหมวด'}), el('div',{class:'aitablewrap'}, tb));
+  if(D.no_sentences) v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังเก็บประโยคไม่ได้'})),
+    el('p',{text:'รันไฟล์ supabase/2026-11-gallery-sentences.sql ใน Supabase → SQL Editor ครั้งเดียว แล้วประโยคที่นำเข้าจะถูกบันทึกไว้กับฉาก'})));
   // import
   const inp=el('input',{type:'file',multiple:'',accept:'image/png,image/jpeg,image/webp,.json,.txt',hidden:'',class:'galfiles'});
   inp.addEventListener('change',()=>{ const f=[...inp.files]; inp.value=''; if(f.length) galImport(f); });
@@ -144,6 +146,7 @@ function renderGalleryAdmin(v){
   v.append(el('div',{class:'admcard galimp'},
     el('h4',{text:'📥 นำเข้าจาก Gemini'}),
     el('p',{class:'note',text:'เลือกรูปกับไฟล์ JSON ที่ชื่อเดียวกัน เช่น kitchen.png + kitchen.json เลือกหลายฉากพร้อมกันได้ ฉากที่นำเข้าจะเป็นฉบับร่าง ตรวจกรอบก่อนแล้วค่อยกดเผยแพร่'}),
+    el('p',{class:'note',text:'เลือกไฟล์ JSON อย่างเดียว (ไม่มีรูป) เพื่อเติมประโยคให้ฉากที่มีอยู่แล้ว ระบบหาฉากจาก id หรือชื่อฉากในไฟล์'}),
     el('label',{class:'galcatrow'}, el('span',{text:'ใส่ในหมวด'}), cat),
     el('label',{class:'chk'}, crop, el('span',{text:'ตัดขอบขวาและล่าง 4% (ลบลายน้ำ Gemini ที่มุมขวาล่าง)'})),
     el('div',{class:'row'}, el('button',{class:'primary',text:'เลือกไฟล์…',onclick:()=>inp.click()})), inp));
@@ -157,7 +160,7 @@ function renderGalleryAdmin(v){
   orphan.forEach(g=>v.append(galAdminRow(g, D)));
 }
 function galAdminRow(g, D){
-  const items=Object.values(g.items||{}), live=g.published && g.img_ver;
+  const items=Object.values(g.items||{}), live=g.published && g.img_ver, sents=g.sentences||[];
   const edit=Object.keys(galEdits).find(sid=>galEdits[sid]===g.id && scenes().some(x=>x.id===sid));
   const patch=async(body, okMsg)=>{ const r=await adminApi('PATCH','/gallery/'+g.id, body).catch(()=>({ok:false})); toast(r.ok ? okMsg : 'บันทึกไม่สำเร็จ'); ADM.gal=null; GAL.data=null; renderAdmin(); };
   const sel=el('select',{'aria-label':'หมวด'}, ...D.categories.map(c=>el('option',{value:c.id,text:`${c.emoji} ${catName(c)}`})));
@@ -167,12 +170,13 @@ function galAdminRow(g, D){
     el('div',{class:'galinfo'},
       el('div',{class:'admtop'}, el('b',{'data-noi18n':'',text:g.title+(g.title_th?' · '+g.title_th:'')}),
         el('span',{class:'pill'+(live?' ok':''),text: live ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})),
-      el('p',{class:'note small',text:`${items.length} คำ · ระดับ${GAL_LV[g.level]||''} · ${g.w}×${g.h}`}),
+      el('p',{class:'note small',text:`${items.length} คำ · ประโยค ${sents.length} · ระดับ${GAL_LV[g.level]||''} · ${g.w}×${g.h}`}),
       el('p',{class:'note small galwl','data-noi18n':'',text:items.map(it=>it.word+(it.th?'':' (?)')).join(', ')}),
       el('div',{class:'row'}, el('label',{class:'galcatrow'}, el('span',{text:'หมวด'}), sel), el('span',{class:'sp'}),
         el('button',{class:live?'':'primary',text: live ? 'ซ่อน' : 'เผยแพร่',...(g.img_ver?{}:{disabled:''}),onclick:()=>patch({ published:!g.published }, g.published ? 'ซ่อนแล้ว' : 'เผยแพร่แล้ว ✓')}),
         edit ? el('button',{class:'primary',text:'⬆️ อัปเดตจากฉบับแก้ไข',onclick:()=>galPushEdit(edit, true)}) : null,
         el('button',{text:'✏️ แก้กรอบ',onclick:()=>galEditLocal(g, edit)}),
+        el('button',{text:`💬 ประโยค (${sents.length})`,...(D.no_sentences?{disabled:'',title:'รัน supabase/2026-11-gallery-sentences.sql ก่อน'}:{}),onclick:()=>galSentEdit(g)}),
         el('button',{text:'📝 ชื่อ',onclick:()=>{ const t=prompt('ชื่อฉาก (อังกฤษ)', g.title); if(t==null || !t.trim()) return; const th=prompt('ชื่อฉาก (ไทย)', g.title_th||''); patch({ title:t, title_th:th==null?g.title_th:th }, 'เปลี่ยนชื่อแล้ว'); }}),
         el('button',{class:'danger',text:'🗑',title:'ลบ',onclick:async()=>{ if(!confirm(`ลบ “${g.title}” ออกจากคลังภาพ? คนที่เก็บไปแล้วยังมีฉากนี้อยู่`)) return;
           const r=await adminApi('DELETE','/gallery/'+g.id).catch(()=>({ok:false})); toast(r.ok?'ลบแล้ว':'ลบไม่สำเร็จ'); ADM.gal=null; GAL.data=null; renderAdmin(); }}))));
@@ -190,14 +194,14 @@ async function galEditLocal(g, existing){
 }
 var GA={ crop:true, cat:'' };
 // Gemini's answer: {"category","title","title_th","level","items":[{word, th, alts, de, de_art, de_alts, box_2d}]} (or just the items array)
-function galParse(text){
+function galParse(text, sentencesOnly){
   const s=String(text||''), a=s.indexOf('{'), b=s.lastIndexOf('}'), a2=s.indexOf('['), b2=s.lastIndexOf(']');
   let o=null;
   try{
     if(a>=0 && b>a && (a2<0 || a<a2)) o=JSON.parse(s.slice(a,b+1));
     else if(a2>=0 && b2>a2) o={ items:JSON.parse(s.slice(a2,b2+1)) };
   }catch(e){ o=null; }
-  if(!o || !Array.isArray(o.items)) throw new Error('อ่าน JSON ไม่ได้');
+  if(!o || (!Array.isArray(o.items) && !(sentencesOnly && Array.isArray(o.sentences)))) throw new Error('อ่าน JSON ไม่ได้');
   return o;
 }
 // box_2d is 0-1000 of the picture Gemini made; the saved picture may be cropped (watermark) and smaller.
@@ -224,6 +228,62 @@ function galItems(list, W0, H0, W1, H1, k){
   }
   return items;
 }
+// The scene's words used in a sentence (the word, an other name for it, or a plural), so the game knows which words it practises.
+function galSentWords(en, items, given){
+  const t=' '+String(en||'').toLowerCase().replace(/[^a-z'-]+/g,' ').trim()+' ', out=new Set(), all=Object.values(items||{});
+  const has=f=>f && [f, f+'s', f+'es', f.replace(/y$/,'ies'), f.replace(/(f|fe)$/,'ves')].some(x=>t.includes(' '+x+' '));
+  for(const it of all){ const w=String(it.word||'').toLowerCase().trim(); if(w && [w, ...(it.alts||[]).map(a=>String(a).toLowerCase().trim())].some(has)) out.add(w); }
+  const mine=new Set(all.map(it=>String(it.word||'').toLowerCase().trim()));
+  (Array.isArray(given)?given:[]).forEach(w=>{ w=String(w||'').toLowerCase().trim(); if(mine.has(w)) out.add(w); });   // e.g. knife → knives
+  return [...out];
+}
+function galSentences(list, items){
+  const seen=new Set();
+  return (Array.isArray(list)?list:[]).filter(r=>r && typeof r.en==='string' && r.en.trim()).map(r=>({ en:r.en.trim().replace(/\s+/g,' ').slice(0,160),
+    th:String(r.th||'').trim().replace(/\s+/g,' ').slice(0,240), words:galSentWords(r.en, items, r.words) }))
+    .filter(r=>!seen.has(r.en.toLowerCase()) && seen.add(r.en.toLowerCase())).slice(0,12);
+}
+// Which library scene a sentences-only JSON is for: its id, else the newest scene with that title (and category, if given).
+function galFind(meta, scs){
+  const id=String(meta.id||'').trim(); if(id){ const g=scs.find(x=>x.id===id); if(g) return g; }
+  const t=String(meta.title||'').trim().toLowerCase(), c=String(meta.category||'').trim().toLowerCase(); if(!t) return null;
+  return scs.filter(x=>x.title.toLowerCase()===t && (!c || x.category===c)).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
+}
+// 💬 See and fix a scene's sentences.
+function galSentEdit(g){
+  let rows=(g.sentences||[]).map(r=>({ en:r.en, th:r.th||'' }));
+  openModal(m=>{
+    const list=el('div',{class:'galsents'});
+    const draw=()=>{
+      list.innerHTML='';
+      if(!rows.length) list.append(el('p',{class:'note',text:'ยังไม่มีประโยค กด ➕ เพิ่มประโยค หรือนำเข้าไฟล์ JSON ที่มีประโยค'}));
+      rows.forEach((r,i)=>{
+        const words=el('p',{class:'note small galsw'});
+        const showWords=()=>{ const w=galSentWords(r.en, g.items); words.textContent= w.length ? `คำจากฉาก: ${w.join(', ')}` : '⚠️ ไม่มีคำจากฉากในประโยคนี้'; words.classList.toggle('err', !w.length); };
+        const en=el('input',{class:'en',value:r.en,placeholder:'ประโยคภาษาอังกฤษ','aria-label':'ประโยคภาษาอังกฤษ',maxlength:'160'});
+        const th=el('input',{class:'th',value:r.th,placeholder:'คำแปลไทย','aria-label':'คำแปลไทย',maxlength:'240'});
+        en.addEventListener('input',()=>{ r.en=en.value; showWords(); }); th.addEventListener('input',()=>{ r.th=th.value; });
+        showWords();
+        list.append(el('div',{class:'galsent'}, el('span',{class:'n',text:String(i+1)}),
+          el('div',{class:'grow'}, en, th, words),
+          el('button',{class:'danger',text:'🗑','aria-label':'ลบประโยคนี้',onclick:()=>{ rows.splice(i,1); draw(); }})));
+      });
+    };
+    draw();
+    m.append(el('h3',{'data-noi18n':'',text:`💬 ${g.title}${g.title_th?' · '+g.title_th:''}`}),
+      el('p',{class:'note small',text:'ประโยคสำหรับเกมแต่งประโยค ประโยคละ 4–10 คำ แต่ละประโยคควรมีคำจากฉากอย่างน้อย 1 คำ'}),
+      list,
+      el('div',{class:'row'},
+        el('button',{text:'➕ เพิ่มประโยค',onclick:()=>{ if(rows.length>=12){ toast('ได้สูงสุด 12 ประโยค'); return; } rows.push({ en:'', th:'' }); draw(); const ins=list.querySelectorAll('input.en'); ins[ins.length-1].focus(); }}),
+        el('span',{class:'sp'}),
+        el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'บันทึก',onclick:async()=>{
+          const r=await adminApi('PATCH','/gallery/'+g.id,{ sentences:galSentences(rows, g.items) }).catch(()=>({ok:false,j:{}}));
+          if(!r.ok){ toast('บันทึกไม่สำเร็จ'); return; }
+          if(r.j.sentences_not_saved){ toast('ยังเก็บประโยคไม่ได้ รัน SQL ก่อน'); return; }
+          toast('บันทึกประโยคแล้ว ✓'); closeModal(); ADM.gal=null; renderAdmin(); }})));
+  });
+}
 async function galEncode(src, sw, sh, w, h, q){
   const c=document.createElement('canvas'); c.width=w; c.height=h;
   const x=c.getContext('2d'); x.imageSmoothingQuality='high'; x.drawImage(src,0,0,sw,sh,0,0,w,h);
@@ -246,11 +306,11 @@ async function galImportOne(p, cats){
   if(!Object.keys(items).length) throw new Error('ไม่มีคำที่ใช้ได้');
   const cat=GA.cat || String(meta.category||'').trim().toLowerCase();
   const r=await adminApi('POST','/gallery',{ category: cats.includes(cat) ? cat : cats[0], title:String(meta.title||p.name).slice(0,60),
-    title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items }).catch(()=>({ok:false,j:{}}));
+    title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items, ...(Array.isArray(meta.sentences)?{ sentences:galSentences(meta.sentences, items) }:{}) }).catch(()=>({ok:false,j:{}}));
   if(!r.ok) throw new Error((r.j && r.j.error) || 'บันทึกไม่สำเร็จ');
   await galPutImg(r.j.id, await galEncode(bmp, W1, H1, 480, Math.round(H*480/W), 0.8), true);
   await galPutImg(r.j.id, await galEncode(bmp, W1, H1, W, H, 0.86), false);
-  return { n:Object.keys(items).length, catOk:cats.includes(cat) };
+  return { n:Object.keys(items).length, catOk:cats.includes(cat), sent:r.j.sentences||0, sentLost:!!r.j.sentences_not_saved };
 }
 async function galImport(files){
   const by={};
@@ -259,21 +319,37 @@ async function galImport(files){
     if(/^image\//.test(f.type)) o.img=f; else o.json=f;
   }
   const pairs=Object.values(by), cats=(ADM.gal && ADM.gal.categories || []).map(c=>c.id);
-  const done=[], fail=[], half=pairs.filter(p=>!p.img || !p.json).map(p=>p.name+(p.img?' (ไม่มี JSON)':' (ไม่มีรูป)'));
+  const done=[], fail=[], sent=[], scs=(ADM.gal && ADM.gal.scenes) || [];
+  const only=pairs.filter(p=>p.json && !p.img), half=pairs.filter(p=>p.img && !p.json).map(p=>p.name+' (ไม่มี JSON)');
+  // a JSON file alone: sentences for a scene already in the library
+  for(const p of only){
+    try{
+      let meta=null; try{ meta=galParse(await p.json.text(), true); }catch(e){}
+      if(!meta || !Array.isArray(meta.sentences) || !meta.sentences.length){ half.push(p.name+' (ไม่มีรูป)'); continue; }
+      const g=galFind(meta, scs);
+      if(!g){ fail.push(`${p.name}: ไม่พบฉากนี้ในคลังภาพ (ดูจาก id หรือชื่อฉาก)`); continue; }
+      const list=galSentences(meta.sentences, g.items);
+      const r=await adminApi('PATCH','/gallery/'+g.id,{ sentences:list }).catch(()=>({ok:false,j:{}}));
+      if(!r.ok) fail.push(`${p.name}: บันทึกไม่สำเร็จ`);
+      else if(r.j.sentences_not_saved) fail.push(`${p.name}: ยังเก็บประโยคไม่ได้ (รัน SQL ก่อน)`);
+      else sent.push(`${p.name} → ${g.title}${g.title_th?' · '+g.title_th:''}: ${list.length} ประโยค`);
+    }catch(e){ fail.push(`${p.name}: ${e && e.message || e}`); }
+  }
   let i=0;
   for(const p of pairs.filter(p=>p.img && p.json)){
     toast(`กำลังนำเข้า ${++i}: ${p.name}…`, 60000);
-    try{ const r=await galImportOne(p, cats); done.push(`${p.name}: ${r.n} คำ`+(r.catOk?'':' (ไม่รู้จักหมวด ใส่ไว้หมวดแรก)')); }
+    try{ const r=await galImportOne(p, cats); done.push(`${p.name}: ${r.n} คำ · ประโยค ${r.sent}`+(r.sentLost?' (ประโยคยังไม่ถูกบันทึก: รัน SQL ก่อน)':'')+(r.catOk?'':' (ไม่รู้จักหมวด ใส่ไว้หมวดแรก)')); }
     catch(e){ fail.push(`${p.name}: ${e && e.message || e}`); }
   }
   toast('นำเข้าเสร็จแล้ว', 1500);
   ADM.gal=null; renderAdmin();
-  openModal(m=>m.append(el('h3',{text:'📥 นำเข้าคลังภาพ'}),
+  openModal(m=>m.append(...[el('h3',{text:'📥 นำเข้าคลังภาพ'}),
     el('p',{}, el('b',{text:`นำเข้าแล้ว ${done.length} ฉาก`})), ...done.map(t=>el('p',{class:'note small','data-noi18n':'',text:'✓ '+t})),
+    sent.length ? el('p',{}, el('b',{text:`เติมประโยคแล้ว ${sent.length} ฉาก`})) : null, ...sent.map(t=>el('p',{class:'note small','data-noi18n':'',text:'✓ '+t})),
     fail.length ? el('p',{}, el('b',{text:'ไม่สำเร็จ'})) : null, ...fail.map(t=>el('p',{class:'note small err','data-noi18n':'',text:'✗ '+t})),
     half.length ? el('p',{}, el('b',{text:'ไฟล์ไม่ครบคู่'})) : null, ...half.map(t=>el('p',{class:'note small','data-noi18n':'',text:t})),
     done.length ? el('p',{class:'note',text:'ฉากที่นำเข้าเป็นฉบับร่าง ตรวจกรอบ (✏️ แก้กรอบ) แล้วกด “เผยแพร่”'}) : null,
-    el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'ตกลง',onclick:closeModal}))));
+    el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'primary',text:'ตกลง',onclick:closeModal}))].filter(Boolean)));
 }
 function renderStatsAdmin(v){
   if(adminLoad('stats','/stats','stats')){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); return; }
