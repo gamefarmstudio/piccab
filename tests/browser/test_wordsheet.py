@@ -15,9 +15,10 @@ LIST = """1. elephant ช้าง
 10. dictionary"""
 SPEAK = "window.__said=[]; if(window.speechSynthesis){ speechSynthesis.speak=u=>{ __said.push(u.text); }; }"
 SHEET = "(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); return a.filter(s=>s.meta&&s.meta.kind==='list').map(s=>({name:s.name, meta:s.meta, items:s.items})); })()"
+SENT=[]
 async def extra(r):
     if r.request.url.endswith('/api/wordlist'):
-        body = json.loads(r.request.post_data or '{}')
+        body = json.loads(r.request.post_data or '{}'); SENT.append(body.get('image',''))
         ok = str(body.get('image','')).startswith('data:image/jpeg;base64,')
         return await r.fulfill(status=200 if ok else 400, content_type='application/json',
             body=json.dumps({'items':[{'w':'kitchen','th':'ห้องครัว'},{'w':'kettle','th':'กาน้ำ'},{'w':'toaster','th':''}]} if ok else {'error':'bad_image'}))
@@ -79,7 +80,19 @@ async def main():
         await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
         await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300); await pg.click('#importBtn'); await pg.wait_for_timeout(200)
         await pg.click('.wsimp'); await pg.wait_for_timeout(200)
-        await pg.set_input_files('.wsbox input[type=file]', PHOTO); await pg.wait_for_timeout(1200)
+        out['photo_btns']=await pg.locator('.wsbox .wsphotos button').all_inner_texts()
+        out['cam_capture']=await pg.get_attribute('.wsbox input.wscam','capture')
+        await pg.set_input_files('.wsbox input.wsfile', PHOTO); await pg.wait_for_timeout(800)
+        # box only part of the photo: drag from 25%,25% to 75%,60%
+        st=await pg.locator('.wsbox .cropstage').bounding_box()
+        await pg.mouse.move(st['x']+st['width']*.25, st['y']+st['height']*.25); await pg.mouse.down()
+        for i in range(1,9): await pg.mouse.move(st['x']+st['width']*(.25+.5*i/8), st['y']+st['height']*(.25+.35*i/8)); await pg.wait_for_timeout(16)
+        await pg.mouse.up(); await pg.wait_for_timeout(100)
+        await pg.screenshot(path=shot('ws3_crop.png'))
+        await pg.click('.wsbox .croppanel button.primary'); await pg.wait_for_timeout(1500)
+        out['crop']=await pg.evaluate('''async ([sent, full])=>{ const sz=src=>new Promise(r=>{ const i=new Image(); i.onload=()=>r([i.naturalWidth,i.naturalHeight]); i.src=src; });
+          return [await sz(sent), await sz(full)]; }''', [SENT[-1], 'data:image/jpeg;base64,'+__import__('base64').b64encode(open(PHOTO,'rb').read()).decode()])
+        out['crop_gone']=await pg.locator('.wsbox .croppanel').count()==0 and await pg.locator('.wsbox .wsphotos').is_visible()
         out['ai_lines']=(await pg.input_value('.wsbox textarea')).split('\n'); out['ai_count']=await pg.inner_text('.wscount')
         out['style_picker']=await pg.locator('.wsbox .wsstyle, .wsbox [aria-label="ครูสอบแบบไหน"]').count()
         await pg.fill('.wsbox input[aria-label="ชื่อชุดคำ"]','Kitchen words')
@@ -113,6 +126,9 @@ async def main():
     check(out['said'] in out['words'] and '★' in out['rv_msg'], 'the app reads the word; replaying it still earns a ★', (out['said'], out['rv_msg']))
     check(len(out['star'])==1, 'answer saved', out['star'])
     check(out['prefill']==['elephant ช้าง','giraffe ยีราฟ'] and out['ids_kept'] and out['n_after']==11 and out['star_after']==out['star'], 'editing the list keeps ids and progress', (out['prefill'], out['ids_kept'], out['n_after'], out['star_after']))
+    (cw,ch),(fw,fh)=out['crop']
+    check(out['photo_btns']==['ถ่ายรูปชีท','เลือกรูป'] and out['cam_capture']=='environment', 'camera or a saved photo', (out['photo_btns'], out['cam_capture']))
+    check(abs(cw/fw-.5)<.04 and abs(ch/fh-.35)<.04 and out['crop_gone'], 'only the boxed part is sent to the AI', out['crop'])
     check(out['ai_lines']==['kitchen ห้องครัว','kettle กาน้ำ','toaster'] and out['ai_count']=='3 คำ', 'photo of the list read by AI', (out['ai_lines'], out['ai_count']))
     check('สอบจำลองทั้งชุด (3 คำ)' in out['pv'] and out['mock_title']=='📝 สอบจำลอง' and out['mock_n']=='1/3', 'practice test of the whole list', (out['pv'][:200], out['mock_title'], out['mock_n']))
     check(out['style_picker']==0 and 'ฟังแล้วเขียน' in out['mock_q'] and out['mock_listen_btn']==0, 'no test-style choice: the practice test is listen-and-write too', (out['style_picker'], out['mock_q'], out['mock_listen_btn']))

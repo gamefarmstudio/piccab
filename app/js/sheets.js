@@ -3,7 +3,7 @@ import { G, $, cleanLang, el, ic, LOC, progress, S, scene, store, tally, toast, 
 import { dayNo, forgetSceneLocal, imgSaved, saveProg, saveScenes } from './progress.js';
 import { ask, closeModal, fullRender, openModal, openScene } from './scene.js';
 import { renderGallery } from './home.js';
-import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, createSceneFromFile, loadImageFile, onPickImage } from './editor.js';
+import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, createSceneFromFile, onPickImage } from './editor.js';
 import { askLoginForAI, creditText, openLogin, user } from './account.js';
 import { myShares, shareApi } from './share.js';
 import { accessToken, metaFrom, saveSyncMem, syncDeleted, syncMem } from './sync.js';
@@ -106,13 +106,12 @@ async function aiAuth(){
   if(tok && G.aiLeft===0){ toast(`เครดิต AI เดือนนี้หมดแล้ว (${aiMonthly} ครั้ง/เดือน) — พิมพ์หรือวางรายการคำเองได้`, 6000); return null; }
   return {tok, code};
 }
-// Photo of the sheet → [{w, th}] (one AI credit)
-async function readSheetPhoto(file){
-  let im; try{ im=await loadImageFile(file); }catch(e){ toast('เปิดรูปนี้ไม่ได้ ลองไฟล์ .jpg หรือ .png'); return null; }
+// Photo of the sheet (the part chosen in the box, as a JPEG data URL) → [{w, th}] (one AI credit)
+async function readSheetPhoto(src){
   const auth=await aiAuth(); if(!auth) return null;
   let r, data={};
   try{
-    r=await fetch('/api/wordlist',{method:'POST', headers:{'content-type':'application/json', ...(auth.tok?{authorization:'Bearer '+auth.tok}:{}), ...(auth.code?{'x-piccab-code':auth.code}:{})}, body:JSON.stringify({image:im.src})});
+    r=await fetch('/api/wordlist',{method:'POST', headers:{'content-type':'application/json', ...(auth.tok?{authorization:'Bearer '+auth.tok}:{}), ...(auth.code?{'x-piccab-code':auth.code}:{})}, body:JSON.stringify({image:src})});
     data=await r.json().catch(()=>({}));
   }catch(e){ toast(aiErr('offline')); return null; }
   if(typeof data.credits_left==='number'){ G.aiLeft=data.credits_left; const n=$('#creditNote'); if(n) n.textContent=creditText(); }
@@ -120,6 +119,58 @@ async function readSheetPhoto(file){
   const items=(data.items||[]).filter(x=>x && x.w);
   if(!items.length) toast('ไม่พบรายการคำศัพท์ในรูปนี้ ลองถ่ายให้ชัดและตรงขึ้น หรือพิมพ์เอง', 5000);
   return items;
+}
+// Choose the part of the photo to read: a box over the photo (drag to draw a new one, drag inside to move it,
+// drag a corner to resize). Only what is in the box goes to the AI, so a photo with too much on it still works.
+function sheetCropper(file, onDone, onCancel){
+  const url=URL.createObjectURL(file), img=el('img',{alt:'',draggable:'false'});
+  let r={ x:.04, y:.04, w:.92, h:.92 }, drag=null, fresh=true;   // fresh: the first drag draws the box, wherever it starts
+  const box=el('div',{class:'cropbox'}, ...['nw','ne','sw','se'].map(k=>el('span',{class:'ch '+k,'data-c':k})));
+  const stage=el('div',{class:'cropstage'}, img, box);
+  const show=()=>{ Object.assign(box.style,{ left:r.x*100+'%', top:r.y*100+'%', width:r.w*100+'%', height:r.h*100+'%' }); };
+  const at=e=>{ const b=img.getBoundingClientRect(); return { x:Math.max(0,Math.min(1,(e.clientX-b.left)/b.width)), y:Math.max(0,Math.min(1,(e.clientY-b.top)/b.height)) }; };
+  const MIN=.06;
+  stage.addEventListener('pointerdown',e=>{
+    if(e.button>0) return; e.preventDefault(); stage.setPointerCapture(e.pointerId);
+    const p=at(e), c=e.target.dataset && e.target.dataset.c;
+    if(c) drag={ kind:'corner', c, r0:{...r} };
+    else if(!fresh && p.x>=r.x && p.x<=r.x+r.w && p.y>=r.y && p.y<=r.y+r.h) drag={ kind:'move', p0:p, r0:{...r} };
+    else { drag={ kind:'draw', p0:p }; r={ x:p.x, y:p.y, w:0, h:0 }; show(); }
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!drag) return; const p=at(e);
+    if(drag.kind==='draw'){ const a=drag.p0; r={ x:Math.min(a.x,p.x), y:Math.min(a.y,p.y), w:Math.abs(p.x-a.x), h:Math.abs(p.y-a.y) }; }
+    else if(drag.kind==='move'){ const o=drag.r0; r={ ...o, x:Math.max(0,Math.min(1-o.w, o.x+p.x-drag.p0.x)), y:Math.max(0,Math.min(1-o.h, o.y+p.y-drag.p0.y)) }; }
+    else {
+      const o=drag.r0, c=drag.c; let x0=o.x, y0=o.y, x1=o.x+o.w, y1=o.y+o.h;
+      if(c.includes('w')) x0=Math.min(p.x, x1-MIN); if(c.includes('e')) x1=Math.max(p.x, x0+MIN);
+      if(c.includes('n')) y0=Math.min(p.y, y1-MIN); if(c.includes('s')) y1=Math.max(p.y, y0+MIN);
+      r={ x:x0, y:y0, w:x1-x0, h:y1-y0 };
+    }
+    show();
+  });
+  const end=()=>{ if(!drag) return; if(drag.kind==='draw' && (r.w<MIN || r.h<MIN)) r={ x:.04, y:.04, w:.92, h:.92 }; else fresh=false; drag=null; show(); };
+  stage.addEventListener('pointerup',end); stage.addEventListener('pointercancel',end);
+  // the chosen part, from the full-size photo, at most 1600 px on its longer side
+  const crop=part=>{
+    const W=img.naturalWidth, H=img.naturalHeight, sx=Math.round(part.x*W), sy=Math.round(part.y*H), sw=Math.max(1,Math.round(part.w*W)), sh=Math.max(1,Math.round(part.h*H));
+    const k=Math.min(1, 1600/Math.max(sw,sh)), c=document.createElement('canvas'); c.width=Math.round(sw*k); c.height=Math.round(sh*k);
+    const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.imageSmoothingQuality='high'; x.drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',0.86);
+  };
+  const close=()=>{ URL.revokeObjectURL(url); panel.remove(); };
+  const panel=el('div',{class:'croppanel'},
+    el('p',{class:'note',text:'ลากกรอบรอบคำที่ต้องการ AI จะอ่านเฉพาะในกรอบ (ลากในกรอบเพื่อย้าย ลากมุมเพื่อย่อขยาย)'}),
+    el('div',{class:'cropwrap'}, stage),
+    el('div',{class:'row'},
+      el('button',{type:'button',text:'ยกเลิก',onclick:()=>{ close(); onCancel(); }}),
+      el('span',{class:'sp'}),
+      el('button',{type:'button',text:'ใช้ทั้งรูป',onclick:()=>{ const src=crop({ x:0, y:0, w:1, h:1 }); close(); onDone(src); }}),
+      el('button',{type:'button',class:'primary',text:'✓ ให้ AI อ่านในกรอบ',onclick:()=>{ const src=crop(r); close(); onDone(src); }})));
+  img.onload=show;
+  img.onerror=()=>{ close(); onCancel(); toast('เปิดรูปนี้ไม่ได้ ลองไฟล์ .jpg หรือ .png'); };
+  img.src=url;
+  return panel;
 }
 function openSheetMaker(sc){
   const meta=(sc && sc.meta) || {kind:'list', exam:''};
@@ -133,19 +184,29 @@ function openSheetMaker(sc){
     const ok=el('button',{class:'primary'}, sc ? 'บันทึก' : 'สร้างชุดคำ');
     const upd=()=>{ const n=parseWordList(ta.value).length; count.textContent=n ? `${n} คำ` : ''; ok.disabled=!n; };
     ta.addEventListener('input',upd);
-    const file=el('input',{type:'file',accept:'image/*',hidden:''});
-    const photo=el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ถ่ายรูปชีท ให้ AI อ่าน');
-    file.addEventListener('change',async()=>{
-      const f=file.files[0]; file.value=''; if(!f) return;
-      photo.disabled=true; photo.classList.add('busyline'); photo.lastChild.textContent='AI กำลังอ่านชีท…';
-      const got=await readSheetPhoto(f);
-      photo.disabled=false; photo.classList.remove('busyline'); photo.lastChild.textContent='ถ่ายรูปชีท ให้ AI อ่าน';
-      if(got && got.length){
-        const lines=got.map(x=>x.w+(x.th?' '+x.th:'')).join('\n');
-        ta.value=ta.value.trim() ? ta.value.trim()+'\n'+lines : lines; upd();
-        toast(`AI อ่านได้ ${got.length} คำ — ตรวจและแก้ได้ก่อนบันทึก`, 4000);
-      }
-    });
+    // a photo of the sheet: take one with the camera or choose one, then box the part to read
+    const cam=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:'',class:'wscam'});
+    const file=el('input',{type:'file',accept:'image/*',hidden:'',class:'wsfile'});
+    const busy=el('div',{class:'wsbusy busyline',hidden:'',text:'AI กำลังอ่านชีท…'});
+    const photo=el('div',{class:'wsphotos'},
+      el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>cam.click()}, ic('photo_camera'), 'ถ่ายรูปชีท'),
+      el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>file.click()}, ic('imagesmode'), 'เลือกรูป'));
+    const picked=inp=>{
+      const f=inp.files[0]; inp.value=''; if(!f) return;
+      photo.hidden=true;
+      const panel=sheetCropper(f, async src=>{
+        busy.hidden=false;
+        const got=await readSheetPhoto(src);
+        busy.hidden=true; photo.hidden=false;
+        if(got && got.length){
+          const lines=got.map(x=>x.w+(x.th?' '+x.th:'')).join('\n');
+          ta.value=ta.value.trim() ? ta.value.trim()+'\n'+lines : lines; upd();
+          toast(`AI อ่านได้ ${got.length} คำ — ตรวจและแก้ได้ก่อนบันทึก`, 4000);
+        }
+      }, ()=>{ photo.hidden=false; });
+      photo.after(panel);
+    };
+    cam.addEventListener('change',()=>picked(cam)); file.addEventListener('change',()=>picked(file));
     ok.addEventListener('click',async()=>{
       const words=parseWordList(ta.value); if(!words.length){ ta.focus(); return; }
       ok.disabled=true;
@@ -158,7 +219,7 @@ function openSheetMaker(sc){
     m.append(
       el('div',{class:'shhead'}, el('h3',{}, ic('edit_note'), sc?'แก้ไขชีทคำศัพท์':'ชีทคำศัพท์จากครู'), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('p',{class:'note',text:'ถ่ายรูปชีทให้ AI อ่าน หรือพิมพ์/วางคำทีละบรรทัด ตามด้วยความหมาย'}),
-      G.aiReady ? photo : null, file,
+      G.aiReady ? photo : null, busy, cam, file,
       ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
       el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
       el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),
