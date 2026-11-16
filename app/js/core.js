@@ -220,7 +220,7 @@ function matches(v,it){ const n=norm(v); if(!n) return false; return [it.word].c
 // Older versions kept pictures inline in 'pv-scenes' — migrated on start (see boot()).
 G.customs=store.get('pv-scenes2', null) || store.get('pv-scenes', []); if(!Array.isArray(G.customs)) G.customs=[];
 let progress = store.get('pv-progress', {}); if(typeof progress!=='object'||!progress) progress={};
-const S = { lang: langOk(store.get('pv-lang','en')) ? store.get('pv-lang','en') : 'en', view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false) };
+const S = { lang: langOk(store.get('pv-lang','en')) ? store.get('pv-lang','en') : 'en', view:'home', sceneId: store.get('pv-scene','tea'), mode:'learn', editing:false, showAll:false, allBoxes: !!store.get('pv-allboxes', false), editMean: store.get('pv-editmean', true)!==false };
 G.hoverId=null; G.pinnedId=null; G.quizId=null; G.flash=null; G.flashT=null;
 G.help={}; G.used={}; G.qMiss={};
 G.find={queue:[],target:null,score:0,total:0,missed:false,showWord:false,lock:false};
