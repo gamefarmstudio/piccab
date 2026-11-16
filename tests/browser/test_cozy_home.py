@@ -65,7 +65,7 @@ async def main():
         out['en_sheet']=await pg.locator('#mbox').inner_text()
         await pg.screenshot(path=shot('cozy3_en_modes.png'))
         await pg.click('.mopt[data-mode=learn]'); await pg.wait_for_timeout(400); left.update(await pg.evaluate(THAI_LEFT))
-        out['en_modes']=await pg.evaluate("[...document.querySelectorAll('#modes [data-mode]')].map(b=>b.innerText.trim())")
+        out['en_modes']=await pg.evaluate("[...document.querySelectorAll('#modes [data-mode]')].filter(b=>!b.hidden).map(b=>b.innerText.trim())")
         await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
         for v in ['library','words','class']:
             await pg.click(f'#bnav [data-view={v}]'); await pg.wait_for_timeout(400); left.update(await pg.evaluate(THAI_LEFT))

@@ -61,7 +61,13 @@ const setSig=(o,g)=>Object.defineProperty(o,'_sig',{value:g,writable:true,config
 // scenes.meta (word-sheet details) needs supabase/2026-11-scene-meta.sql; without it sync carries on without them
 let sceneMetaCol=true;
 const noMetaCol=e=>!!e && (e.code==='42703' || e.code==='PGRST204' || /\bmeta\b/.test(String(e.message||'')));
-function metaFrom(r){ const m=r && r.meta; return (m && typeof m==='object' && m.kind==='list') ? { meta:{ kind:'list', exam:/^\d{4}-\d{2}-\d{2}$/.test(m.exam||'')?m.exam:'', style:m.style==='meaning'?'meaning':'listen' } } : {}; }
+// meta: a word sheet's details, and gal = the picture-library scene it was copied from (for its sentences)
+function metaFrom(r){
+  const m=r && r.meta; if(!m || typeof m!=='object') return {};
+  const o=m.kind==='list' ? { kind:'list', exam:/^\d{4}-\d{2}-\d{2}$/.test(m.exam||'')?m.exam:'', style:m.style==='meaning'?'meaning':'listen' } : {};
+  if(typeof m.gal==='string' && /^[a-z0-9]{6,24}$/.test(m.gal)) o.gal=m.gal;
+  return Object.keys(o).length ? { meta:o } : {};
+}
 async function syncPull(){
   const uid=user.id, mem=syncMem(uid);
   let changed=false;

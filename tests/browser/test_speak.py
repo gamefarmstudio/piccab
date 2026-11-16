@@ -77,7 +77,7 @@ async def main():
         await ctx.add_init_script(FAKE); await ctx.add_init_script("if(!sessionStorage.x){ sessionStorage.x=1; localStorage.setItem('pv-ui','\"en\"'); localStorage.setItem('pv-lang','\"en\"'); localStorage.setItem('pv-mic-ok','true'); }")
         pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); await pg.route('**/*', route); await pg.goto('https://piccab.test/app'); await pg.wait_for_timeout(700)
         await pg.click('.cont .primary.big'); await pg.wait_for_timeout(500); await pg.click('#modes [data-mode=speak]'); await pg.wait_for_timeout(400)
-        out['m_modes']=await pg.locator('#modes [data-mode]').all_inner_texts(); out['m_sub']=await pg.inner_text('#sub')
+        out['m_modes']=await pg.locator('#modes [data-mode]:not([hidden])').all_inner_texts(); out['m_sub']=await pg.inner_text('#sub')
         await pg.screenshot(path=shot('sp4_phone.png'))
         await ctx.close()
         # no speech recognition (e.g. Firefox)
