@@ -3,6 +3,7 @@
 import { $, cleanLang, el, S, scenes, store, toast } from './core.js';
 import { ask, closeModal, openModal, openScene } from './scene.js';
 import { deckNameDialog } from './decks.js';
+import { sceneWordsIn } from './sentence.js';
 import { loadImageFile } from './editor.js';
 import { user } from './account.js';
 import { ago2, CHEER_TEXT } from './friends.js';
@@ -229,14 +230,7 @@ function galItems(list, W0, H0, W1, H1, k){
   return items;
 }
 // The scene's words used in a sentence (the word, an other name for it, or a plural), so the game knows which words it practises.
-function galSentWords(en, items, given){
-  const t=' '+String(en||'').toLowerCase().replace(/[^a-z'-]+/g,' ').trim()+' ', out=new Set(), all=Object.values(items||{});
-  const has=f=>f && [f, f+'s', f+'es', f.replace(/y$/,'ies'), f.replace(/(f|fe)$/,'ves')].some(x=>t.includes(' '+x+' '));
-  for(const it of all){ const w=String(it.word||'').toLowerCase().trim(); if(w && [w, ...(it.alts||[]).map(a=>String(a).toLowerCase().trim())].some(has)) out.add(w); }
-  const mine=new Set(all.map(it=>String(it.word||'').toLowerCase().trim()));
-  (Array.isArray(given)?given:[]).forEach(w=>{ w=String(w||'').toLowerCase().trim(); if(mine.has(w)) out.add(w); });   // e.g. knife → knives
-  return [...out];
-}
+const galSentWords=(en, items, given)=>sceneWordsIn(en, items, given);
 function galSentences(list, items){
   const seen=new Set();
   return (Array.isArray(list)?list:[]).filter(r=>r && typeof r.en==='string' && r.en.trim()).map(r=>({ en:r.en.trim().replace(/\s+/g,' ').slice(0,160),

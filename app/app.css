@@ -985,3 +985,8 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .stile.bad{border-color:#f0c9c9;color:var(--bad);text-decoration:line-through;opacity:.6}
 .stile.good{border-color:var(--ok);background:var(--mint);color:var(--ok)}
 @media (max-width:640px){ .sentgame .sfill{font-size:19px} }
+.sentgame.make{gap:6px}
+.sentgame.make b{font-size:17px}
+.sentgame.make .note{margin:0}
+.sentgame .sflag{background:none;border:none;padding:6px 8px;font-size:16px;opacity:.55}
+.sentgame .sflag:hover{opacity:1}

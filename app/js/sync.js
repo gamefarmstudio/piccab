@@ -59,8 +59,15 @@ function afterSyncChange(){
 }
 const setSig=(o,g)=>Object.defineProperty(o,'_sig',{value:g,writable:true,configurable:true,enumerable:false});
 // scenes.meta (word-sheet details) needs supabase/2026-11-scene-meta.sql; without it sync carries on without them
-let sceneMetaCol=true;
-const noMetaCol=e=>!!e && (e.code==='42703' || e.code==='PGRST204' || /\bmeta\b/.test(String(e.message||'')));
+// scenes.sentences (✍️ sentences made by AI for your own scenes) needs supabase/2026-11-scene-sentences.sql; without it they stay on this device
+let sceneMetaCol=true, sceneSentCol=true;
+const noCol=(e,c)=>!!e && new RegExp('\\b'+c+'\\b').test(String(e.message||'')) && (e.code==='42703' || e.code==='PGRST204' || /column/i.test(String(e.message||'')));
+const sceneCols=()=>'id,name,w,h,items,deleted,updated_at'+(sceneMetaCol?',meta':'')+(sceneSentCol?',sentences':'');
+const sceneRow=r=>{ const o={...r}; if(!sceneMetaCol) delete o.meta; if(!sceneSentCol) delete o.sentences; return o; };
+// a missing column: carry on without it (true = try again)
+const dropCol=e=>{ if(sceneMetaCol && noCol(e,'meta')){ sceneMetaCol=false; return true; } if(sceneSentCol && noCol(e,'sentences')){ sceneSentCol=false; return true; } return false; };
+const sentFrom=r=>Array.isArray(r && r.sentences) ? r.sentences.filter(x=>x && typeof x.en==='string' && x.en).slice(0,12)
+  .map(x=>({ en:String(x.en).slice(0,160), th:String(x.th||'').slice(0,240), words:(Array.isArray(x.words)?x.words:[]).map(String).slice(0,8) })) : [];
 // meta: a word sheet's details, and gal = the picture-library scene it was copied from (for its sentences)
 function metaFrom(r){
   const m=r && r.meta; if(!m || typeof m!=='object') return {};
@@ -73,8 +80,8 @@ async function syncPull(){
   let changed=false;
   // scenes that belong to another account leave this device (they are safe in that account)
   for(const sc of G.customs.slice()) if(sc.owner && sc.owner!==uid){ G.customs.splice(G.customs.indexOf(sc),1); forgetSceneLocal(sc.id); delete progress[sc.id]; changed=true; }
-  let { data:rows, error } = await sb.from('scenes').select('id,name,w,h,items,deleted,updated_at'+(sceneMetaCol?',meta':''));
-  if(error && sceneMetaCol && noMetaCol(error)){ sceneMetaCol=false; ({ data:rows, error } = await sb.from('scenes').select('id,name,w,h,items,deleted,updated_at')); }
+  let { data:rows, error } = await sb.from('scenes').select(sceneCols());
+  while(error && dropCol(error)) ({ data:rows, error } = await sb.from('scenes').select(sceneCols()));
   if(error) throw error;
   const need=[];
   for(const r of rows||[]){
@@ -86,10 +93,12 @@ async function syncPull(){
     mem.img[r.id]=true;                                   // a row exists → its picture was uploaded first
     if(!loc){
       const sc={ id:r.id, name:r.name, w:r.w, h:r.h, items:r.items||{}, updatedAt:t, owner:uid, img:null, ...metaFrom(r) };
+      if(sentFrom(r).length) sc.sentences=sentFrom(r);
       setSig(sc, sigOf(sc)); G.customs.push(sc); mem.scenes[r.id]=sc._sig; need.push(sc); changed=true;
     } else if(t>(loc.updatedAt||0)){
       Object.assign(loc,{ name:r.name, w:r.w, h:r.h, items:r.items||{}, updatedAt:t, owner:uid });
       if(sceneMetaCol){ const mt=metaFrom(r); if(mt.meta) loc.meta=mt.meta; else delete loc.meta; }
+      if(sceneSentCol){ const st=sentFrom(r); if(st.length) loc.sentences=st; else delete loc.sentences; }
       setSig(loc, sigOf(loc)); mem.scenes[r.id]=loc._sig;
       if(!loc.img){ need.push(loc); } else if(isList(loc)){ need.push(loc); }   // a sheet's picture is redrawn when its words change
       changed=true;
@@ -199,11 +208,11 @@ async function syncPush(){
     }
     sc.owner=uid;
     rows.push({ user_id:uid, id:sc.id, name:sc.name, w:sc.w, h:sc.h, items:sc.items||{}, image_path:`u/${uid}/${sc.id}`, deleted:false,
-      updated_at:new Date(sc.updatedAt||Date.now()).toISOString(), meta:sc.meta||{} });
+      updated_at:new Date(sc.updatedAt||Date.now()).toISOString(), meta:sc.meta||{}, sentences:sc.sentences||[] });
   }
   if(rows.length){
-    let { error } = await sb.from('scenes').upsert(sceneMetaCol ? rows : rows.map(({meta,...r})=>r), { onConflict:'user_id,id' });
-    if(error && sceneMetaCol && noMetaCol(error)){ sceneMetaCol=false; ({ error } = await sb.from('scenes').upsert(rows.map(({meta,...r})=>r), { onConflict:'user_id,id' })); }
+    let { error } = await sb.from('scenes').upsert(rows.map(sceneRow), { onConflict:'user_id,id' });
+    while(error && dropCol(error)) ({ error } = await sb.from('scenes').upsert(rows.map(sceneRow), { onConflict:'user_id,id' }));
     if(error) throw error;
     rows.forEach(r=>{ const sc=G.customs.find(x=>x.id===r.id); if(sc) mem.scenes[r.id]=sigOf(sc); });
     persistScenesQuiet();

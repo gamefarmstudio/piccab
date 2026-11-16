@@ -809,6 +809,34 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   console.log('word list tests passed');
 }
 
+// ---------- /api/sentences: sentences for the ✍️ game, for your own scene (with its picture) or word sheet ----------
+{
+  const saved = globalThis.fetch; let sent = null;
+  globalThis.fetch = async (url, init) => {
+    sent = JSON.parse(init.body);
+    return new Response(JSON.stringify({ stop_reason:'end_turn', content:[{ type:'text', text:'[{"en":"The cat is on the sofa.","th":"แมวอยู่บนโซฟา","words":["cat","sofa"]},{"en":"Hi."},{"en":"The cat is on the sofa."}]' }], usage:{ input_tokens:300, output_tokens:80 } }), { status:200 });
+  };
+  const sn = (body, env) => worker.fetch(new Request('https://piccab.com/api/sentences', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) }), { ASSETS: assets, ...env });
+  assert.equal((await worker.fetch(new Request('https://piccab.com/api/sentences'), { ASSETS: assets, ...KEY })).status, 405);
+  assert.equal((await (await sn({ words:[{ w:'cat' }] }, KEY)).json()).error, 'too_few_words');
+  assert.equal((await (await sn({ words:[{ w:'cat' },{ w:'sofa' }], image:'data:text/html;base64,AAAA' }, KEY)).json()).error, 'bad_image');
+  // a word sheet: words only, example sentences
+  let r = await sn({ words:[{ w:'cat', th:'แมว' },{ w:'sofa' },{ w:'cat' },{ w:'<b>' }], kind:'list' }, KEY);
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).items, [{ en:'The cat is on the sofa.', th:'แมวอยู่บนโซฟา', words:['cat','sofa'] }]);
+  let parts = sent.messages[0].content;
+  assert.equal(parts.length, 1); assert.match(parts[0].text, /example sentences/); assert.match(parts[0].text, /cat \(แมว\), sofa\./); assert.match(parts[0].text, /suitable for children/);
+  // a scene: its picture goes with it
+  r = await sn({ words:[{ w:'cat' },{ w:'sofa' }], image: img, kind:'scene' }, KEY);
+  assert.equal(r.status, 200);
+  parts = sent.messages[0].content;
+  assert.equal(parts[0].type, 'image'); assert.match(parts[1].text, /what is happening in the picture/);
+  const { parseSentences } = await import('../src/worker.js');
+  assert.equal(parseSentences('no'), null); assert.equal(parseSentences('[{"en":"Yes."}]'), null);
+  globalThis.fetch = saved;
+  console.log('sentence tests passed');
+}
+
 // trial tools: feedback, client errors, usage counts
 {
   const { cleanFeedback, cleanUsage } = await import('../src/worker.js');

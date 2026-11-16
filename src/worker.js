@@ -92,6 +92,10 @@ export default {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return wordlist(request, env);
     }
+    if (url.pathname === '/api/sentences') {
+      if (request.method !== 'POST') return error('method_not_allowed', 405);
+      return sentences(request, env);
+    }
     if (url.pathname === '/api/translate') {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return translate(request, env);
@@ -208,6 +212,60 @@ async function wordlist(request, env) {
     await saveUsage(env, 'wordlist', log);
     return res;
   });
+}
+// POST /api/sentences {words:[{w, th}], image?, kind:'scene'|'list'} -> {items:[{en, th, words}]}:
+// sentences for the ✍️ sentence game, for a scene of your own (about its picture) or a word sheet (example sentences).
+// One AI credit, like a scan; nothing is kept here.
+async function sentences(request, env) {
+  const acc = await aiAccess(request, env);
+  if (acc instanceof Response) return acc;
+  let body;
+  try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
+  const words = [], seen = new Set();
+  for (const r of Array.isArray(body.words) ? body.words : []) {
+    const w = String((r && r.w) || '').replace(/[^\p{L}\p{N} '\-.]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!w || w.replace(/[^A-Za-z]/g, '').length < 2 || seen.has(w.toLowerCase())) continue;
+    seen.add(w.toLowerCase());
+    words.push({ w, th: String((r && r.th) || '').replace(/[\u0000-\u001f"\\]/g, '').trim().slice(0, 60) });
+    if (words.length >= 60) break;
+  }
+  if (words.length < 2) return error('too_few_words', 400);
+  let mime = null, data64 = null;
+  if (body.image) {
+    const m = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image));
+    if (!m || !IMAGE_TYPES.includes(m[1])) return error('bad_image', 400);
+    if (m[2].length > MAX_IMAGE_BYTES) return error('image_too_large', 413);
+    mime = m[1]; data64 = m[2];
+  }
+  const log = [];
+  return withCredit(env, acc, async () => {
+    const res = await runAI(env, acc.providers, mime, data64, () => buildSentencesPrompt(words, !!mime), parseSentences, log);
+    await saveUsage(env, 'sentences', log);
+    return res;
+  });
+}
+export function buildSentencesPrompt(words, picture) {
+  const list = words.map(x => x.w + (x.th ? ` (${x.th})` : '')).join(', ');
+  const rules = `For Thai children learning English (A1-A2 level): present simple or present continuous, 4 to 10 words each, correct and natural.
+Vary the sentence patterns; do not start more than two sentences the same way, and do not use "We can see".
+Keep everything friendly and suitable for children: everyday life, family, school, play and food. Nothing scary, violent or sad, no real people's names, no brands.
+"th" is the natural everyday Thai meaning, not word-for-word. "words" lists the words from the list that are used in the sentence.
+Reply with a JSON array only, no other text, like [{"en":"The boy is eating a banana.","th":"เด็กผู้ชายกำลังกินกล้วย","words":["banana"]}].`;
+  return picture
+    ? `This picture is used in a vocabulary app; these are the words for things in it: ${list}.
+Write 6 to 8 short sentences about what is happening in the picture. Each sentence uses at least one word from the list, and only describes what can really be seen.
+${rules}`
+    : `These are English words a child has to learn: ${list}.
+Write 8 short example sentences (fewer if there are fewer words) that show how the words are used. Each sentence uses at least one word from the list, exactly as written or as its plural; use as many different words as you can.
+${rules}`;
+}
+export function parseSentences(text) {
+  const s = String(text || ''), a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a < 0 || b <= a) return null;
+  let arr;
+  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  const out = cleanGallerySentences(arr).filter(r => { const n = r.en.split(/\s+/).length; return n >= 3 && n <= 14 && /[A-Za-z]/.test(r.en); });
+  return out.length ? out : null;
 }
 export function buildWordlistPrompt() {
   return `This is a photo of a vocabulary list that a teacher in Thailand gave to students to learn for a spelling / dictation test (a worksheet, a page in a notebook, a whiteboard or a screen). It may be printed or handwritten.
@@ -1140,7 +1198,8 @@ async function clientError(request, env) {
 }
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
-  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback', 'gallery_add'];
+  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback', 'gallery_add',
+  'sent_round', 'sent_ai'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};

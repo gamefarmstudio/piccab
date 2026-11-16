@@ -4,7 +4,7 @@ import { prog, saveScenes } from './progress.js';
 import { allWords, lastMode, LIB, markActive, recent, renderGallery, renderLibrary, streakPill, wordEl } from './home.js';
 import { isKept, listCards, openDeckPicker, sceneWord } from './decks.js';
 import { closeQuiz, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
-import { hasSentences, loadSentences, renderSentSub, sentIds, sentReset, sentTap } from './sentence.js';
+import { loadSentences, renderSentSub, sentIds, sentModeShown, sentReset, sentTap } from './sentence.js';
 import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, missingIn, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft } from './editor.js';
 import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
 import { openLogin } from './account.js';
@@ -172,8 +172,8 @@ function refresh(){
   document.body.classList.toggle('editing', S.editing);
   document.body.classList.toggle('drawmode', S.editing && G.drawMode);
   applySel();
-  if(S.view==='play'){ loadSentences(scene()); if(S.mode==='sent' && !S.editing && !hasSentences(scene())) S.mode='learn'; }
-  const sentBtn=$('#modes button[data-mode="sent"]'); if(sentBtn) sentBtn.hidden=!hasSentences(scene());
+  if(S.view==='play'){ loadSentences(scene()); if(S.mode==='sent' && !S.editing && !sentModeShown(scene())) S.mode='learn'; }
+  const sentBtn=$('#modes button[data-mode="sent"]'); if(sentBtn) sentBtn.hidden=!sentModeShown(scene());
   document.querySelectorAll('#modes button[data-mode]').forEach(b=>{ b.classList.toggle('on', b.dataset.mode===S.mode && !S.editing); b.disabled=S.editing; });
   $('#editBtn').hidden = $('#renameBtn').hidden = scene().builtin || S.editing;
   renderView();

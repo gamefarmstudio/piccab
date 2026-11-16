@@ -3,8 +3,11 @@
 // The sentences are made for picture-library scenes (gallery_scenes.sentences), so only those scenes have the game.
 // A scene knows its library scene by sc.meta.gal (older copies: the pv-gal list), and the sentences are fetched
 // from /api/gallery/<id> and kept on this device, so fixes made in the library reach everyone's copy.
-import { el, ids, items, S, scene, shuffle, speak, store, tally, UI } from './core.js';
-import { doFlash, refresh, renderSub, setHL } from './scene.js';
+import { G, el, ids, items, S, scene, shuffle, speak, store, tally, toast, UI } from './core.js';
+import { saveScenes } from './progress.js';
+import { ask, doFlash, refresh, renderSub, setHL } from './scene.js';
+import { aiErr } from './editor.js';
+import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
 
 // (var: the scene screen may ask about sentences before this part of the script has run)
@@ -19,9 +22,25 @@ function galIdOf(sc){
   const e=Object.entries(galAdded||{}).find(([,sid])=>sid===sc.id);
   return e ? e[0] : null;
 }
-function sentencesOf(sc){ const g=galIdOf(sc), c=g && SENT && SENT.cache[g]; return c && Array.isArray(c.list) ? c.list.filter(s=>s && s.en) : []; }
+// A scene's own sentences (made by AI for a scene or word sheet of yours) come first, then the picture library's.
+function sentencesOf(sc){
+  if(sc && Array.isArray(sc.sentences) && sc.sentences.length) return sc.sentences.filter(s=>s && s.en);
+  const g=galIdOf(sc), c=g && SENT && SENT.cache[g]; return c && Array.isArray(c.list) ? c.list.filter(s=>s && s.en) : [];
+}
 // English only: the sentences are English, whatever language the scene is practised in.
 function hasSentences(sc){ return S.lang==='en' && sentencesOf(sc).length>0; }
+// Your own scene or word sheet (3+ words) without sentences: the mode shows, to make them with AI.
+function canMakeSentences(sc){ return S.lang==='en' && !!sc && !sc.builtin && G.customs.includes(sc) && !!G.aiReady && ids().length>=3 && !sentencesOf(sc).length; }
+function sentModeShown(sc){ return hasSentences(sc) || canMakeSentences(sc); }
+// The scene's words used in a sentence (the word, an other name for it, or a plural); given = what the AI said it used.
+function sceneWordsIn(en, its, given){
+  const t=' '+String(en||'').toLowerCase().replace(/[^a-z'-]+/g,' ').trim()+' ', out=new Set(), all=Object.values(its||{});
+  const has=f=>f && [f, f+'s', f+'es', f.replace(/y$/,'ies'), f.replace(/(f|fe)$/,'ves')].some(x=>t.includes(' '+x+' '));
+  for(const it of all){ const w=String(it.word||'').toLowerCase().trim(); if(w && [w, ...(it.alts||[]).map(a=>String(a).toLowerCase().trim())].some(has)) out.add(w); }
+  const mine=new Set(all.map(it=>String(it.word||'').toLowerCase().trim()));
+  (Array.isArray(given)?given:[]).forEach(w=>{ w=String(w||'').toLowerCase().trim(); if(mine.has(w)) out.add(w); });   // e.g. knife → knives
+  return [...out];
+}
 async function loadSentences(sc){
   const g=galIdOf(sc); if(!g || !SENT || SENT.busy[g]) return;
   const c=SENT.cache[g]; if(c && Date.now()-c.at < 6*3600e3) return;
@@ -145,7 +164,8 @@ function sentLevels(){
 }
 function renderSentSub(put){
   if(!sg || sg.sid!==scene().id) sentInit();
-  if(!sg.list.length){ put(sentLevels(), el('span',{class:'hint',text: sentencesOf(scene()).length ? 'ฉากนี้ยังไม่มีประโยคสำหรับด่านนี้' : 'ฉากนี้ยังไม่มีประโยค'})); return; }
+  if(!sentencesOf(scene()).length){ put(renderMake()); return; }
+  if(!sg.list.length){ put(sentLevels(), el('span',{class:'hint',text:'ฉากนี้ยังไม่มีประโยคสำหรับด่านนี้'})); return; }
   const n=sg.order.length;
   if(!sg.cur){
     const best=sentBest[sg.sid+(sg.lv===2?':2':'')];
@@ -153,7 +173,8 @@ function renderSentSub(put){
       el('div',{class:'sdone'}, el('b',{text: sg.lv===2 ? `🎉 เติมครบ ${n} ประโยคแล้ว!` : `🎉 เรียงครบ ${n} ประโยคแล้ว!`}),
         el('div',{class:'sstars',text:'★'.repeat(sg.stars)+'☆'.repeat(n-sg.stars)}),
         el('p',{class:'note',text:`ถูกตั้งแต่ครั้งแรก ${sg.stars}/${n} ประโยค`+(best && best.stars>sg.stars ? ` · ดีที่สุด ★ ${best.stars}` : '')})),
-      el('div',{class:'srow'}, el('span',{class:'grow'}), el('button',{class:'primary',text:'เล่นอีกรอบ',onclick:()=>{ sentInit(); renderSub(); setHL(); }}))));
+      el('div',{class:'srow'}, ownSentences() ? el('button',{text:'✨ สร้างประโยคใหม่',title:'ให้ AI เขียนประโยคชุดใหม่ (ใช้ 1 เครดิต)',onclick:()=>makeSentences(true)}) : null,
+        el('span',{class:'grow'}), el('button',{class:'primary',text:'เล่นอีกรอบ',onclick:()=>{ sentInit(); renderSub(); setHL(); }}))));
     return;
   }
   const c=sg.cur;
@@ -175,6 +196,7 @@ function renderSentSub(put){
       el('span',{class:'note small smsg',text: c.state==='good' ? (c.tries ? '✓ ถูกต้อง' : '✓ ถูกต้อง ได้ ★') : c.state==='bad' ? '✗ ยังไม่ถูก ลองอีกครั้ง' :
         c.state==='shown' ? 'ประโยคที่ถูกคือแบบนี้' : c.tries ? 'คำที่อยู่ถูกที่แล้วจะอยู่ต่อ' : ''}),
       el('span',{class:'grow'}),
+      ownSentences() ? el('button',{class:'sflag',text:'🚩','aria-label':'ประโยคนี้แปลกหรือผิด เอาออก',title:'ประโยคนี้แปลกหรือผิด เอาออก',onclick:sentDrop}) : null,
       c.state==='shown' ? el('button',{class:'primary',text:'ต่อไป ›',onclick:sentNext})
         : el('button',{text:'ข้าม ⏭',disabled:c.state?'':null,onclick:sentSkip}))));
 }
@@ -249,8 +271,71 @@ function renderFill(put, c, n){
       el('span',{class:'note small smsg',text: c.state==='good' ? (c.tries ? '✓ ถูกต้อง' : '✓ ถูกต้อง ได้ ★') : c.state==='shown' ? `คำที่หายไปคือ “${c.word}”` :
         c.tries ? '✗ ยังไม่ใช่ ลองอีกครั้ง' : 'เลือกคำที่หายไป หรือแตะของชิ้นนั้นในภาพ'}),
       el('span',{class:'grow'}),
+      ownSentences() ? el('button',{class:'sflag',text:'🚩','aria-label':'ประโยคนี้แปลกหรือผิด เอาออก',title:'ประโยคนี้แปลกหรือผิด เอาออก',onclick:sentDrop}) : null,
       c.state==='shown' ? el('button',{class:'primary',text:'ต่อไป ›',onclick:sentNext})
         : el('button',{text:'ข้าม ⏭',disabled:done?'':null,onclick:sentSkip}))));
 }
 
-export { hasSentences, loadSentences, renderSentSub, sentIds, sentReset, sentTap };
+
+// ---------- sentences made by AI for a scene or word sheet of yours ----------
+const ownSentences=()=>{ const sc=scene(); return !!(sc && Array.isArray(sc.sentences) && sc.sentences.length && G.customs.includes(sc)); };
+var sentMaking=false;
+function renderMake(){
+  const sc=scene(), list=isList(sc);
+  if(!canMakeSentences(sc)) return el('span',{class:'hint',text:'ฉากนี้ยังไม่มีประโยค'});
+  return el('div',{class:'sentgame make'},
+    el('b',{text:'✍️ เกมแต่งประโยค'}),
+    el('p',{class:'note',text: list ? 'ให้ AI เขียนประโยคตัวอย่างจากคำในชีทนี้ แล้วฝึกเรียงคำและเติมคำ' : 'ให้ AI ดูภาพแล้วเขียนประโยคสั้น ๆ จากคำในฉากนี้ แล้วฝึกเรียงคำและเติมคำ'}),
+    el('div',{class:'srow'},
+      el('span',{class:'note small',text: G.aiLeft!=null ? `ใช้ 1 เครดิต AI · เหลือ ${G.aiLeft}` : 'ใช้ 1 เครดิต AI'}),
+      el('span',{class:'grow'}),
+      el('button',{class:'primary'+(sentMaking?' busyline':''),disabled:sentMaking?'':null,text: sentMaking ? 'AI กำลังเขียนประโยค…' : '✨ สร้างประโยคด้วย AI',onclick:()=>makeSentences(false)})));
+}
+// a small copy of the picture for the AI (sentences don't need a big one)
+function sentPicture(sc){
+  return new Promise(res=>{
+    if(!sc.img || isList(sc)) return res(null);
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>{ try{ const k=Math.min(1, 1024/Math.max(im.naturalWidth, im.naturalHeight)), c=document.createElement('canvas');
+      c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
+      const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',0.82)); }catch(e){ res(null); } };
+    im.onerror=()=>res(null); im.src=sc.img;
+  });
+}
+async function makeSentences(again){
+  const sc=scene(); if(sentMaking || !sc || !G.customs.includes(sc)) return;
+  if(again && !(await ask('ให้ AI เขียนประโยคชุดใหม่แทนชุดนี้ใช่ไหม? ใช้ 1 เครดิต AI','สร้างใหม่'))) return;
+  const auth=await aiAuth(); if(!auth) return;
+  sentMaking=true; renderSub();
+  const its=items(), words=ids().map(id=>its[id]).filter(it=>it && it.word).map(it=>({ w:it.word, th:it.th||'' }));
+  const image=await sentPicture(sc);
+  let r, data={};
+  try{
+    r=await fetch('/api/sentences',{method:'POST', headers:{'content-type':'application/json', ...(auth.tok?{authorization:'Bearer '+auth.tok}:{}), ...(auth.code?{'x-piccab-code':auth.code}:{})},
+      body:JSON.stringify({ words, kind:isList(sc)?'list':'scene', ...(image?{ image }:{}) })});
+    data=await r.json().catch(()=>({}));
+  }catch(e){ r=null; }
+  sentMaking=false;
+  if(typeof data.credits_left==='number') G.aiLeft=data.credits_left;
+  if(!r){ toast(aiErr('offline')); renderSub(); return; }
+  if(!r.ok){ if(data.error==='bad_code') store.set('pv-ai-code',''); toast(aiErr(data.error), 5000); renderSub(); return; }
+  const list=(data.items||[]).map(x=>({ en:x.en, th:x.th||'', words:sceneWordsIn(x.en, its, x.words) })).filter(x=>x.words.length).slice(0,12);
+  if(!list.length){ toast('AI เขียนประโยคจากคำในฉากนี้ไม่ได้ ลองใหม่อีกครั้ง', 5000); renderSub(); return; }
+  sc.sentences=list; saveScenes(); tally('sent_ai');
+  toast(`ได้ ${list.length} ประโยค — เริ่มเล่นได้เลย`, 3500);
+  sg=null; refresh();
+}
+// 🚩 a strange sentence made by AI: take it out of this scene
+async function sentDrop(){
+  const sc=scene(), c=sg && sg.cur; if(!c || !ownSentences()) return;
+  if(!(await ask('เอาประโยคนี้ออกจากฉากนี้ใช่ไหม?','เอาออก'))) return;
+  sc.sentences=sc.sentences.filter(x=>x.en!==c.s.en); saveScenes();
+  toast('เอาประโยคนี้ออกแล้ว ขอบคุณที่บอก');
+  if(!sc.sentences.length){ delete sc.sentences; saveScenes(); sg=null; refresh(); return; }
+  const rest=sg.order.slice(sg.i+1).map(k=>sg.list[k]).filter(x=>x.en!==c.s.en);   // carry on with the ones not played yet
+  sg.list=rest; sg.order=rest.map((_,i)=>i); sg.i=0;
+  if(sg.order.length) sentNew(); else sg.cur=null;
+  renderSub(); setHL();
+}
+
+export { loadSentences, renderSentSub, sceneWordsIn, sentIds, sentModeShown, sentReset, sentTap };
