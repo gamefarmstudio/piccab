@@ -49,14 +49,24 @@ const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flas
 // Models that just ran out of quota are skipped for a while (per Worker instance; best effort).
 const skipUntil = new Map();
 
-// Which provider to use, or null when no key is set.
-export function pickProvider(env) {
-  const want = String(env.AI_PROVIDER || '').trim().toLowerCase();
-  if (want === 'gemini' && env.GEMINI_API_KEY) return 'gemini';
-  if (want === 'claude' && env.ANTHROPIC_API_KEY) return 'claude';
-  if (env.ANTHROPIC_API_KEY) return 'claude';
-  if (env.GEMINI_API_KEY) return 'gemini';
-  return null;
+// Which providers to use, in order. AI_PROVIDER can be one ("claude") or a list ("gemini,claude": Gemini's models first,
+// Claude when all of them are out of quota or busy). Without a usable AI_PROVIDER: Claude if its key is set, otherwise Gemini.
+export function pickProviders(env) {
+  const has = p => (p === 'gemini' && !!env.GEMINI_API_KEY) || (p === 'claude' && !!env.ANTHROPIC_API_KEY);
+  const want = [...new Set(String(env.AI_PROVIDER || '').toLowerCase().split(',').map(x => x.trim()))].filter(has);
+  return want.length ? want : ['claude', 'gemini'].filter(has).slice(0, 1);
+}
+// The first provider, or null when no key is set.
+export function pickProvider(env) { return pickProviders(env)[0] || null; }
+// One AI job on each provider in turn. The next one is tried only when this one is out of quota, busy or unavailable
+// (429 / 5xx) — not when it answered but refused, or couldn't take the picture.
+async function runAI(env, providers, mime, data64, promptFor, parse, log) {
+  let res = error('not_configured', 503);
+  for (const p of providers) {
+    res = p === 'gemini' ? await scanGemini(env, mime, data64, promptFor(p), parse, log) : await scanClaude(env, mime, data64, promptFor(p), parse, log);
+    if (!(res.status === 429 || res.status >= 500)) return res;
+  }
+  return res;
 }
 const MAX_IMAGE_BYTES = 3_000_000; // base64 length limit (~2.2 MB image)
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -113,7 +123,7 @@ export default {
 // Who may use AI: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
 // Returns { provider, uid, useCredits } or an error Response.
 async function aiAccess(request, env) {
-  const provider = pickProvider(env);
+  const providers = pickProviders(env), provider = providers[0];
   if (!provider) return error('not_configured', 503);
   const useCredits = !!env.SUPABASE_SECRET_KEY;
   const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
@@ -133,7 +143,7 @@ async function aiAccess(request, env) {
       if (!success) return error('rate_limited', 429);
     } catch (e) { /* limiter unavailable: continue */ }
   }
-  return { provider, uid, useCredits };
+  return { provider, providers, uid, useCredits };
 }
 // Takes one credit, runs the AI call, gives the credit back if it didn't work.
 async function withCredit(env, acc, run) {
@@ -155,7 +165,6 @@ async function withCredit(env, acc, run) {
 async function scan(request, env) {
   const acc = await aiAccess(request, env);
   if (acc instanceof Response) return acc;
-  const provider = acc.provider;
 
   let body;
   try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
@@ -177,9 +186,7 @@ async function scan(request, env) {
   // Take one credit now; give it back if the scan doesn't produce a result.
   const log = [];
   return withCredit(env, acc, async () => {
-    const res = provider === 'gemini'
-      ? await scanGemini(env, m[1], m[2], buildPrompt(count, level, existing, 'gemini', langs), parseItems, log)
-      : await scanClaude(env, m[1], m[2], buildPrompt(count, level, existing, 'claude', langs), parseItems, log);
+    const res = await runAI(env, acc.providers, m[1], m[2], p => buildPrompt(count, level, existing, p, langs), parseItems, log);
     await saveUsage(env, 'scan', log);
     return res;
   });
@@ -197,9 +204,7 @@ async function wordlist(request, env) {
   if (m[2].length > MAX_IMAGE_BYTES) return error('image_too_large', 413);
   const log = [];
   return withCredit(env, acc, async () => {
-    const res = acc.provider === 'gemini'
-      ? await scanGemini(env, m[1], m[2], buildWordlistPrompt(), parseWordlist, log)
-      : await scanClaude(env, m[1], m[2], buildWordlistPrompt(), parseWordlist, log);
+    const res = await runAI(env, acc.providers, m[1], m[2], () => buildWordlistPrompt(), parseWordlist, log);
     await saveUsage(env, 'wordlist', log);
     return res;
   });
@@ -253,9 +258,7 @@ async function translate(request, env) {
   if (!words.length) return error('bad_request', 400);
   const prompt = buildTranslatePrompt(lang, words);
   const log = [];
-  const res = acc.provider === 'gemini'
-    ? await scanGemini(env, null, null, prompt, parseTranslations, log)
-    : await scanClaude(env, null, null, prompt, parseTranslations, log);
+  const res = await runAI(env, acc.providers, null, null, () => prompt, parseTranslations, log);
   await saveUsage(env, 'translate', log);
   return res;
 }
@@ -311,7 +314,7 @@ export async function aiUsageReport(env, now = new Date()) {
     ]);
     if (Math.random() < 0.1) rpc('ai_usage_cleanup').catch(() => {});
     return {
-      provider: pickProvider(env),
+      provider: pickProvider(env), providers: pickProviders(env),
       gemini_models: geminiModels(env), claude_model: env.CLAUDE_MODEL || DEFAULT_MODEL,
       free_rpd: freeRpd(env), paid_price: PAID_PRICE, monthly_credits: monthlyCredits(env),
       today: { since: today.toISOString(), rows: t || [] }, month: { since: month.toISOString(), rows: mo || [] },

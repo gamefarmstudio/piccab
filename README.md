@@ -97,7 +97,7 @@ bash tests/browser/run.sh                 # ทั้งหมด (~5 นาท�
 |---|---|---|---|
 | `GEMINI_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก aistudio.google.com (ที่ใช้อยู่ตอนนี้) — หมายเหตุ: เงื่อนไข Gemini API กำหนดผู้ใช้อายุ 18+ และระดับฟรี Google อาจนำข้อมูลไปพัฒนาผลิตภัณฑ์ (ระบุไว้ใน /privacy แล้ว) |
 | `ANTHROPIC_API_KEY` | Secret | อย่างน้อย 1 คีย์ | คีย์จาก console.anthropic.com — ทางเลือก (ถ้ามีคีย์นี้ จะใช้ Claude แทน Gemini เว้นแต่ตั้ง `AI_PROVIDER=gemini`) ไม่มีคีย์เลย = ซ่อนปุ่ม AI |
-| `AI_PROVIDER` | Text | – | `gemini` หรือ `claude` ใช้เมื่อใส่ทั้ง 2 คีย์ (ค่าเริ่มต้น claude) |
+| `AI_PROVIDER` | Text | – | `gemini`, `claude` หรือเป็นลำดับ เช่น `gemini,claude` = ลองทุกรุ่นใน `GEMINI_MODEL` ก่อน แล้วไป Claude เมื่อ Gemini โควตาหมดหรือไม่ว่าง (ไม่ไปต่อถ้า AI ปฏิเสธรูป) · ไม่ตั้ง = claude ถ้ามีคีย์ |
 | `GEMINI_MODEL` | Text | – | รุ่นเดียว หรือหลายรุ่นคั่นด้วย , (ลองตามลำดับเมื่อโควตาหมด) ค่าเริ่มต้น `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite` |
 | `CLAUDE_MODEL` | Text | – | ค่าเริ่มต้น `claude-haiku-5-5` (ถูกที่สุด) ถ้ากรอบไม่แม่นเปลี่ยนเป็น `claude-sonnet-5-5` |
 | `CLAUDE_EFFORT` | Text | – | `low` / `medium` / `high` (มี `xhigh`, `max` แต่ไม่แนะนำ) — ให้ Claude คิดมากแค่ไหนก่อนตอบ ยิ่งสูงยิ่งช้าและแพง · ไม่ตั้ง = ค่าเริ่มต้นของรุ่น (Haiku 5.5 = medium) |

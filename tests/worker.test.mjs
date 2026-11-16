@@ -924,3 +924,46 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('AI compare tests passed');
 }
+
+// ---------- AI_PROVIDER as a list: every Gemini model first, then Claude ----------
+{
+  const saved = globalThis.fetch; let calls = [], gem = 'quota';
+  globalThis.fetch = async (url, init = {}) => {
+    url = String(url);
+    if (url.includes('generativelanguage')) { const model = url.split('/models/')[1].split(':')[0]; calls.push(model);
+      if (gem === 'quota') return new Response('{"error":{"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 500 per day"}}', { status: 429 });
+      if (gem === 'busy') return new Response('overloaded', { status: 503 });
+      if (gem === 'refused') return new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }));
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","th":"ถ้วย","box_2d":[1,2,3,4]}]' }] } }] })); }
+    if (url.includes('api.anthropic.com')) { calls.push('claude');
+      return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '[{"word":"mug","th":"แก้วมัค","box":[1,2,3,4]}]' }], usage: { input_tokens: 10, output_tokens: 5 } })); }
+    throw new Error('unexpected ' + url);
+  };
+  const { pickProviders } = await import('../src/worker.js');
+  assert.deepEqual(pickProviders({ AI_PROVIDER: 'gemini, claude', GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a' }), ['gemini', 'claude']);
+  assert.deepEqual(pickProviders({ AI_PROVIDER: 'gemini,claude', GEMINI_API_KEY: 'g' }), ['gemini']);               // no Claude key: Gemini only
+  assert.deepEqual(pickProviders({ AI_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'a' }), ['claude']);                    // as before
+  assert.deepEqual(pickProviders({ GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a' }), ['claude']);
+  // the Gemini models have their own quotas, so another skip cache key per test model
+  const E = { ASSETS: assets, AI_PROVIDER: 'gemini,claude', GEMINI_API_KEY: 'g', GEMINI_MODEL: 'ch-a,ch-b,ch-c', ANTHROPIC_API_KEY: 'a', SCAN_CODE: 'tea' };
+  const scanNow = () => worker.fetch(new Request('https://piccab.com/api/scan', post({ image: img }, { 'x-piccab-code': 'tea' })), E);
+  // 1) all three Gemini models out of quota → Claude
+  let r = await scanNow(); let b = await r.json();
+  assert.equal(r.status, 200); assert.equal(b.provider, 'claude'); assert.deepEqual(calls, ['ch-a', 'ch-b', 'ch-c', 'claude']);
+  // 2) a while later, still out of quota: the Gemini models are skipped first… but tried again (quick), then Claude
+  calls = []; r = await scanNow(); assert.equal((await r.json()).provider, 'claude'); assert.equal(calls.at(-1), 'claude');
+  // 3) Gemini answers → Claude isn't called
+  const E2 = { ...E, GEMINI_MODEL: 'ok-a' }; gem = 'ok'; calls = [];
+  r = await worker.fetch(new Request('https://piccab.com/api/scan', post({ image: img }, { 'x-piccab-code': 'tea' })), E2);
+  assert.equal((await r.json()).provider, 'gemini'); assert.deepEqual(calls, ['ok-a']);
+  // 4) Gemini refuses the picture → no second try with Claude
+  gem = 'refused'; calls = [];
+  r = await worker.fetch(new Request('https://piccab.com/api/scan', post({ image: img }, { 'x-piccab-code': 'tea' })), { ...E, GEMINI_MODEL: 'ref-a' });
+  assert.equal(r.status, 422); assert.deepEqual(calls, ['ref-a']);
+  // 5) Google busy → Claude; same for the word list and translations
+  gem = 'busy'; calls = [];
+  r = await worker.fetch(new Request('https://piccab.com/api/wordlist', post({ image: img }, { 'x-piccab-code': 'tea' })), { ...E, GEMINI_MODEL: 'busy-a' });
+  assert.equal(r.status, 200); assert.deepEqual(calls, ['busy-a', 'claude']);
+  globalThis.fetch = saved;
+  console.log('AI provider order tests passed');
+}
