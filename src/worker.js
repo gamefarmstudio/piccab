@@ -1231,7 +1231,10 @@ async function galleryPublic(request, env, url) {
     }
     const [categories, scenes] = await Promise.all([
       q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
-      q(env, `gallery_scenes?select=${GAL_LIST}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`),
+      // how many sentences each has (for the 💬 badge); without 2026-11-gallery-sentences.sql, none
+      q(env, `gallery_scenes?select=${GAL_LIST},sentences&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`)
+        .then(r => (r || []).map(({ sentences, ...g }) => ({ ...g, sentence_count: Array.isArray(sentences) ? sentences.length : 0 })))
+        .catch(e => { if (e.status !== 400) throw e; return q(env, `gallery_scenes?select=${GAL_LIST}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`); }),
     ]);
     const res = json({ categories: categories || [], scenes: scenes || [] });
     res.headers.set('cache-control', 'public, max-age=60');

@@ -253,16 +253,24 @@ function galFind(meta, scs){
 function galSentEdit(g){
   let rows=(g.sentences||[]).map(r=>({ en:r.en, th:r.th||'' }));
   openModal(m=>{
+    m.classList.add('wide');
     const list=el('div',{class:'galsents'});
     const draw=()=>{
       list.innerHTML='';
       if(!rows.length) list.append(el('p',{class:'note',text:'ยังไม่มีประโยค กด ➕ เพิ่มประโยค หรือนำเข้าไฟล์ JSON ที่มีประโยค'}));
       rows.forEach((r,i)=>{
         const words=el('p',{class:'note small galsw'});
-        const showWords=()=>{ const w=galSentWords(r.en, g.items); words.textContent= w.length ? `คำจากฉาก: ${w.join(', ')}` : '⚠️ ไม่มีคำจากฉากในประโยคนี้'; words.classList.toggle('err', !w.length); };
-        const en=el('input',{class:'en',value:r.en,placeholder:'ประโยคภาษาอังกฤษ','aria-label':'ประโยคภาษาอังกฤษ',maxlength:'160'});
-        const th=el('input',{class:'th',value:r.th,placeholder:'คำแปลไทย','aria-label':'คำแปลไทย',maxlength:'240'});
-        en.addEventListener('input',()=>{ r.en=en.value; showWords(); }); th.addEventListener('input',()=>{ r.th=th.value; });
+        // what to check: the scene words in it, and its length (the game wants 4–10 words)
+        const showWords=()=>{ const w=galSentWords(r.en, g.items), n=String(r.en||'').trim().split(/\s+/).filter(Boolean).length;
+          const warn=[!w.length ? '⚠️ ไม่มีคำจากฉาก' : '', n>10 ? `⚠️ ยาว ${n} คำ (ควรไม่เกิน 10)` : n && n<4 ? `⚠️ สั้น ${n} คำ (ควรมีอย่างน้อย 4)` : ''].filter(Boolean);
+          words.textContent=[`${n} คำ`, w.length ? `คำจากฉาก: ${w.join(', ')}` : '', ...warn].filter(Boolean).join(' · ');
+          words.classList.toggle('err', warn.length>0); };
+        const grow=t=>{ t.style.height='auto'; t.style.height=t.scrollHeight+2+'px'; };   // the whole sentence shows, however long
+        const en=el('textarea',{class:'en',rows:'1',placeholder:'ประโยคภาษาอังกฤษ','aria-label':'ประโยคภาษาอังกฤษ',maxlength:'160'});
+        const th=el('textarea',{class:'th',rows:'1',placeholder:'คำแปลไทย','aria-label':'คำแปลไทย',maxlength:'240'});
+        en.value=r.en; th.value=r.th;
+        en.addEventListener('input',()=>{ r.en=en.value.replace(/\n/g,' '); grow(en); showWords(); }); th.addEventListener('input',()=>{ r.th=th.value.replace(/\n/g,' '); grow(th); });
+        [en,th].forEach(t=>{ t.addEventListener('keydown',e=>{ if(e.key==='Enter') e.preventDefault(); }); requestAnimationFrame(()=>grow(t)); });
         showWords();
         list.append(el('div',{class:'galsent'}, el('span',{class:'n',text:String(i+1)}),
           el('div',{class:'grow'}, en, th, words),
@@ -274,7 +282,7 @@ function galSentEdit(g){
       el('p',{class:'note small',text:'ประโยคสำหรับเกมแต่งประโยค ประโยคละ 4–10 คำ แต่ละประโยคควรมีคำจากฉากอย่างน้อย 1 คำ'}),
       list,
       el('div',{class:'row'},
-        el('button',{text:'➕ เพิ่มประโยค',onclick:()=>{ if(rows.length>=12){ toast('ได้สูงสุด 12 ประโยค'); return; } rows.push({ en:'', th:'' }); draw(); const ins=list.querySelectorAll('input.en'); ins[ins.length-1].focus(); }}),
+        el('button',{text:'➕ เพิ่มประโยค',onclick:()=>{ if(rows.length>=12){ toast('ได้สูงสุด 12 ประโยค'); return; } rows.push({ en:'', th:'' }); draw(); const ins=list.querySelectorAll('textarea.en'); ins[ins.length-1].focus(); }}),
         el('span',{class:'sp'}),
         el('button',{text:'ยกเลิก',onclick:closeModal}),
         el('button',{class:'primary',text:'บันทึก',onclick:async()=>{

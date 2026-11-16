@@ -698,6 +698,9 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .thumb .cnt{display:inline-flex;align-items:center;gap:3px;font-family:'Fredoka',sans-serif;font-weight:600;padding:3px 9px 3px 7px;background:rgba(35,32,70,.82);backdrop-filter:blur(4px)}
 .thumb .cnt .ico{width:14px;height:14px}
 .thumb .cnt.full{background:#24a164}
+.thumb .cnts{position:absolute;top:8px;right:8px;display:flex;gap:5px}
+.thumb .cnts .cnt{position:static}
+.thumb .cnt.sent{background:rgba(254,94,122,.92)}
 .meta2{align-items:center;font-family:'Fredoka','Sarabun',sans-serif}
 .meta2.okt{color:#24a164;font-weight:600}
 .meta2 .ico{width:17px;height:17px}
@@ -883,8 +886,8 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .galsent{display:flex;gap:8px;align-items:flex-start}
 .galsent .n{flex:none;width:22px;text-align:right;padding-top:9px;color:var(--muted);font-size:13px}
 .galsent .grow{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
-.galsent input{width:100%;box-sizing:border-box}
-.galsent input.en{font-weight:600}
+.galsent textarea{width:100%;box-sizing:border-box;resize:none;overflow:hidden;padding:8px 12px;border:1px solid var(--line);border-radius:10px;line-height:1.35;font:inherit}
+.galsent textarea.en{font-weight:600}
 .galsent .galsw{margin:0}
 .galrow .galthumb{width:150px;flex:none;border-radius:10px;aspect-ratio:4/3;object-fit:cover;background:#f2ede6}
 .galrow .galthumb.none{display:grid;place-items:center;color:var(--muted);font-size:13px}
