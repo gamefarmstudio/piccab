@@ -302,7 +302,7 @@ function updateOverlay(){
       // Only the selected box: its word + a small action bar.
       const it=itemIn(sc.items[G.selId],S.lang), top=at(it.x+it.w/2, it.y), bot=at(it.x+it.w/2, it.y+it.h);
       const bar=el('div',{class:'selbar'},
-        el('b',{text:labelOf(it)}),
+        el('b',{text:labelOf(it)}, S.editMean && mean(it) ? el('small',{text:mean(it)}) : null),
         el('button',{class:'primary',text:'✏️ แก้ไขคำ',onclick:e=>{e.stopPropagation(); openItemForm(G.selId);}}),
         el('button',{class:'danger',text:'🗑 ลบ','aria-label':'ลบกรอบนี้',onclick:e=>{e.stopPropagation(); delete sc.items[G.selId]; G.selId=null; saveScenes(); renderScene(); refresh();}}),
         el('button',{text:'✕','aria-label':'ยกเลิกการเลือก',onclick:e=>{e.stopPropagation(); selectBox(null);}}));
@@ -316,7 +316,8 @@ function updateOverlay(){
     for(const [id,it] of Object.entries(itemsOf(sc))){
       if(id===G.selId) continue;
       const q=at(it.x+it.w/2, it.y);
-      const m=el('div',{class:'mini edit'+(it.word?'':' unk'),text:labelOf(it),onclick:e=>{e.stopPropagation(); selectBox(id);}});
+      const mn=S.editMean ? mean(it) : '';
+      const m=el('div',{class:'mini edit'+(it.word?'':' unk'),onclick:e=>{e.stopPropagation(); selectBox(id);}}, el('span',{text:labelOf(it)}), mn ? el('small',{text:mn}) : null);
       overlay.append(m); m.style.top=Math.max(m.offsetHeight+2, q.y-2)+'px'; m.style.left=clampX(m,q.x,W)+'px';
     }
     return;
@@ -362,6 +363,9 @@ function renderSub(){
       el('button',{class:'toggle'+(S.allBoxes?' on':''),title:'แสดงกรอบและชื่อของทุกชิ้น แม้ตอนเลือกกรอบอยู่',
         text:S.allBoxes?'👁 แสดงกรอบทั้งหมด: เปิด':'👁 แสดงกรอบทั้งหมด: ปิด',
         onclick:()=>{ S.allBoxes=!S.allBoxes; store.set('pv-allboxes',S.allBoxes); refresh(); }}),
+      el('button',{class:'toggle'+(S.editMean?' on':''),title:'แสดงคำแปลใต้คำศัพท์ทุกกรอบ ตรวจคำและคำแปลได้พร้อมกัน',
+        text:S.editMean?'🔤 แสดงคำแปล: เปิด':'🔤 แสดงคำแปล: ปิด',
+        onclick:()=>{ S.editMean=!S.editMean; store.set('pv-editmean',S.editMean); refresh(); }}),
       el('label',{class:'namefield'},'📝 ชื่อฉาก', name),
       el('span',{class:'grow'}),
       listBtn(),
