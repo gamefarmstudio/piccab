@@ -990,3 +990,10 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .sentgame.make .note{margin:0}
 .sentgame .sflag{background:none;border:none;padding:6px 8px;font-size:16px;opacity:.55}
 .sentgame .sflag:hover{opacity:1}
+.aiwait{display:flex;gap:12px;align-items:center;padding:12px;border-radius:12px;background:#fff1f4;border:1px solid #f6c9d4}
+.aiwait .spin{flex:none;width:26px;height:26px}
+.aiwait .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.aiwait b{font-size:15px}
+.aidisc{color:var(--muted)}
+.busy .aidisc{display:block;max-width:300px;text-align:center;font-size:12px;line-height:1.35}
+.sentgame .saisrc{margin:0;opacity:.8}

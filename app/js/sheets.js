@@ -3,7 +3,7 @@ import { G, $, cleanLang, el, ic, LOC, progress, S, scene, store, tally, toast, 
 import { dayNo, forgetSceneLocal, imgSaved, saveProg, saveScenes } from './progress.js';
 import { ask, closeModal, fullRender, openModal, openScene } from './scene.js';
 import { renderGallery } from './home.js';
-import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, createSceneFromFile, onPickImage } from './editor.js';
+import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, aiWait, askCode, createSceneFromFile, onPickImage } from './editor.js';
 import { askLoginForAI, creditText, openLogin, user } from './account.js';
 import { myShares, shareApi } from './share.js';
 import { accessToken, metaFrom, saveSyncMem, syncDeleted, syncMem } from './sync.js';
@@ -187,7 +187,7 @@ function openSheetMaker(sc){
     // a photo of the sheet: take one with the camera or choose one, then box the part to read
     const cam=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:'',class:'wscam'});
     const file=el('input',{type:'file',accept:'image/*',hidden:'',class:'wsfile'});
-    const busy=el('div',{class:'wsbusy busyline',hidden:'',text:'AI กำลังอ่านชีท…'});
+    const busy=el('div',{class:'wsbusy',hidden:''});
     const photo=el('div',{class:'wsphotos'},
       el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>cam.click()}, ic('photo_camera'), 'ถ่ายรูปชีท'),
       el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>file.click()}, ic('imagesmode'), 'เลือกรูป'));
@@ -195,7 +195,7 @@ function openSheetMaker(sc){
       const f=inp.files[0]; inp.value=''; if(!f) return;
       photo.hidden=true;
       const panel=sheetCropper(f, async src=>{
-        busy.hidden=false;
+        busy.replaceChildren(aiWait('🤖 AI กำลังอ่านชีท…','10–30')); busy.hidden=false;
         const got=await readSheetPhoto(src);
         busy.hidden=true; photo.hidden=false;
         if(got && got.length){
@@ -219,7 +219,7 @@ function openSheetMaker(sc){
     m.append(
       el('div',{class:'shhead'}, el('h3',{}, ic('edit_note'), sc?'แก้ไขชีทคำศัพท์':'ชีทคำศัพท์จากครู'), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('p',{class:'note',text:'ถ่ายรูปชีทให้ AI อ่าน หรือพิมพ์/วางคำทีละบรรทัด ตามด้วยความหมาย'}),
-      G.aiReady ? photo : null, busy, cam, file,
+      G.aiReady ? photo : null, G.aiReady ? aiNotice('sheet') : null, busy, cam, file,
       ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
       el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
       el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),

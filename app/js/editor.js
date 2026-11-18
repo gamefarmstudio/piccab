@@ -160,9 +160,26 @@ function askCode(again){
         el('button',{class:'primary',text:'ตกลง',onclick:ok}))));
   });
 }
-// Shown wherever a picture may go to the AI: say it is AI, and keep people / personal info out of the pictures.
-function aiNotice(){
-  return el('p',{class:'note ainote'}, '🤖 รูปจะถูกส่งให้ AI (Google Gemini) และคำศัพท์สร้างโดย AI อาจผิดได้ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ', el('a',{href:'/privacy#ai',target:'_blank',text:'อ่านเพิ่ม'}));
+// Shown wherever something goes to the AI: say plainly it is an AI (not a person) and can be wrong,
+// and keep people / personal info out of what is sent. kind: 'photo' (a scene), 'sheet' (a word sheet), 'sent' (sentences)
+function aiNotice(kind='photo'){
+  const what={
+    photo:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · รูปจะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และคำศัพท์ที่ได้อาจผิด ตรวจก่อนใช้ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ',
+    sheet:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · รูปชีทจะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และผลอาจผิด ตรวจก่อนบันทึก · ปิดหรือตัดชื่อนักเรียนและข้อมูลส่วนตัวออกก่อนถ่าย · ',
+    sent:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · คำในฉาก (และรูปขนาดเล็กของฉาก) จะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และประโยคที่ได้อาจผิด · ',
+  }[kind]||'';
+  return el('p',{class:'note ainote'}, what, el('a',{href:'/privacy#ai-safety',target:'_blank',text:'อ่านเพิ่ม'}));
+}
+// While the AI works: what it is doing, how long it usually takes, and that it is an AI (not a person) and can be wrong.
+function aiWait(title, usual, t0=Date.now()){
+  const t=el('span',{class:'note small',text:`ปกติใช้เวลาประมาณ ${usual} วินาที`});
+  const box=el('div',{class:'aiwait',role:'status','aria-live':'polite'},
+    el('div',{class:'spin'}),
+    el('div',{class:'grow'}, el('b',{text:title}), t,
+      el('span',{class:'note small aidisc',text:'ระบบ AI (ปัญญาประดิษฐ์) กำลังทำงาน ไม่ใช่คน · ผลอาจผิดได้ ตรวจก่อนใช้'})));
+  const tick=()=>{ const n=Math.round((Date.now()-t0)/1000); if(n>=1) t.textContent=`ผ่านไป ${n} วินาที (ปกติ ${usual} วินาที)`; };
+  tick(); const iv=setInterval(()=>{ if(!box.isConnected && Date.now()-t0>1500){ clearInterval(iv); return; } tick(); },1000);
+  return box;
 }
 function openAI(){
   const sc=scene(); if(sc.builtin) return;
@@ -436,4 +453,4 @@ async function createSceneFromFile(f){
   }catch(err){ toast('เปิดรูปนี้ไม่ได้ ลองไฟล์ .jpg หรือ .png'); }
 }
 
-export { aiCredits, aiCtl, aiErr, aiMonthly, aiNeedCode, aiNotice, askCode, autoLangState, autoTranslate, checkAI, createSceneFromFile, drag, dragMove, drawing, drewAt, loadImageFile, missingIn, onPickImage, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft };
+export { aiCredits, aiCtl, aiErr, aiMonthly, aiNeedCode, aiNotice, aiWait, askCode, autoLangState, autoTranslate, checkAI, createSceneFromFile, drag, dragMove, drawing, drewAt, loadImageFile, missingIn, onPickImage, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft };
