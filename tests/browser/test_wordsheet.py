@@ -81,6 +81,7 @@ async def main():
         await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300); await pg.click('#importBtn'); await pg.wait_for_timeout(200)
         await pg.click('.wsimp'); await pg.wait_for_timeout(200)
         out['photo_btns']=await pg.locator('.wsbox .wsphotos button').all_inner_texts()
+        out['ws_notice']=await pg.inner_text('.wsbox .ainote')
         out['cam_capture']=await pg.get_attribute('.wsbox input.wscam','capture')
         await pg.set_input_files('.wsbox input.wsfile', PHOTO); await pg.wait_for_timeout(800)
         # box only part of the photo: drag from 25%,25% to 75%,60%
@@ -127,6 +128,7 @@ async def main():
     check(len(out['star'])==1, 'answer saved', out['star'])
     check(out['prefill']==['elephant ช้าง','giraffe ยีราฟ'] and out['ids_kept'] and out['n_after']==11 and out['star_after']==out['star'], 'editing the list keeps ids and progress', (out['prefill'], out['ids_kept'], out['n_after'], out['star_after']))
     (cw,ch),(fw,fh)=out['crop']
+    check('ไม่ใช่คน' in out['ws_notice'] and 'ชื่อนักเรียน' in out['ws_notice'], 'word sheet photo: says it is AI, not a person, and to hide names', out['ws_notice'])
     check(out['photo_btns']==['ถ่ายรูปชีท','เลือกรูป'] and out['cam_capture']=='environment', 'camera or a saved photo', (out['photo_btns'], out['cam_capture']))
     check(abs(cw/fw-.5)<.04 and abs(ch/fh-.35)<.04 and out['crop_gone'], 'only the boxed part is sent to the AI', out['crop'])
     check(out['ai_lines']==['kitchen ห้องครัว','kettle กาน้ำ','toaster'] and out['ai_count']=='3 คำ', 'photo of the list read by AI', (out['ai_lines'], out['ai_count']))

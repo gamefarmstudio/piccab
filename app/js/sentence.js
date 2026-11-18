@@ -6,7 +6,7 @@
 import { G, el, ids, items, S, scene, shuffle, speak, store, tally, toast, UI } from './core.js';
 import { saveScenes } from './progress.js';
 import { ask, doFlash, refresh, renderSub, setHL } from './scene.js';
-import { aiErr } from './editor.js';
+import { aiErr, aiNotice, aiWait } from './editor.js';
 import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
 
@@ -198,7 +198,8 @@ function renderSentSub(put){
       el('span',{class:'grow'}),
       ownSentences() ? el('button',{class:'sflag',text:'🚩','aria-label':'ประโยคนี้แปลกหรือผิด เอาออก',title:'ประโยคนี้แปลกหรือผิด เอาออก',onclick:sentDrop}) : null,
       c.state==='shown' ? el('button',{class:'primary',text:'ต่อไป ›',onclick:sentNext})
-        : el('button',{text:'ข้าม ⏭',disabled:c.state?'':null,onclick:sentSkip}))));
+        : el('button',{text:'ข้าม ⏭',disabled:c.state?'':null,onclick:sentSkip})),
+    sentSource()));
 }
 
 
@@ -273,23 +274,25 @@ function renderFill(put, c, n){
       el('span',{class:'grow'}),
       ownSentences() ? el('button',{class:'sflag',text:'🚩','aria-label':'ประโยคนี้แปลกหรือผิด เอาออก',title:'ประโยคนี้แปลกหรือผิด เอาออก',onclick:sentDrop}) : null,
       c.state==='shown' ? el('button',{class:'primary',text:'ต่อไป ›',onclick:sentNext})
-        : el('button',{text:'ข้าม ⏭',disabled:done?'':null,onclick:sentSkip}))));
+        : el('button',{text:'ข้าม ⏭',disabled:done?'':null,onclick:sentSkip})),
+    sentSource()));
 }
 
 
 // ---------- sentences made by AI for a scene or word sheet of yours ----------
 const ownSentences=()=>{ const sc=scene(); return !!(sc && Array.isArray(sc.sentences) && sc.sentences.length && G.customs.includes(sc)); };
-var sentMaking=false;
+var sentMaking=0;   // when the AI started writing (0: not now)
 function renderMake(){
   const sc=scene(), list=isList(sc);
   if(!canMakeSentences(sc)) return el('span',{class:'hint',text:'ฉากนี้ยังไม่มีประโยค'});
   return el('div',{class:'sentgame make'},
     el('b',{text:'✍️ เกมแต่งประโยค'}),
     el('p',{class:'note',text: list ? 'ให้ AI เขียนประโยคตัวอย่างจากคำในชีทนี้ แล้วฝึกเรียงคำและเติมคำ' : 'ให้ AI ดูภาพแล้วเขียนประโยคสั้น ๆ จากคำในฉากนี้ แล้วฝึกเรียงคำและเติมคำ'}),
-    el('div',{class:'srow'},
+    sentMaking ? aiWait('🤖 AI กำลังเขียนประโยค…', list ? '5–20' : '10–30', sentMaking) : aiNotice('sent'),
+    sentMaking ? null : el('div',{class:'srow'},
       el('span',{class:'note small',text: G.aiLeft!=null ? `ใช้ 1 เครดิต AI · เหลือ ${G.aiLeft}` : 'ใช้ 1 เครดิต AI'}),
       el('span',{class:'grow'}),
-      el('button',{class:'primary'+(sentMaking?' busyline':''),disabled:sentMaking?'':null,text: sentMaking ? 'AI กำลังเขียนประโยค…' : '✨ สร้างประโยคด้วย AI',onclick:()=>makeSentences(false)})));
+      el('button',{class:'primary',text:'✨ สร้างประโยคด้วย AI',onclick:()=>makeSentences(false)})));
 }
 // a small copy of the picture for the AI (sentences don't need a big one)
 function sentPicture(sc){
@@ -306,7 +309,7 @@ async function makeSentences(again){
   const sc=scene(); if(sentMaking || !sc || !G.customs.includes(sc)) return;
   if(again && !(await ask('ให้ AI เขียนประโยคชุดใหม่แทนชุดนี้ใช่ไหม? ใช้ 1 เครดิต AI','สร้างใหม่'))) return;
   const auth=await aiAuth(); if(!auth) return;
-  sentMaking=true; renderSub();
+  sentMaking=Date.now(); renderSub();
   const its=items(), words=ids().map(id=>its[id]).filter(it=>it && it.word).map(it=>({ w:it.word, th:it.th||'' }));
   const image=await sentPicture(sc);
   let r, data={};
@@ -315,7 +318,7 @@ async function makeSentences(again){
       body:JSON.stringify({ words, kind:isList(sc)?'list':'scene', ...(image?{ image }:{}) })});
     data=await r.json().catch(()=>({}));
   }catch(e){ r=null; }
-  sentMaking=false;
+  sentMaking=0;
   if(typeof data.credits_left==='number') G.aiLeft=data.credits_left;
   if(!r){ toast(aiErr('offline')); renderSub(); return; }
   if(!r.ok){ if(data.error==='bad_code') store.set('pv-ai-code',''); toast(aiErr(data.error), 5000); renderSub(); return; }
@@ -336,6 +339,11 @@ async function sentDrop(){
   sg.list=rest; sg.order=rest.map((_,i)=>i); sg.i=0;
   if(sg.order.length) sentNew(); else sg.cur=null;
   renderSub(); setHL();
+}
+
+// where the sentences come from: always said, since they are written by AI
+function sentSource(){
+  return el('p',{class:'note small saisrc',text: ownSentences() ? '🤖 ประโยคเขียนโดยระบบ AI ไม่ใช่คน อาจผิดได้ · กด 🚩 เพื่อเอาประโยคที่แปลกออก' : '🤖 ประโยคเขียนโดยระบบ AI และตรวจโดยทีม Piccab'});
 }
 
 export { loadSentences, renderSentSub, sceneWordsIn, sentIds, sentModeShown, sentReset, sentTap };
