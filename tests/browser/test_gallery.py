@@ -160,7 +160,9 @@ async def main():
                 out['sent_play'].append((th, lit>0, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
             await V.wait_for_timeout(2500)
         out['sent_done']=await V.inner_text('.sentgame')
+        out['sent_round']=await V.inner_text('.rdend')                               # ⭐ end-of-round card
         await V.screenshot(path=shot('gal7_sent_done.png'))
+        await V.click('.rdend button:has-text("ปิด")'); await V.wait_for_timeout(300)
         # level 2: the missing word, from the choices or by tapping it in the picture
         await V.click('.sentgame .slv button:has-text("เติมคำ")'); await V.wait_for_timeout(300)
         its=await V.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); const sc=a[a.length-1]; return Object.fromEntries(Object.entries(sc.items).map(([k,v])=>[v.word,k])); })()")
@@ -181,6 +183,7 @@ async def main():
                 out['fill'].append((txt, lit_before, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
             await V.wait_for_timeout(2600)
         out['fill_done']=await V.inner_text('.sentgame')
+        await V.click('.rdend button:has-text("ปิด")'); await V.wait_for_timeout(300)
         # 🧭 learning path: choose a school year on the home card, then that level's topics and scenes
         await V.click('#homeBtn'); await V.wait_for_timeout(300)
         if await V.locator('#bnav [data-view=home]').is_visible(): await V.click('#bnav [data-view=home]')
@@ -235,6 +238,7 @@ async def main():
     f=out['fill']
     check(len(f)==2 and '?' in f[0][0] and f[0][1]==0 and f[0][2][0]==1 and 'ยังไม่ใช่' in f[0][2][1] and f[0][3]=='✓ ถูกต้อง' and f[0][4]!='?' and f[0][5]==1
           and f[1][2]=='✓ ถูกต้อง ได้ ★' and f[1][3].endswith('★ 1'), 'level 2: a wrong choice is crossed out, tapping the thing in the picture answers; no picture hint before', f)
+    check('เรียงประโยคครบแล้ว' in out['sent_round'] and '1/2' in out['sent_round'], 'end-of-round card after the sentences', out['sent_round'])
     check('เติมครบ 2 ประโยคแล้ว' in out['fill_done'] and '★☆' in out['fill_done'], 'level 2 summary', out['fill_done'])
     check('CEFR 2/3' in out['row'] and out['cefr_btn']==1, 'admin: CEFR levels imported (2 of 3 words), a button to fill the rest', (out['row'], out['cefr_btn']))
     check(len(out['pcefr'])==2 and out['pcefr'][0].startswith('Pre-A1') and '/1' in out['pcefr'][0] and out['pcefr'][1].startswith('A1'), 'path: words by CEFR level', out['pcefr'])

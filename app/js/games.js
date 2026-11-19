@@ -5,7 +5,8 @@ import { accentKey, ask, closeModal, doFlash, openModal, refresh, renderChips, r
 import { markActive, wordEl } from './home.js';
 import { deckList, savedHas, toggleWord, wkey } from './decks.js';
 import { listStyle } from './sheets.js';
-import { answerXp, fxBad, fxGood, fxReset, sfx } from './fx.js';
+import { answerXp, fxBad, fxGood, fxReset, fxSoft } from './fx.js';
+import { RD, roundEnd, roundKey, roundMiss, roundStart } from './rounds.js';
 
 // ---------- quiz ----------
 function openQuiz(id){
@@ -44,12 +45,15 @@ $('#qform').addEventListener('submit', e=>{
   const it=items()[id], res=check(v,it);
   if(res.ok){
     const rp=progRaw(), key=pk(id), clean=!G.used[id] && !G.qMiss[id] && res.art!=='missing';
-    const xp=answerXp(!rp.done[key], clean && !rp.star[key]);
+    const xp=answerXp(!rp.done[key], clean && !rp.star[key]), allBefore=ids().every(i=>rp.done[pk(i)]);
+    if(RD.key!==roundKey('quiz')) roundStart('quiz');
+    if(!clean) roundMiss(id);
     srsAnswer(rp, scene().id, key, clean); if(clean) rp.star[key]=true; saveProg(); markActive(1); fxGood(id, xp);
     setMsg('ok', (clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+it.word+artNote(res));
     speak(sayOf(id));
     updateOverlay(); renderSub();
-    setTimeout(()=>{ if(G.quizId===id){ closeQuiz(); } const pp=prog(); if(ids().every(i=>pp.done[i])) toast('🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!'); }, 1100);
+    setTimeout(()=>{ if(G.quizId===id){ closeQuiz(); } const pp=prog();
+      if(!allBefore && ids().every(i=>pp.done[i])) roundEnd({ game:'quiz', right:ids().filter(i=>pp.star[i]).length, total:ids().length, title:'🎉 ทบทวนครบทุกคำแล้ว!' }); }, 1100);
     return;
   }
   G.qMiss[id]=true; fxBad(null);
@@ -90,16 +94,18 @@ function resetQuiz(){
 }
 
 // ---------- find (listen & tap) ----------
-function startFind(){
-  G.find={queue:shuffle(ids()),target:null,score:0,total:ids().length,missed:false,showWord:G.find.showWord,lock:false};
+function startFind(only){
+  const q=(Array.isArray(only) ? only : ids()).filter(i=>items()[i]);
+  G.find={queue:shuffle(q),target:null,score:0,total:q.length,missed:false,showWord:G.find.showWord,lock:false};
+  roundStart('find', null, Array.isArray(only));
   nextFind();
 }
 function nextFind(){
-  if(G.find.target) G.find.last=G.find.target;
+  if(G.find.target){ G.find.last=G.find.target; if(G.find.missed) roundMiss(G.find.target); }
   G.find.target=G.find.queue.shift()||null; G.find.missed=false; G.find.lock=false;
   renderSub();
   if(G.find.target) setTimeout(()=>speak(sayOf(G.find.target)), 250);
-  else speak('Well done!');
+  else { speak('Well done!'); if(G.find.total && S.mode==='find') roundEnd({ game:'find', right:G.find.score, total:G.find.total, title:'🎉 หาครบทุกคำแล้ว!', again:()=>startFind(), missed:l=>startFind(l) }); }
 }
 function lockNext(ms){ G.find.lock=true; setTimeout(nextFind, ms); }
 // 📍 show where the word is (the spotlight and a pulsing box, no word); then tap it to go on. Not counted as right the first time.
@@ -110,7 +116,7 @@ function findReveal(){
 }
 function findTap(id){
   if(!G.find.target || G.find.lock) return;
-  if(id===G.find.target){ if(!G.find.missed){ G.find.score++; fxGood(id, 2); } else { fxReset(); sfx('good',1); } markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
+  if(id===G.find.target){ if(!G.find.missed){ G.find.score++; fxGood(id, 2); } else fxSoft(2); markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
   else { G.find.missed=true; doFlash(id,'bad',1500); fxBad(id); }
 }
 
@@ -119,16 +125,18 @@ function findTap(id){
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
 var spk={queue:[],target:null,score:0,total:0,tries:0,heard:'',state:'idle',result:'',showWord:true,rec:null,last:null};
 function spkTarget(){ return spk && S.mode==='speak' && !S.editing ? spk.target : null; }   // (var/function: setHL may run before this part of the script)
-function startSpeak(){
+function startSpeak(only){
   spkStop();
-  spk={...spk,queue:shuffle(ids()),target:null,score:0,total:ids().length,tries:0,heard:'',state:'idle',result:''};
+  const q=(Array.isArray(only) ? only : ids()).filter(i=>items()[i]);
+  spk={...spk,queue:shuffle(q),target:null,score:0,total:q.length,tries:0,heard:'',state:'idle',result:''};
+  roundStart('speak', null, Array.isArray(only));
   spkNext();
 }
 function spkNext(){
-  if(spk.target) spk.last=spk.target;
+  if(spk.target){ spk.last=spk.target; if(!(spk.state==='done' && spk.tries===1)) roundMiss(spk.target); }
   spk.target=spk.queue.shift()||null; spk.tries=0; spk.heard=''; spk.result=''; spk.state='idle';
   if(S.view==='play' && S.mode==='speak'){ renderSub(); renderChips(); setHL(); }
-  if(!spk.target) speak('Well done!');
+  if(!spk.target){ speak('Well done!'); if(spk.total && SR && S.view==='play' && S.mode==='speak') roundEnd({ game:'speak', right:spk.score, total:spk.total, title:'🎉 พูดครบทุกคำแล้ว!', again:()=>startSpeak(), missed:l=>startSpeak(l) }); }
 }
 function spkPick(id){   // tap a thing in the picture: practise that one now
   if(!items()[id] || spk.state==='listening') return;
@@ -206,7 +214,7 @@ function spkJudge(alts){
     if(spk.tries===1) spk.score++;
     const rp0=progRaw(), k0=pk(id), was=!!rp0.done[k0], wasS=!!rp0.star[k0];
     const clean=spkSave(id, it, r);
-    if(spk.tries===1) fxGood(id, answerXp(!was && !!progRaw().done[k0], clean && !wasS)); else { fxReset(); sfx('good',1); }
+    if(spk.tries===1) fxGood(id, answerXp(!was && !!progRaw().done[k0], clean && !wasS)); else fxSoft(2);
     spk.result = r.art==='wrong' ? 'okart' : !clean ? 'ok' : (S.lang==='de' && it.art) ? 'okstar' : 'okclean';
     spk.state='done'; markActive(1); doFlash(id,'good',1400); updateOverlay(); renderChips(); renderSub();
     setTimeout(()=>{ if(spk.target===id && S.mode==='speak') spkNext(); }, r.art==='wrong' ? 2600 : 1500);
