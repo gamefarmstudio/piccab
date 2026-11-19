@@ -892,6 +892,16 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   // look-up only: nothing drawn, no AI
   let j = await (await wp({ words:['Minus','plus'] }, KEY)).json();
   assert.deepEqual(j, { pics:{}, missing:['minus','plus'] }); assert.equal(prompts.length, 0);
+  // a free second try: signed note for the words left out (who, which words, 7 days)
+  { const { picRetryToken, picRetryOk } = await import('../src/worker.js'); const E2 = { SUPABASE_SECRET_KEY:'k' };
+    const t = await picRetryToken(E2, 'u1', ['past','half']);
+    assert.equal(await picRetryOk(E2, 'u1', t, ['half']), true);                 // a subset is fine
+    assert.equal(await picRetryOk(E2, 'u2', t, ['half']), false);                // someone else's note
+    assert.equal(await picRetryOk(E2, 'u1', t, ['half','apple']), false);        // a word that wasn't left out
+    assert.equal(await picRetryOk(E2, 'u1', t.replace('half','hal'), ['hal']), false);
+    assert.equal(await picRetryOk({ SUPABASE_SECRET_KEY:'other' }, 'u1', t, ['half']), false);
+    const old = t.replace(/^\d+/, String(Math.floor(Date.now() / 86400000) - 8));
+    assert.equal(await picRetryOk(E2, 'u1', old, ['half']), false); }
   // number words are drawn here: free, no AI, no sign-in
   j = await (await wp({ words:['one hundred','One Million','minus'] }, KEY)).json();
   assert.deepEqual(Object.keys(j.pics), ['one hundred','one million']); assert.deepEqual(j.missing, ['minus']); assert.equal(prompts.length, 0);

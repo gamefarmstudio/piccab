@@ -407,6 +407,25 @@ async function picBank(env, keys) {
 //   draw false: what the bank already has (no sign-in, no credit)
 //   draw true: AI draws the words not in the bank — 1 credit for the whole sheet; 0 if the bank has them all
 //   redraw true (one word): a new drawing for that word, free (rate-limited); the bank keeps its first one
+// A free second try: when a paid drawing leaves words without a picture, the answer carries a signed note
+// (who, which words, which day). Sending it back within 7 days draws those words again without a credit.
+async function picRetrySig(env, who, words, day) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('piccab-pics:' + (env.SUPABASE_SECRET_KEY || env.SCAN_CODE || 'dev')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${who}|${day}|${[...words].sort().join(',')}`));
+  return [...new Uint8Array(mac)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export async function picRetryToken(env, who, words) {
+  const day = Math.floor(Date.now() / 86400000);
+  return `${day}.${[...words].sort().join(',')}.${await picRetrySig(env, who, words, day)}`;
+}
+export async function picRetryOk(env, who, token, keys) {
+  const m = /^(\d{5})\.(.{1,4000})\.([0-9a-f]{32})$/.exec(String(token || ''));
+  if (!m) return false;
+  const day = +m[1], words = m[2].split(','), now = Math.floor(Date.now() / 86400000);
+  if (now - day > 7 || day > now) return false;
+  if (!keys.every(k => words.includes(k))) return false;
+  return m[3] === await picRetrySig(env, who, words, day);
+}
 async function wordpics(request, env) {
   let body; try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
   const keys = [...new Set((Array.isArray(body.words) ? body.words : []).map(picKey).filter(k => k && /[a-z]/.test(k)))].slice(0, 60);
@@ -418,6 +437,8 @@ async function wordpics(request, env) {
   const missing = redraw ? keys : keys.filter(k => !pics[k]);
   if (body.draw !== true || !missing.length) return json({ pics, missing });
   const acc = await aiAccess(request, env); if (acc instanceof Response) return acc;
+  const who = acc.uid || 'code';
+  const free = redraw || (body.retry && await picRetryOk(env, who, body.retry, missing));
   const draw = async () => {
     const log = [], got = {};
     const parts = []; for (let i = 0; i < missing.length; i += PICS_PER_CALL) parts.push(missing.slice(i, i + PICS_PER_CALL));
@@ -434,9 +455,10 @@ async function wordpics(request, env) {
       const rows = Object.entries(got).filter(([k]) => !pics[k]).map(([word, svg]) => ({ word, svg }));   // (number words are drawn here each time; not kept)
       if (rows.length) await q(env, 'word_pics?on_conflict=word', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(rows) }).catch(e => console.log('word_pics save', String(e)));
     }
-    return json({ pics: { ...pics, ...got }, missing: missing.filter(k => !got[k]), drawn: Object.keys(got).length });
+    const left = missing.filter(k => !got[k]);
+    return json({ pics: { ...pics, ...got }, missing: left, drawn: Object.keys(got).length, ...(left.length && !redraw ? { retry: await picRetryToken(env, who, left) } : {}) });
   };
-  return redraw ? draw() : withCredit(env, acc, draw);
+  return free ? draw() : withCredit(env, acc, draw);
 }
 export function buildWordlistPrompt() {
   return `This is a photo of a vocabulary list that a teacher in Thailand gave to students to learn for a spelling / dictation test (a worksheet, a page in a notebook, a whiteboard or a screen). It may be printed or handwritten.
@@ -1477,7 +1499,7 @@ async function clientError(request, env) {
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
-  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pic_redraw'];
+  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pics_retry', 'sheet_pic_redraw'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};
