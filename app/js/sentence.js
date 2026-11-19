@@ -11,6 +11,7 @@ import { aiErr, aiNotice, aiWait } from './editor.js';
 import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
 import { cefrKey } from './path.js';
+import { fxBad, fxGood, fxReset, sfx } from './fx.js';
 
 // (var: the scene screen may ask about sentences before this part of the script has run)
 var SENT={ cache:store.get('pv-gsent',{})||{}, busy:{} };   // library scene id → { at, list:[{en, th, words}] }
@@ -125,11 +126,11 @@ function sentCheck(){
   const c=sg.cur;
   if(c.line.map(x=>x.t).join(' ')===c.words.join(' ')){
     c.state='good'; if(!c.tries) sg.stars++;
-    renderSub(); speak(c.s.en);
+    renderSub(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(document.querySelector('#sub .sline'), 15); else { fxReset(); sfx('good',1); }
     setTimeout(()=>{ if(sg && sg.cur===c) sentNext(); }, 2200);
     return;
   }
-  c.tries++; c.state='bad'; renderSub();
+  c.tries++; c.state='bad'; renderSub(); fxBad(document.querySelector('#sub .sline'));
   setTimeout(()=>{
     if(!sg || sg.cur!==c) return;
     if(c.tries>=3){ c.line=c.words.map((t,k)=>({ t, k })); c.pool=[]; c.state='shown'; renderSub(); speak(c.s.en); return; }
@@ -141,7 +142,7 @@ function sentNext(){
   sg.i++;
   if(sg.i<sg.order.length) sentNew();
   else {
-    sg.cur=null; tally('sent_round'); markActive(0,'sent');
+    sg.cur=null; tally('sent_round');                // each right sentence counts (markActive 'sent') for 🗺️ and the report
     const k=sg.sid+(sg.lv===2?':2':''), b=sentBest[k]; if(!b || sg.stars>b.stars){ sentBest[k]={ stars:sg.stars, n:sg.order.length }; store.set('pv-sentbest', sentBest); }
   }
   renderSub(); setHL();
@@ -152,10 +153,10 @@ function sentAnswer(w, id){
   const c=sg && sg.cur; if(!c || c.lv!==2 || c.state) return false;
   if(String(w).toLowerCase()===c.word.toLowerCase()){
     c.state='good'; if(!c.tries) sg.stars++;
-    renderSub(); setHL(); speak(c.s.en);
+    renderSub(); setHL(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(id || document.querySelector('#sub .sblank'), 15); else { fxReset(); sfx('good',1); }
     setTimeout(()=>{ if(sg && sg.cur===c) sentNext(); }, 2400);
   } else {
-    c.tries++; if(!c.wrong.includes(w)) c.wrong.push(w);
+    c.tries++; if(!c.wrong.includes(w)) c.wrong.push(w); fxBad(id || null);
     if(id) doFlash(id,'bad',900);
     if(c.tries>=2){ c.state='shown'; renderSub(); setHL(); speak(c.s.en); }
     else renderSub();

@@ -5,6 +5,7 @@ import { accentKey, ask, closeModal, doFlash, openModal, refresh, renderChips, r
 import { markActive, wordEl } from './home.js';
 import { deckList, savedHas, toggleWord, wkey } from './decks.js';
 import { listStyle } from './sheets.js';
+import { answerXp, fxBad, fxGood, fxReset, sfx } from './fx.js';
 
 // ---------- quiz ----------
 function openQuiz(id){
@@ -43,14 +44,15 @@ $('#qform').addEventListener('submit', e=>{
   const it=items()[id], res=check(v,it);
   if(res.ok){
     const rp=progRaw(), key=pk(id), clean=!G.used[id] && !G.qMiss[id] && res.art!=='missing';
-    srsAnswer(rp, scene().id, key, clean); if(clean) rp.star[key]=true; saveProg(); markActive(1);
+    const xp=answerXp(!rp.done[key], clean && !rp.star[key]);
+    srsAnswer(rp, scene().id, key, clean); if(clean) rp.star[key]=true; saveProg(); markActive(1); fxGood(id, xp);
     setMsg('ok', (clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+it.word+artNote(res));
     speak(sayOf(id));
     updateOverlay(); renderSub();
     setTimeout(()=>{ if(G.quizId===id){ closeQuiz(); } const pp=prog(); if(ids().every(i=>pp.done[i])) toast('🎉 ทบทวนครบทุกคำแล้ว เก่งมาก!'); }, 1100);
     return;
   }
-  G.qMiss[id]=true;
+  G.qMiss[id]=true; fxBad(null);
   if(res.art==='wrong'){ setMsg('bad',`คำถูกแล้ว แต่ไม่ใช่ “${res.said}” — ลองเปลี่ยน der/die/das หรือพิมพ์แค่คำนาม`); shakeCard(); return; }
   const other=ids().find(o=>o!==id && check(v,items()[o]).ok);
   const goal=it.base||it.word, d=lev(normFor(v.replace(/^(der|die|das)\s+/i,''),it), normFor(goal,it));
@@ -103,13 +105,13 @@ function lockNext(ms){ G.find.lock=true; setTimeout(nextFind, ms); }
 // 📍 show where the word is (the spotlight and a pulsing box, no word); then tap it to go on. Not counted as right the first time.
 function findReveal(){
   if(!G.find.target || G.find.lock) return;
-  G.find.missed=true; tally('find_reveal');
+  G.find.missed=true; tally('find_reveal'); fxReset();
   doFlash(G.find.target,'hint',3500); speak(sayOf(G.find.target));
 }
 function findTap(id){
   if(!G.find.target || G.find.lock) return;
-  if(id===G.find.target){ if(!G.find.missed) G.find.score++; markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
-  else { G.find.missed=true; doFlash(id,'bad',1500); }
+  if(id===G.find.target){ if(!G.find.missed){ G.find.score++; fxGood(id, 2); } else { fxReset(); sfx('good',1); } markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
+  else { G.find.missed=true; doFlash(id,'bad',1500); fxBad(id); }
 }
 
 // ---------- 🎤 speaking: say the word, the browser's speech recognition checks it (no AI credits) ----------
@@ -202,12 +204,14 @@ function spkJudge(alts){
   spk.heard=r.said; spk.tries++;
   if(r.ok){
     if(spk.tries===1) spk.score++;
+    const rp0=progRaw(), k0=pk(id), was=!!rp0.done[k0], wasS=!!rp0.star[k0];
     const clean=spkSave(id, it, r);
+    if(spk.tries===1) fxGood(id, answerXp(!was && !!progRaw().done[k0], clean && !wasS)); else { fxReset(); sfx('good',1); }
     spk.result = r.art==='wrong' ? 'okart' : !clean ? 'ok' : (S.lang==='de' && it.art) ? 'okstar' : 'okclean';
     spk.state='done'; markActive(1); doFlash(id,'good',1400); updateOverlay(); renderChips(); renderSub();
     setTimeout(()=>{ if(spk.target===id && S.mode==='speak') spkNext(); }, r.art==='wrong' ? 2600 : 1500);
   } else {
-    spk.result='no'; spk.state='idle'; renderSub();
+    spk.result='no'; spk.state='idle'; renderSub(); fxBad(null);
     if(spk.tries>=2) speak(sayOf(id));     // second miss: say it for them to copy
   }
 }
