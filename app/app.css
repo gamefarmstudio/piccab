@@ -1037,3 +1037,25 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .pcrow .pcn{font-size:13px;color:var(--muted);min-width:52px;text-align:right}
 .pcrow .pcgo{padding:4px 10px;font-size:13px}
 .pcefr .note{margin:6px 4px 0;font-size:12.5px;line-height:1.4}
+/* 🖨️ printable flashcards (only on paper; the sheet is hidden on screen) */
+.pcopts{display:flex;flex-direction:column;gap:4px;margin:6px 0}
+.pcopts b{margin-top:8px;font-size:14px}
+#printSheet{display:none}
+@page{size:A4 portrait;margin:10mm}
+@media print{
+  body.printing > *:not(#printSheet){display:none !important}
+  body.printing{background:#fff !important;padding:0 !important;margin:0 !important}
+  body.printing #printSheet{display:block}
+  #printSheet .ppage{display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);height:277mm;break-after:page;page-break-after:always}
+  #printSheet.pc12 .ppage{grid-template-columns:repeat(3,1fr)}
+  #printSheet .ppage:last-child{break-after:auto;page-break-after:auto}
+  #printSheet .pcard{border:0.4mm dashed #b9b2a8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2mm;padding:4mm;overflow:hidden;text-align:center;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #printSheet .pcard img{width:100%;height:68%;object-fit:contain;border-radius:2mm}
+  #printSheet .pw{font:700 20pt/1.15 'Fredoka','Sarabun',sans-serif;color:#2b2550}
+  #printSheet .pw.big{font-size:28pt}
+  #printSheet .pm{font:500 13pt/1.25 'Sarabun',sans-serif;color:#555}
+  #printSheet .pm.big{font-size:22pt;color:#2b2550}
+  #printSheet.pc12 .pw{font-size:15pt}#printSheet.pc12 .pw.big{font-size:22pt}#printSheet.pc12 .pm{font-size:11pt}#printSheet.pc12 .pm.big{font-size:17pt}
+  #printSheet .pcard.blank{border-color:transparent}
+}

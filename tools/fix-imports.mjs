@@ -11,7 +11,7 @@ const require = createRequire(new URL('../tests/package.json', import.meta.url))
 const acorn = require('acorn'), es = require('eslint-scope'), globals = require('globals');
 const APP = new URL('../app/', import.meta.url).pathname;
 // load order of the parts (main.js imports them in this order; core imports nothing)
-export const ORDER = ['core', 'progress', 'scene', 'home', 'decks', 'games', 'sentence', 'editor', 'sheets', 'account', 'classes',
+export const ORDER = ['core', 'progress', 'scene', 'home', 'decks', 'cards', 'games', 'sentence', 'editor', 'sheets', 'account', 'classes',
   'friends', 'admin', 'gallery', 'path', 'share', 'pwa', 'sync', 'layout'];
 const LAZY_EXPORTS = { 'admin-page': ['renderAdmin'] };   // loaded with import() when needed → what the loader calls
 const LAZY = Object.keys(LAZY_EXPORTS);

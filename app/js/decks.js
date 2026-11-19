@@ -3,6 +3,7 @@ import { G, $, artNote, check, el, ic, items, itemsOf, LANGS, lev, LOC, mean, no
 import { dayNo, dueOn, dueWords, nextReviewText, saveProg, srsAnswer, srsDue, srsOf } from './progress.js';
 import { ask, closeModal, openModal, openScene, progOf, sceneImg, select } from './scene.js';
 import { allWords, markActive, renderHome, sayWord, statChip, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb } from './home.js';
+import { openPrintCards } from './cards.js';
 import { pattern } from './games.js';
 import { deleteScene, examIn, examLabel, isList, listStyle, openSheetMaker } from './sheets.js';
 import { user } from './account.js';
@@ -409,6 +410,7 @@ function openPreview(id){
       el('div',{class:'pv-row'},
         n ? lbl : null,
         el('span',{class:'sp'}),
+        n ? el('button',{text:'🖨️ แฟลชการ์ด',title:'พิมพ์แฟลชการ์ด หรือบันทึกเป็น PDF',onclick:()=>{ closeModal(); openPrintCards(sc); }}) : null,
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
         ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id, true); }}) : null,
