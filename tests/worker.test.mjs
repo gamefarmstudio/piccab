@@ -875,6 +875,11 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.match(bad, /<path d="M1 1 L9 9"\/>/); assert.match(bad, />12<\/text>/); assert.match(bad, /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 100 100"/);
   assert.equal(cleanSvg('<svg><text>only text</text></svg>'), '');
   assert.equal(picKey('  Divided By! '), 'divided by');
+  const { numberOf, numberPic } = await import('../src/worker.js');
+  assert.match(cleanSvg('<svg><text x="50" y="60">100</text></svg>'), />100<\/text>/);          // digits alone are a picture
+  assert.match(cleanSvg('<svg><text><tspan dy="4">1,000</tspan></text></svg>'), /<tspan dy="4">1,000<\/tspan>/);
+  assert.deepEqual(['one hundred','one thousand','one million','twenty-five','a hundred and five','apple'].map(numberOf), [100, 1000, 1000000, 25, 105, null]);
+  assert.match(numberPic('one million'), />1,000,000<\/text>/); assert.equal(numberPic('half'), '');
   assert.deepEqual(parsePics('x [{"w":"Minus","svg":"<svg><line x1=\\"10\\" y1=\\"50\\" x2=\\"90\\" y2=\\"50\\"/></svg>"},{"w":"y","svg":"<b>no</b>"}]').map(r => r.w), ['minus']);
   const saved = globalThis.fetch, prompts = [];
   globalThis.fetch = async (url, init) => {
@@ -887,6 +892,9 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   // look-up only: nothing drawn, no AI
   let j = await (await wp({ words:['Minus','plus'] }, KEY)).json();
   assert.deepEqual(j, { pics:{}, missing:['minus','plus'] }); assert.equal(prompts.length, 0);
+  // number words are drawn here: free, no AI, no sign-in
+  j = await (await wp({ words:['one hundred','One Million','minus'] }, KEY)).json();
+  assert.deepEqual(Object.keys(j.pics), ['one hundred','one million']); assert.deepEqual(j.missing, ['minus']); assert.equal(prompts.length, 0);
   // draw: 14 words → two AI calls (12 a call), all pictures back
   const ws = Array.from({ length:14 }, (_, i) => 'word ' + String.fromCharCode(97 + i));
   j = await (await wp({ words: ws, draw:true }, KEY)).json();

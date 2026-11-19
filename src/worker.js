@@ -301,17 +301,17 @@ export function parseSentences(text) {
 // A small line drawing (SVG, viewBox 0 0 100 100) for each word, written by the text AI (no image model).
 // Kept in a shared bank (word_pics) so each word is drawn once for everyone; only words not in the bank use AI.
 // Everything the AI writes is rebuilt from a short allow-list below — no scripts, links, styles or text other than digits.
-const SVG_TAGS = new Set(['g', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'text']);
+const SVG_TAGS = new Set(['g', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'text', 'tspan']);
 const svgNum = (lo, hi) => v => /^-?\d{1,4}(\.\d{1,3})?$/.test(v) && +v >= lo && +v <= hi;
 const svgColor = v => /^(none|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/.test(v);
 const SVG_ATTRS = {
   d: v => /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s-]{1,1600}$/.test(v), points: v => /^[0-9.,\s-]{1,600}$/.test(v),
   cx: svgNum(-50, 150), cy: svgNum(-50, 150), r: svgNum(0, 100), rx: svgNum(0, 100), ry: svgNum(0, 100), x: svgNum(-50, 150), y: svgNum(-50, 150),
-  width: svgNum(0, 150), height: svgNum(0, 150), x1: svgNum(-50, 150), y1: svgNum(-50, 150), x2: svgNum(-50, 150), y2: svgNum(-50, 150),
+  width: svgNum(0, 150), height: svgNum(0, 150), dx: svgNum(-100, 100), dy: svgNum(-100, 100), x1: svgNum(-50, 150), y1: svgNum(-50, 150), x2: svgNum(-50, 150), y2: svgNum(-50, 150),
   'stroke-width': svgNum(0, 20), fill: svgColor, stroke: svgColor, opacity: svgNum(0, 1), 'fill-opacity': svgNum(0, 1), 'stroke-opacity': svgNum(0, 1),
   'stroke-linecap': v => /^(round|butt|square)$/.test(v), 'stroke-linejoin': v => /^(round|miter|bevel)$/.test(v),
   'stroke-dasharray': v => /^[\d.\s,]{1,30}$/.test(v), 'text-anchor': v => /^(start|middle|end)$/.test(v),
-  'font-size': svgNum(4, 70), 'font-weight': v => /^(400|500|600|700|bold|normal)$/.test(v),
+  'font-size': svgNum(4, 70), 'font-family': v => /^(sans-serif|Arial, sans-serif)$/.test(v), 'font-weight': v => /^(400|500|600|700|bold|normal)$/.test(v),
   transform: v => /^((translate|rotate|scale)\(\s*-?[\d.]+(\s*[\s,]\s*-?[\d.]+){0,2}\s*\)\s*){1,3}$/.test(v),
 };
 export function cleanSvg(src) {
@@ -323,7 +323,7 @@ export function cleanSvg(src) {
     if (m[0].startsWith('<!--')) continue;
     if (m[5] !== undefined) {                                   // text between tags: only digits and maths signs, inside <text>
       const t = m[5].trim();
-      if (!skip && inText && t && /^[0-9+\-×÷=.,%½¼¾ ]{1,9}$/.test(t)) out.push(t.replace(/&/g, ''));
+      if (!skip && inText && t && /^[0-9+\-×÷=.,%½¼¾ ]{1,13}$/.test(t)) out.push(t);
       continue;
     }
     const close = m[1] === '/', tag = m[2].toLowerCase(), selfClose = m[4] === '/';
@@ -337,15 +337,36 @@ export function cleanSvg(src) {
       const k = a[1].toLowerCase(), v = (a[3] ?? a[4] ?? '').trim();
       if (SVG_ATTRS[k] && SVG_ATTRS[k](v)) attrs.push(`${k}="${v}"`);
     }
-    if (tag === 'text') { if (!attrs.some(x => x.startsWith('fill='))) attrs.push('fill="#2d2a5a"'); if (!attrs.some(x => x.startsWith('stroke='))) attrs.push('stroke="none"'); if (!attrs.some(x => x.startsWith('font-size='))) attrs.push('font-size="30"'); if (!attrs.some(x => x.startsWith('text-anchor='))) attrs.push('text-anchor="middle"'); }
+    if (tag === 'text') { if (!attrs.some(x => x.startsWith('fill='))) attrs.push('fill="#2d2a5a"'); if (!attrs.some(x => x.startsWith('stroke='))) attrs.push('stroke="none"'); if (!attrs.some(x => x.startsWith('font-size='))) attrs.push('font-size="30"'); if (!attrs.some(x => x.startsWith('text-anchor='))) attrs.push('text-anchor="middle"'); if (!attrs.some(x => x.startsWith('font-family='))) attrs.push('font-family="Arial, sans-serif"'); }
     out.push(`<${tag}${attrs.length ? ' ' + attrs.join(' ') : ''}${selfClose ? '/>' : '>'}`);
     if (!selfClose) { open.push(tag); if (tag === 'text') inText = true; }
   }
   while (open.length) out.push(`</${open.pop()}>`);
   const body = out.join('');
-  if (!/<(path|circle|ellipse|rect|line|polyline|polygon)\b/.test(body)) return '';
+  if (!/<(path|circle|ellipse|rect|line|polyline|polygon)\b/.test(body) && !/>[0-9+\-×÷=.,%½¼¾ ]+<\/(text|tspan)>/.test(body)) return '';   // a drawing, or digits (e.g. "100")
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="#2d2a5a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
   return svg.length <= 4000 ? svg : '';
+}
+// "one hundred" → 100, "twenty-five" → 25, "one million" → 1000000 (null if it isn't a number word)
+const NUM_W = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15,
+  sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90 };
+export function numberOf(w) {
+  const ws = String(w || '').toLowerCase().replace(/-/g, ' ').replace(/\band\b/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (!ws.length || ws.length > 8) return null;
+  let total = 0, cur = 0, any = false;
+  for (const x of ws) {
+    if (x === 'a' && !any) { cur = 1; continue; }
+    if (x in NUM_W) { cur += NUM_W[x]; any = true; }
+    else if (x === 'hundred') { cur = (cur || 1) * 100; any = true; }
+    else if (x === 'thousand' || x === 'million' || x === 'billion') { total += (cur || 1) * { thousand:1e3, million:1e6, billion:1e9 }[x]; cur = 0; any = true; }
+    else return null;
+  }
+  return any ? total + cur : null;
+}
+export function numberPic(w) {
+  const n = numberOf(w); if (n === null) return '';
+  const t = n.toLocaleString('en-US'), fs = t.length <= 3 ? 42 : t.length <= 5 ? 28 : t.length <= 7 ? 22 : 16;
+  return cleanSvg(`<svg viewBox="0 0 100 100"><rect x="8" y="22" width="84" height="56" rx="12"/><text x="50" y="${50 + Math.round(fs * 0.36)}" font-size="${fs}" font-weight="600">${t}</text></svg>`);
 }
 export const picKey = w => String(w || '').toLowerCase().replace(/[^a-z0-9' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
 export function buildPicsPrompt(words) {
@@ -393,6 +414,7 @@ async function wordpics(request, env) {
   let pics = {};
   if (env.SUPABASE_SECRET_KEY) { try { pics = await picBank(env, keys); } catch (e) { if (e.status !== 404) throw e; } }
   const redraw = body.redraw === true && keys.length === 1;
+  for (const k of keys) if (!pics[k] && !redraw) { const p = numberPic(k); if (p) pics[k] = p; }   // number words: drawn here, free
   const missing = redraw ? keys : keys.filter(k => !pics[k]);
   if (body.draw !== true || !missing.length) return json({ pics, missing });
   const acc = await aiAccess(request, env); if (acc instanceof Response) return acc;
@@ -401,10 +423,15 @@ async function wordpics(request, env) {
     const parts = []; for (let i = 0; i < missing.length; i += PICS_PER_CALL) parts.push(missing.slice(i, i + PICS_PER_CALL));
     const rs = await Promise.all(parts.map(ws => runAI(env, acc.providers, null, null, () => buildPicsPrompt(ws), parsePics, log).then(r => r.status === 200 ? r.json() : null).catch(() => null)));
     rs.forEach((r, i) => (r && r.items || []).forEach(x => { if (parts[i].includes(x.w)) got[x.w] = x.svg; }));
+    const again = missing.filter(k => !got[k]);                  // one more try for the ones that didn't come back (same credit)
+    if (again.length && again.length < missing.length) {
+      const r = await runAI(env, acc.providers, null, null, () => buildPicsPrompt(again), parsePics, log).then(r => r.status === 200 ? r.json() : null).catch(() => null);
+      (r && r.items || []).forEach(x => { if (again.includes(x.w)) got[x.w] = x.svg; });
+    }
     await saveUsage(env, 'pics', log);
     if (!Object.keys(got).length) return error('ai_failed', 502);
     if (env.SUPABASE_SECRET_KEY) {
-      const rows = Object.entries(got).filter(([k]) => !pics[k]).map(([word, svg]) => ({ word, svg }));
+      const rows = Object.entries(got).filter(([k]) => !pics[k]).map(([word, svg]) => ({ word, svg }));   // (number words are drawn here each time; not kept)
       if (rows.length) await q(env, 'word_pics?on_conflict=word', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(rows) }).catch(e => console.log('word_pics save', String(e)));
     }
     return json({ pics: { ...pics, ...got }, missing: missing.filter(k => !got[k]), drawn: Object.keys(got).length });
