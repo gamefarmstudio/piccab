@@ -162,7 +162,7 @@ async def main():
         out['sent_done']=await V.inner_text('.sentgame')
         out['sent_round']=await V.inner_text('.rdend')                               # ⭐ end-of-round card
         await V.screenshot(path=shot('gal7_sent_done.png'))
-        await V.click('.rdend button:has-text("ปิด")'); await V.wait_for_timeout(300)
+        await V.click('.rdend .row button:text-is("ปิด")'); await V.wait_for_timeout(300)
         # level 2: the missing word, from the choices or by tapping it in the picture
         await V.click('.sentgame .slv button:has-text("เติมคำ")'); await V.wait_for_timeout(300)
         its=await V.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); const sc=a[a.length-1]; return Object.fromEntries(Object.entries(sc.items).map(([k,v])=>[v.word,k])); })()")
@@ -183,7 +183,7 @@ async def main():
                 out['fill'].append((txt, lit_before, await V.inner_text('.sentgame .smsg'), await V.inner_text('.sentgame .pill')))
             await V.wait_for_timeout(2600)
         out['fill_done']=await V.inner_text('.sentgame')
-        await V.click('.rdend button:has-text("ปิด")'); await V.wait_for_timeout(300)
+        await V.click('.rdend .row button:text-is("ปิด")'); await V.wait_for_timeout(300)
         # 🧭 learning path: choose a school year on the home card, then that level's topics and scenes
         await V.click('#homeBtn'); await V.wait_for_timeout(300)
         if await V.locator('#bnav [data-view=home]').is_visible(): await V.click('#bnav [data-view=home]')

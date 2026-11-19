@@ -49,6 +49,6 @@ async def main():
     check(out['pop0']==0 and 'w10' in out['ach0'] and 'k3' not in out['ach0'], 'old progress remembered quietly', (out['pop0'], out['ach0']))
     check(any('ได้ตราใหม่' in t and 'จุดไฟ' in t for t in out['pops']), 'new badge celebrated', out['pops'])
     check('XP' in out['head'] and out['nodes']==10 and out['here']==1, 'map with 10 places, one "here"', (out['head'], out['nodes'], out['here']))
-    check(out['badges']==33 and 'จุดไฟ' in out['got'] and 'คำแรก ๆ' in out['got'], 'badges', (out['badges'], out['got']))
+    check(out['badges']==36 and 'จุดไฟ' in out['got'] and 'คำแรก ๆ' in out['got'], 'badges', (out['badges'], out['got']))
     finish('journey', out, errs)
 asyncio.run(main())

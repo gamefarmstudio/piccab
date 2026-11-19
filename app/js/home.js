@@ -12,6 +12,7 @@ import { renderPicLib } from './gallery.js';
 import { pathTile, renderPath } from './path.js';
 import { achCheckSoon, journeyTile, renderJourney } from './journey.js';
 import { sceneStars, starsEl } from './rounds.js';
+import { questTile } from './rewards.js';
 import { sendReportSoon } from './report.js';
 import { installApp, installAvailable } from './pwa.js';
 import { accessToken } from './sync.js';
@@ -199,7 +200,7 @@ function renderHome(){
       el('button',{class:'primary',text:'ติดตั้ง',onclick:installApp}),
       el('button',{class:'x','aria-label':'ไม่ต้องแสดงอีก',title:'ไม่ต้องแสดงอีก',text:'✕',onclick:()=>{ store.set('pv-install-hide',true); renderHome(); }})));
   }
-  h.append(pathTile(), journeyTile());
+  h.append(pathTile(), journeyTile(), questTile());
   // first visit: nothing of their own yet → invite them to make a scene from a photo
   const firstRun=!all.some(sc=>!sc.builtin) && !store.get('pv-welcome-hide',false);
   if(firstRun) h.append(welcomeCard());

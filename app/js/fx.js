@@ -3,6 +3,7 @@
 // Sounds are made in the browser (Web Audio, no files); 🔔 in the settings turns them off.
 // "Reduce motion" on the device turns off confetti and shaking.
 import { el, store, tally } from './core.js';
+import { dqMax } from './rewards.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
 var FX={ ctx:null, combo:0, best:0, rx:0, rbest:0, on:store.get('pv-sfx', true)!==false };   // rx / rbest: XP and best combo this round
@@ -39,8 +40,8 @@ function fxPoint(t){
   return { x:innerWidth/2, y:innerHeight/2 };
 }
 function fxLayer(){ let L=document.getElementById('fxLayer'); if(!L){ L=el('div',{id:'fxLayer','aria-hidden':'true'}); document.body.append(L); } return L; }
-function confetti(p, n){
-  const L=fxLayer(), cols=['#ffc928','#f2683a','#534ab7','#23915a','#ef5a78','#3fa7f5'];
+function confetti(p, n, gold){
+  const L=fxLayer(), cols= gold ? ['#ffc928','#ffdf6b','#f2a200','#fff3b0'] : ['#ffc928','#f2683a','#534ab7','#23915a','#ef5a78','#3fa7f5'];
   for(let i=0;i<n;i++){
     const c=el('i',{class:'fxbit'}), a=Math.random()*Math.PI*2, v=60+Math.random()*120, dx=Math.cos(a)*v, dy=Math.sin(a)*v-80;
     c.style.cssText=`left:${p.x}px;top:${p.y}px;background:${cols[i%cols.length]};${i%3?'':'border-radius:50%;'}`;
@@ -68,12 +69,14 @@ function comboPop(n){
   an.onfinish=()=>b.remove();
 }
 // A right answer: where (word id / element), how much XP it was worth
-function fxGood(target, xp){
+// gold: ✨ a golden word (gold confetti, fanfare)
+function fxGood(target, xp, gold){
   FX.combo++; if(FX.combo>FX.best) FX.best=FX.combo; if(FX.combo>FX.rbest) FX.rbest=FX.combo;
   FX.rx+=xp||2;
   const p=fxPoint(target), big=COMBO_AT.includes(FX.combo) || (FX.combo>50 && FX.combo%10===0);
-  sfx(big ? 'combo' : 'good', FX.combo);
-  if(!fxCalm()) confetti(p, big ? 40 : 16);
+  sfx(big || gold ? 'combo' : 'good', FX.combo);
+  if(!fxCalm()) confetti(p, big || gold ? 40 : 16, gold);
+  if(typeof dqMax==='function') dqMax('combo', FX.combo);
   floatXp(p, xp||2, FX.combo);
   if(big){ comboPop(FX.combo); if(FX.combo>=5) tally('combo'); }
   try{ if(navigator.vibrate) navigator.vibrate(big ? [20,40,20] : 12); }catch(e){}

@@ -1204,3 +1204,42 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .cstars.inl{position:static;box-shadow:none;background:#fff8e1;margin-left:6px;vertical-align:middle}
 @media (max-width:480px){ .rdstats{grid-template-columns:repeat(2,1fr)} }
 @media (prefers-reduced-motion:reduce){ .rdstar,.rdbest{animation:none;opacity:1;transform:none} }
+
+/* 🎁 rewards: chests, stickers, golden words, quests */
+.chestbox{display:flex;justify-content:center;margin:10px 0 4px;min-height:150px;align-items:center}
+.chest{display:flex;flex-direction:column;align-items:center;gap:2px;border:3px solid #e2c08a;border-radius:22px;padding:12px 26px;background:linear-gradient(180deg,#fff7e6,#ffe9c2);cursor:pointer;animation:chestwob 1.6s ease-in-out infinite;font:inherit;color:var(--ink)}
+.chest .che{font-size:58px;line-height:1.1}
+.chest small{color:#8a5a00;font-weight:600}
+.chest.silver{border-color:#b9c3d6;background:linear-gradient(180deg,#f7f9fc,#e2e8f2)}
+.chest.gold{border-color:#ffb627;background:linear-gradient(180deg,#fff8d6,#ffe07a);box-shadow:0 0 0 4px rgba(255,201,40,.25),0 8px 22px rgba(224,138,0,.25)}
+.chest.opening{animation:chestopen .75s ease-in forwards}
+@keyframes chestwob{0%,100%{transform:rotate(0)}10%{transform:rotate(-4deg)}20%{transform:rotate(4deg)}30%{transform:rotate(0)}}
+@keyframes chestopen{0%{transform:scale(1)}20%{transform:scale(1.08) rotate(-6deg)}40%{transform:scale(1.08) rotate(6deg)}60%{transform:scale(1.12) rotate(-6deg)}80%{transform:scale(1.2)}100%{transform:scale(.2);opacity:0}}
+.stkreveal{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 28px;border-radius:22px;background:#fff;border:3px solid #e8dfd2;animation:rdpop .5s cubic-bezier(.2,1.6,.4,1) both;transform:scale(.4);opacity:0}
+.stkreveal .stke{font-size:72px;line-height:1.1}
+.stkreveal .stkr{font-size:12px;font-weight:700;border-radius:99px;padding:1px 10px;background:#f1ece4;color:var(--muted)}
+.stkreveal.r{border-color:#7fb6ff;box-shadow:0 0 24px rgba(63,167,245,.35)}.stkreveal.r .stkr{background:#e3f0ff;color:#1c62b8}
+.stkreveal.l{border-color:#ff8fd0;box-shadow:0 0 30px rgba(255,120,200,.45);background:linear-gradient(135deg,#fff0f8,#f0f4ff,#effff4)}.stkreveal.l .stkr{background:linear-gradient(90deg,#ff9a9e,#fad0c4,#a1c4fd);color:#5a1d5a}
+.stkreveal b{font-size:18px}.stkreveal small{color:var(--muted)}
+.goldpill{display:inline-flex;align-items:center;font-weight:700;font-size:14px;border-radius:99px;padding:4px 12px;background:linear-gradient(90deg,#fff3b0,#ffd54a);color:#7a5200;box-shadow:0 0 12px rgba(255,201,40,.6);animation:jpulse 1.6s ease-in-out infinite}
+.tile.qtile .qic{font-size:26px;background:#e8f1ff}
+.qdots{display:flex;gap:5px;margin-top:5px}.qdots i{width:22px;height:6px;border-radius:4px;background:#e8dfd2}.qdots i.on{background:var(--ok)}
+.mbox.qbox{max-width:460px}
+.qlist{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.dqrow{display:flex;align-items:center;gap:10px;background:#faf6ef;border-radius:14px;padding:10px 12px}
+.dqrow .grow{display:flex;flex-direction:column;gap:5px;flex:1}.dqrow .pbar{height:7px;background:#e8dfd2}.dqrow .pbar i{background:#534ab7}
+.dqrow.done{background:#eaf7ef}.dqrow.done .pbar i{background:var(--ok)}
+.dqrow small{color:var(--muted);font-weight:600}
+.qck{font-size:20px}
+.qchest{display:flex;flex-direction:column;align-items:center;background:#fff8e8;border-radius:16px;padding:6px 10px 10px;margin:4px 0}
+.qchest .note{margin:4px 0 0}
+#stkBook .qchest{margin:8px 0}
+.stkh{margin:12px 2px 6px;font-size:14px}.stkh.l{color:#b0307e}.stkh.r{color:#1c62b8}
+.stkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px}
+.stk{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;background:#fff;border:1px dashed #e0d6c8;border-radius:14px;padding:8px 4px}
+.stk .stke{font-size:34px;line-height:1.2;color:#d9cfc1;font-weight:700}
+.stk small{font-size:11.5px;color:var(--muted);text-align:center}
+.stk em{position:absolute;top:4px;right:6px;font-style:normal;font-size:11px;font-weight:700;color:#8a6500}
+.stk.got{border-style:solid;border-color:#efe6da}
+.stk.r.got{border-color:#9cc7ff;background:#f6faff}.stk.l.got{border-color:#ffb3e0;background:linear-gradient(135deg,#fff5fb,#f5f7ff)}
+@media (prefers-reduced-motion:reduce){ .chest,.goldpill{animation:none} .chest.opening{animation:none;opacity:0} .stkreveal{animation:none;transform:none;opacity:1} }

@@ -4,6 +4,7 @@ import { el, items, S, scene, store, tally } from './core.js';
 import { dayNo } from './progress.js';
 import { closeModal, openModal } from './scene.js';
 import { confetti, FX, fxCalm, sfx } from './fx.js';
+import { addChest, chestEl, dqAdd, tierFor } from './rewards.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
 var RD={ key:'', t0:0, missed:new Set(), practice:false };
@@ -28,6 +29,8 @@ function roundEnd(o){
   else if(better){ roundBest[key]={ s:stars, p:pct, c:Math.max(combo, old?old.c:0), at:dayNo() }; store.set('pv-best', roundBest); }
   else if(old && combo>(old.c||0)){ old.c=combo; store.set('pv-best', roundBest); }
   tally('round_end'); if(stars===3) tally('round_3stars');
+  dqAdd('rounds',1); if(stars===3) dqAdd('s3',1);
+  const chest=!RD.practice && total>=3; if(chest) addChest(tierFor(stars));
   const missed=[...RD.missed].filter(id=>items()[id]);
   openModal(m=>{
     m.classList.add('rdbox');
@@ -43,6 +46,7 @@ function roundEnd(o){
         el('div',{}, el('small',{text:'คอมโบสูงสุด'}), el('b',{text: combo>=2 ? `🔥 x${combo}` : '–'})),
         el('div',{}, el('small',{text:'เวลา'}), el('b',{text:fmtTime(ms)}))),
       old && !better ? el('p',{class:'note small',text:`ดีที่สุดของฉากนี้: ${'★'.repeat(old.s)} (${old.p}%)`}) : null,
+      chest ? chestEl() : null,
       el('div',{class:'row'},
         el('button',{text:'ปิด',onclick:closeModal}),
         o.missed && missed.length ? el('button',{text:`🎯 ฝึกคำที่พลาด (${missed.length})`,onclick:()=>{ closeModal(); o.missed(missed); }}) : null,
