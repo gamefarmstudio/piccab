@@ -1179,6 +1179,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .fxcombo span{font-size:18px;font-weight:700;color:#7a3b00}
 .fxnote{position:absolute;left:50%;top:24%;transform:translateX(-50%);background:rgba(45,42,90,.88);color:#fff;border-radius:99px;padding:6px 16px;font-size:14px;white-space:nowrap}
 .fxshake{animation:shake .35s}
+.fxnote.low{top:32%;background:rgba(210,67,67,.92)}
 
 /* ⭐ end of a round */
 .mbox.rdbox{max-width:440px}
@@ -1243,3 +1244,35 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .stk.got{border-style:solid;border-color:#efe6da}
 .stk.r.got{border-color:#9cc7ff;background:#f6faff}.stk.l.got{border-color:#ffb3e0;background:linear-gradient(135deg,#fff5fb,#f5f7ff)}
 @media (prefers-reduced-motion:reduce){ .chest,.goldpill{animation:none} .chest.opening{animation:none;opacity:0} .stkreveal{animation:none;transform:none;opacity:1} }
+
+/* ⚔️ challenges and 👾 the boss */
+.chbtn{white-space:nowrap}
+.chopts{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.chopt{display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:2px solid #efe6da;border-radius:16px;padding:10px 14px;font:inherit;color:var(--ink);cursor:pointer}
+.chopt.on{border-color:var(--ink);background:#f6f4ff}
+.chopt .che{font-size:30px}.chopt .grow{display:flex;flex-direction:column}.chopt small{color:var(--muted)}
+.chtime{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid #efe6da;border-radius:99px;padding:3px 4px 3px 10px;min-width:210px}
+.chtime .chbar{flex:1;height:8px;border-radius:6px;background:#efe6da;overflow:hidden;min-width:70px}
+.chtime .chbar i{display:block;height:100%;background:linear-gradient(90deg,#23915a,#7ccf6b);transition:width .2s linear}
+.chtime.low .chbar i{background:linear-gradient(90deg,#d24343,#f2683a)}
+.chtime.low b{color:#d24343;animation:jpulse 1s infinite}
+.chtime b{font-family:'Fredoka','Sarabun',sans-serif;min-width:44px}
+.chtime .chn{font-weight:700;color:var(--ok)}
+.chhearts{display:inline-flex;align-items:center;gap:6px;font-size:20px;letter-spacing:2px}
+.chx{width:30px;height:30px;padding:0;font-size:14px}
+.bossbtn{background:linear-gradient(180deg,#7b5cff,#534ab7);color:#fff;border-color:#3d3490;font-weight:700}
+.mbox.bossbox{max-width:440px}
+.bossend{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+.bossend h3{margin:0;font-size:22px;color:#534ab7}
+.bosspic{position:relative;width:240px;max-width:80%;aspect-ratio:4/3;border-radius:18px;overflow:hidden;background:#2d2a5a;border:4px solid #7b5cff;box-shadow:0 0 24px rgba(123,92,255,.55);animation:bosswob 2.4s ease-in-out infinite}
+.bosspic img{width:100%;height:100%;object-fit:cover;display:block}
+.bossface{position:absolute;right:-4px;top:-6px;font-size:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+.bosspic.beaten{animation:bossbeat .8s ease-out forwards}
+@keyframes bosswob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-1.5deg)}}
+@keyframes bossbeat{0%{transform:scale(1)}30%{transform:scale(1.15) rotate(6deg);filter:brightness(1.8)}100%{transform:scale(.9) rotate(-4deg);filter:grayscale(.6) brightness(1.1);opacity:.75}}
+.bosshp{font-size:22px;letter-spacing:3px}
+.bosshint{font-family:'Fredoka',monospace;font-size:24px;letter-spacing:2px;color:#534ab7}
+.bossact{width:100%}
+.bossact .row{gap:8px;flex-wrap:nowrap}
+.bossact input{flex:1;min-width:0;font-family:'Fredoka',sans-serif;font-size:20px;padding:8px 12px;border:2px solid var(--line);border-radius:12px}
+@media (prefers-reduced-motion:reduce){ .bosspic,.bosspic.beaten,.chtime.low b{animation:none} }

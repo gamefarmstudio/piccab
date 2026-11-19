@@ -37,6 +37,7 @@ var ACH_BADGES=[
   ['c1','🖼️','ฉากแรกครบ','ผ่านทุกคำในฉากหนึ่ง','scenes',1], ['c5','🏞️','นักสำรวจ','ผ่านทุกคำครบ 5 ฉาก','scenes',5], ['c20','🗺️','นักผจญภัย','ผ่านทุกคำครบ 20 ฉาก','scenes',20],
   ['m1','📷','นักสร้างฉาก','สร้างฉากจากรูปของตัวเอง','made',1], ['m5','🎨','ศิลปินคำศัพท์','สร้างฉากของตัวเอง 5 ฉาก','made',5],
   ['st10','📒','นักสะสมสติกเกอร์','สะสมสติกเกอร์ 10 แบบ','stickers',10], ['st30','🗂️','นักสะสมตัวยง','สะสมสติกเกอร์ 30 แบบ','stickers',30], ['st48','🌟','ครบทั้งเล่ม','สะสมสติกเกอร์ครบ 48 แบบ','stickers',48],
+  ['boss1','👾','ปราบบอส','ปราบบอสได้ครั้งแรก','boss',1], ['boss10','🗡️','นักล่าบอส','ปราบบอส 10 ครั้ง','boss',10], ['time15','⚡','สายฟ้าแลบ','แข่งกับเวลา หาได้ 15 คำใน 60 วินาที','time',15],
   ['lpreA1','🏅','ผ่าน Pre-A1','รู้คำระดับ Pre-A1 ในคลังภาพ 80%','preA1',80], ['lA1','🥉','ผ่าน A1','รู้คำระดับ A1 ในคลังภาพ 80%','A1',80], ['lA2','🥈','ผ่าน A2','รู้คำระดับ A2 ในคลังภาพ 80%','A2',80]];
 var ACH={ t:null, queue:[], showing:false };
 
@@ -51,7 +52,7 @@ function bestStreak(){
   return best;
 }
 function achStats(){
-  const s={ passed:0, stars:0, answers:0, active:0, quiz:0, find:0, speak:0, sent:0, review:0, scenes:0, made:0, best:bestStreak(), stickers:ownedCount() };
+  const s={ passed:0, stars:0, answers:0, active:0, quiz:0, find:0, speak:0, sent:0, review:0, scenes:0, made:0, best:bestStreak(), stickers:ownedCount(), boss:+store.get('pv-boss',0)||0, time:+store.get('pv-timebest',0)||0 };
   for(const d of Object.values(days)){ if(!d) continue; s.active++; s.answers+=d.n||0; const m=d.m||{}; ['quiz','find','speak','sent','review'].forEach(k=>s[k]+=m[k]||0); }
   for(const p of Object.values(progress)){ if(!p) continue; s.passed+=Object.keys(p.done||{}).length; s.stars+=Object.values(p.star||{}).filter(Boolean).length; }
   for(const sc of scenes()){ const r=progOf(sc); if(r.n && r.d===r.n) s.scenes++; }

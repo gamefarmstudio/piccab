@@ -13,6 +13,7 @@ import { CEFR_NAME, cefrKey } from './path.js';
 import { lvPill } from './journey.js';
 import { fxReset } from './fx.js';
 import { goldPill } from './rewards.js';
+import { chStatus } from './challenge.js';
 import { openShare } from './share.js';
 import { exitFs, fitWrap, isFs } from './layout.js';
 
@@ -456,6 +457,7 @@ function renderSub(){
       const word = G.find.showWord ? el('span',{class:'target',text:items()[G.find.target].word}) : null;
       put(
         el('button',{class:'primary big',text:'🔊 ฟังคำ',onclick:()=>speak(sayOf(G.find.target))}),
+        chStatus(),
         word,
         el('span',{class:'hint tip',text:'แล้วแตะของชิ้นนั้นในภาพ'}),
         el('span',{class:'grow'}),
@@ -464,11 +466,12 @@ function renderSub(){
         el('button',{text:'📍 เผยตำแหน่ง',title:'บอกว่าคำนี้อยู่ตรงไหนในภาพ (ข้อนี้จะไม่นับเป็นถูกตั้งแต่ครั้งแรก)',onclick:()=>findReveal()}),
         el('button',{text:'ข้าม ⏭',onclick:()=>{ G.find.missed=true; fxReset(); doFlash(G.find.target,'good',1300); speak(sayOf(G.find.target)); lockNext(1300); }}),
         G.find.target===G.find.gold ? goldPill() : null,
-        el('span',{class:'pill',text:`ถูก ${G.find.score} • เหลือ ${G.find.queue.length+1}/${G.find.total}`})
+        G.find.ch==='time' ? null : el('span',{class:'pill',text:`ถูก ${G.find.score} • เหลือ ${G.find.queue.length+1}/${G.find.total}`})
       );
     } else {
       put(
-        el('span',{class:'hint',text:`🎉 จบรอบแล้ว! หาถูกตั้งแต่ครั้งแรก ${G.find.score}/${G.find.total} คำ`}),
+        el('span',{class:'hint',text: G.find.ch==='time' ? `⏱️ หมดเวลา! หาได้ ${G.find.score} คำ` : `🎉 จบรอบแล้ว! หาถูกตั้งแต่ครั้งแรก ${G.find.score}/${G.find.total} คำ`}),
+        chStatus(),
         el('span',{class:'grow'}),
         findKeepBtn(),
         el('button',{class:'primary',text:'เล่นอีกรอบ',onclick:startFind})

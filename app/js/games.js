@@ -8,6 +8,7 @@ import { listStyle } from './sheets.js';
 import { answerXp, fxBad, fxGood, fxReset, fxSoft } from './fx.js';
 import { RD, roundEnd, roundKey, roundMiss, roundStart } from './rounds.js';
 import { addBonusXp, goldPill, pickGold } from './rewards.js';
+import { CH, chStart, chWrong } from './challenge.js';
 
 // ---------- quiz ----------
 function openQuiz(id){
@@ -54,7 +55,7 @@ $('#qform').addEventListener('submit', e=>{
     speak(sayOf(id));
     updateOverlay(); renderSub();
     setTimeout(()=>{ if(G.quizId===id){ closeQuiz(); } const pp=prog();
-      if(!allBefore && ids().every(i=>pp.done[i])) roundEnd({ game:'quiz', right:ids().filter(i=>pp.star[i]).length, total:ids().length, title:'🎉 ทบทวนครบทุกคำแล้ว!' }); }, 1100);
+      if(!allBefore && ids().every(i=>pp.done[i])) roundEnd({ game:'quiz', right:ids().filter(i=>pp.star[i]).length, total:ids().length, title:'🎉 ทบทวนครบทุกคำแล้ว!', boss:true }); }, 1100);
     return;
   }
   G.qMiss[id]=true; fxBad(null);
@@ -97,16 +98,20 @@ function resetQuiz(){
 // ---------- find (listen & tap) ----------
 function startFind(only){
   const q=(Array.isArray(only) ? only : ids()).filter(i=>items()[i]);
-  G.find={queue:shuffle(q),target:null,score:0,total:q.length,missed:false,showWord:G.find.showWord,lock:false,gold:Array.isArray(only)?null:pickGold(q)};
-  roundStart('find', null, Array.isArray(only));
+  const ch=Array.isArray(only) ? 'normal' : (CH.mode==='time' || CH.mode==='hearts' ? CH.mode : 'normal');
+  G.find={queue:shuffle(q),target:null,score:0,total:q.length,missed:false,showWord:G.find.showWord,lock:false,gold:Array.isArray(only)?null:pickGold(q),ch};
+  roundStart(ch==='normal' ? 'find' : ch, null, Array.isArray(only));
+  chStart(G.find);
   nextFind();
 }
 function nextFind(){
   if(G.find.target){ G.find.last=G.find.target; if(G.find.missed) roundMiss(G.find.target); }
+  if(G.find.ch==='time' && !G.find.queue.length && G.find.t1>Date.now()) G.find.queue=shuffle(ids().filter(i=>i!==G.find.target));   // ⏱️ goes round again
   G.find.target=G.find.queue.shift()||null; G.find.missed=false; G.find.lock=false;
   renderSub();
   if(G.find.target) setTimeout(()=>speak(sayOf(G.find.target)), 250);
-  else { speak('Well done!'); if(G.find.total && S.mode==='find') roundEnd({ game:'find', right:G.find.score, total:G.find.total, title:'🎉 หาครบทุกคำแล้ว!', again:()=>startFind(), missed:l=>startFind(l) }); }
+  else if(G.find.ch!=='time'){ speak('Well done!'); if(G.find.total && S.mode==='find') roundEnd({ game:G.find.ch==='hearts' ? 'hearts' : 'find', right:G.find.score, total:G.find.total,
+    title: G.find.ch==='hearts' ? `❤️ ผ่านด่าน! เหลือหัวใจ ${G.find.hearts} ดวง` : '🎉 หาครบทุกคำแล้ว!', again:()=>startFind(), missed:l=>startFind(l), boss:true }); }
 }
 function lockNext(ms){ G.find.lock=true; setTimeout(nextFind, ms); }
 // 📍 show where the word is (the spotlight and a pulsing box, no word); then tap it to go on. Not counted as right the first time.
@@ -118,7 +123,7 @@ function findReveal(){
 function findTap(id){
   if(!G.find.target || G.find.lock) return;
   if(id===G.find.target){ if(!G.find.missed){ G.find.score++; if(id===G.find.gold){ addBonusXp(2); fxGood(id, 4, true); } else fxGood(id, 2); } else fxSoft(2); markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
-  else { G.find.missed=true; doFlash(id,'bad',1500); fxBad(id); }
+  else { G.find.missed=true; doFlash(id,'bad',1500); fxBad(id); if(G.find.ch && G.find.ch!=='normal') chWrong(); }
 }
 
 // ---------- 🎤 speaking: say the word, the browser's speech recognition checks it (no AI credits) ----------
@@ -137,7 +142,7 @@ function spkNext(){
   if(spk.target){ spk.last=spk.target; if(!(spk.state==='done' && spk.tries===1)) roundMiss(spk.target); }
   spk.target=spk.queue.shift()||null; spk.tries=0; spk.heard=''; spk.result=''; spk.state='idle';
   if(S.view==='play' && S.mode==='speak'){ renderSub(); renderChips(); setHL(); }
-  if(!spk.target){ speak('Well done!'); if(spk.total && SR && S.view==='play' && S.mode==='speak') roundEnd({ game:'speak', right:spk.score, total:spk.total, title:'🎉 พูดครบทุกคำแล้ว!', again:()=>startSpeak(), missed:l=>startSpeak(l) }); }
+  if(!spk.target){ speak('Well done!'); if(spk.total && SR && S.view==='play' && S.mode==='speak') roundEnd({ game:'speak', right:spk.score, total:spk.total, title:'🎉 พูดครบทุกคำแล้ว!', again:()=>startSpeak(), missed:l=>startSpeak(l), boss:true }); }
 }
 function spkPick(id){   // tap a thing in the picture: practise that one now
   if(!items()[id] || spk.state==='listening') return;

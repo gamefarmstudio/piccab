@@ -5,6 +5,7 @@ import { dayNo } from './progress.js';
 import { closeModal, openModal } from './scene.js';
 import { confetti, FX, fxCalm, sfx } from './fx.js';
 import { addChest, chestEl, dqAdd, tierFor } from './rewards.js';
+import { bossBtn } from './challenge.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
 var RD={ key:'', t0:0, missed:new Set(), practice:false };
@@ -41,7 +42,7 @@ function roundEnd(o){
       el('p',{class:'rdline',text: stars===3 ? 'เยี่ยมมาก! ได้ 3 ดาวเต็ม' : stars===2 ? 'เก่งมาก! อีกนิดเดียวจะได้ 3 ดาว' : 'จบรอบแล้ว! ลองอีกรอบเพื่อเก็บดาวเพิ่ม'}),
       better && old ? el('div',{class:'rdbest'},'🏆 สถิติใหม่!') : null,
       el('div',{class:'rdstats'},
-        el('div',{}, el('small',{text:'ถูกตั้งแต่ครั้งแรก'}), el('b',{text:`${o.right}/${total}`})),
+        el('div',{}, el('small',{text:o.rightLabel||'ถูกตั้งแต่ครั้งแรก'}), el('b',{text:o.rightText||`${o.right}/${total}`})),
         el('div',{class:'xp'}, el('small',{text:'XP ที่ได้'}), xpN),
         el('div',{}, el('small',{text:'คอมโบสูงสุด'}), el('b',{text: combo>=2 ? `🔥 x${combo}` : '–'})),
         el('div',{}, el('small',{text:'เวลา'}), el('b',{text:fmtTime(ms)}))),
@@ -50,6 +51,7 @@ function roundEnd(o){
       el('div',{class:'row'},
         el('button',{text:'ปิด',onclick:closeModal}),
         o.missed && missed.length ? el('button',{text:`🎯 ฝึกคำที่พลาด (${missed.length})`,onclick:()=>{ closeModal(); o.missed(missed); }}) : null,
+        o.boss && !RD.practice ? bossBtn(missed) : null,
         o.again ? el('button',{class:'primary',text:'🔁 เล่นอีกรอบ',onclick:()=>{ closeModal(); o.again(); }}) : null)));
     // count the XP up, a chime per star, confetti for 3 stars
     const t0=performance.now(), dur=900;
