@@ -5,6 +5,7 @@ import { days, dkey, streak } from './home.js';
 import { deckCount, deckList, deckName, deckNameDialog, liveKeys } from './decks.js';
 import { openLogin, user } from './account.js';
 import { isStudent, openJoinClass, socialTabs, studentNick } from './classes.js';
+import { journey } from './journey.js';
 import { copyLink, importShare, myShares, openImported, picturesUploaded, shareApi, shareErr, shareKey, shareLinkNative, sharePayload } from './share.js';
 import { accessToken } from './sync.js';
 
@@ -29,7 +30,8 @@ const friendErr=r=>({ bad_code:'ไม่พบรหัสนี้ ตรว�
 function friendStats(){
   let week=0; const d=new Date(); for(let i=0;i<7;i++){ week+=((days[dkey(d)]||{}).n||0); d.setDate(d.getDate()-1); }
   let total=0; for(const p of Object.values(progress)) total+=Object.keys((p&&p.done)||{}).length;
-  return { streak:streak(), week_words:week, total_words:total };
+  let lv=null; try{ const J=journey(); lv={ level:J.lv, badges:J.nb }; }catch(e){}
+  return { streak:streak(), week_words:week, total_words:total, ...(lv||{}) };
 }
 let frStatsT=null;
 function reportFriendStatsSoon(){ if(!user || !store.get('pv-friends-on',false)) return; clearTimeout(frStatsT); frStatsT=setTimeout(()=>friendsApi('POST','/me',{ stats:friendStats() }).catch(()=>{}), 6000); }
@@ -119,7 +121,7 @@ function renderFriends(){
     const box=el('div',{class:'liblist'});
     d.friends.forEach(f=>box.append(el('div',{class:'lrow frrow'},
       el('span',{class:'clic',text:'🙂'}),
-      el('span',{class:'lb'}, el('b',{text:f.nickname}), el('span',{class:'lm',text:`🔥 ${f.streak} วันติดกัน · สัปดาห์นี้ ${f.week_words} คำ · รวม ${f.total_words} คำ`})),
+      el('span',{class:'lb'}, el('b',{text:f.nickname}), el('span',{class:'lm'}, f.level ? el('span',{class:'flv',text:`⭐ Lv.${f.level} · 🏅 ${f.badges||0} · `}) : null, `🔥 ${f.streak} วันติดกัน · สัปดาห์นี้ ${f.week_words} คำ · รวม ${f.total_words} คำ`)),
       el('button',{title:'ส่งกำลังใจ','aria-label':'ส่งกำลังใจให้ '+f.nickname,text:'👏',onclick:()=>openCheer(f)}),
       el('button',{title:'ส่งฉากหรือชุดคำ','aria-label':'ส่งฉากให้ '+f.nickname,text:'📤',onclick:()=>openSendToFriend(f)}),
       el('button',{title:'เพิ่มเติม','aria-label':'ตัวเลือกสำหรับ '+f.nickname,text:'⋯',onclick:()=>openFriendMenu(f)}))));

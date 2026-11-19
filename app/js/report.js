@@ -9,6 +9,7 @@ import { allWords, days, dkey, openFeedback, streak } from './home.js';
 import { user } from './account.js';
 import { CL, classApi, classErr, renderClass } from './classes.js';
 import { CEFR_NAME, cefrRows, myStage, stageById, stageCefr, stageName } from './path.js';
+import { ACH_BADGES, ACH_PLACES, achSummary, badgeById, placeName } from './journey.js';
 import { accessToken } from './sync.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
@@ -58,6 +59,7 @@ function buildReport(){
     learned:ws.filter(([w,r])=>r[1]).sort((a,b)=>b[1][1]-a[1][1]).slice(0,20).map(([w,r])=>[...lab(w), dayKeyOf(r[1])]),
     cefr:cefrRows().map(r=>[r.c, r.known, r.total]),
     scenes:scs.filter(r=>r[1]).concat(scs.filter(r=>!r[1])).slice(0,15),
+    ach:achSummary(),
   };
 }
 
@@ -133,6 +135,12 @@ function renderReport(v, d){
     statTile('star-fill', w.star||0, 'ตอบถูกเองโดยไม่ใช้ตัวช่วย', 'gold'),
     statTile('autorenew', w.due||0, 'คำที่ถึงรอบทบทวน')));
   v.append(el('p',{class:'note small',text:`ฝึกล่าสุด: ${sinceText(s.last)}`+(D.lang && D.lang!=='en' && LANGS[D.lang] ? ` · ฝึกภาษา${LANGS[D.lang].name}` : '')}));
+  // 🗺️ journey: level, place, badges
+  if(D.ach && D.ach.lv){ const A=D.ach, P=ACH_PLACES[Math.min(A.place||0, ACH_PLACES.length-1)];
+    v.append(el('h3',{class:'psub',text:'🗺️ การเดินทาง'}),
+      el('div',{class:'rjourney'}, el('span',{class:'jdot','aria-hidden':'true',text:P.e}),
+        el('span',{class:'grow'}, el('b',{text:`Lv.${A.lv} · ${placeName(P)}`}), el('small',{text:`⭐ ${(A.xp||0).toLocaleString()} XP · ตรา ${A.n||0}/${A.total||ACH_BADGES.length}`})),
+        el('div',{class:'rwords'}, ...(A.recent||[]).map(([id])=>badgeById(id)).filter(Boolean).map(b=>el('span',{class:'rw',title:b[3]}, el('span',{'aria-hidden':'true',text:b[1]}), el('b',{text:b[2]})))))); }
   // activity
   v.append(el('h3',{class:'psub',text:'การฝึก 30 วันล่าสุด'}), act.chart,
     el('p',{class:'note small',text:`ฝึก ${act.active} วัน · ประมาณ ${act.mins} นาที · ความสูงของแท่ง = จำนวนคำที่ตอบในวันนั้น`}));

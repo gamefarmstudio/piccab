@@ -232,6 +232,11 @@ create table if not exists public.friend_profiles (
   total_words integer not null default 0 check (total_words between 0 and 1000000),
   updated_at  timestamptz not null default now()
 );
+-- 🗺️ level and badges shown to friends (also in 2026-11-journey.sql)
+alter table public.friend_profiles add column if not exists level  integer not null default 0;
+alter table public.friend_profiles add column if not exists badges integer not null default 0;
+alter table public.friend_profiles drop constraint if exists friend_profiles_level_check;
+alter table public.friend_profiles add constraint friend_profiles_level_check check (level between 0 and 999 and badges between 0 and 500);
 create table if not exists public.friendships (
   a           uuid not null references auth.users on delete cascade,   -- a < b
   b           uuid not null references auth.users on delete cascade,

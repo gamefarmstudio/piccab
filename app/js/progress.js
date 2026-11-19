@@ -3,6 +3,7 @@ import { G, langMap, progress, S, scene, store, toast } from './core.js';
 import { allWords } from './home.js';
 import { reportClassProgressSoon } from './classes.js';
 import { reportFriendStatsSoon } from './friends.js';
+import { achCheckSoon } from './journey.js';
 import { sendReportSoon } from './report.js';
 import { syncSoon } from './sync.js';
 
@@ -59,6 +60,7 @@ function saveProg(){
   if(typeof reportClassProgressSoon==='function') reportClassProgressSoon();
   if(typeof reportFriendStatsSoon==='function') reportFriendStatsSoon();
   if(typeof sendReportSoon==='function') sendReportSoon();
+  if(typeof achCheckSoon==='function') achCheckSoon();
 }
 Object.values(progress).forEach(p=>{ if(p) Object.defineProperty(p,'_sig',{value:JSON.stringify([p.done||{},p.star||{}]),writable:true,configurable:true,enumerable:false}); });
 // ---------- local persistence ----------
