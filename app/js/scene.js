@@ -3,7 +3,7 @@ import { G, $, anchor, box, chips, clampX, el, ids, isMobile, itemIn, items, ite
 import { prog, saveScenes } from './progress.js';
 import { allWords, lastMode, LIB, markActive, recent, renderGallery, renderLibrary, streakPill, wordEl } from './home.js';
 import { isKept, listCards, openDeckPicker, sceneWord } from './decks.js';
-import { closeQuiz, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
+import { closeQuiz, findReveal, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
 import { loadSentences, renderSentSub, sentIds, sentModeShown, sentReset, sentTap } from './sentence.js';
 import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, missingIn, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft } from './editor.js';
 import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
@@ -236,6 +236,7 @@ function setHL(){
     const f = G.flash && G.flash.id===id ? G.flash.kind : '';
     e.classList.toggle('good', f==='good');
     e.classList.toggle('bad', f==='bad');
+    e.classList.toggle('hint', f==='hint');
     e.classList.toggle('hl', !f && id===active);
     e.classList.toggle('sw', sw.has(id));
   });
@@ -271,7 +272,8 @@ function setHover(id){
 function updateTag(){
   let id=null, pinned=false, kind='';
   if(!S.editing){
-    if(G.flash){ id=G.flash.id; kind=G.flash.kind; pinned=true; }
+    if(G.flash && G.flash.kind==='hint'){}                         // 📍 shows only where — the word stays a secret
+    else if(G.flash){ id=G.flash.id; kind=G.flash.kind; pinned=true; }
     else if(S.mode==='learn'){ id=G.hoverId||G.pinnedId; pinned=!!G.pinnedId && id===G.pinnedId; }
   }
   const it=id && items()[id];
@@ -457,6 +459,7 @@ function renderSub(){
         el('span',{class:'grow'}),
         findKeepBtn(),
         el('button',{class:'toggle'+(G.find.showWord?' on':''),text:G.find.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ G.find.showWord=!G.find.showWord; renderSub(); }}),
+        el('button',{text:'📍 เผยตำแหน่ง',title:'บอกว่าคำนี้อยู่ตรงไหนในภาพ (ข้อนี้จะไม่นับเป็นถูกตั้งแต่ครั้งแรก)',onclick:()=>findReveal()}),
         el('button',{text:'ข้าม ⏭',onclick:()=>{ G.find.missed=true; doFlash(G.find.target,'good',1300); speak(sayOf(G.find.target)); lockNext(1300); }}),
         el('span',{class:'pill',text:`ถูก ${G.find.score} • เหลือ ${G.find.queue.length+1}/${G.find.total}`})
       );

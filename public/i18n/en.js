@@ -583,6 +583,8 @@ const D={
   "👁 แสดงกรอบทั้งหมด: ปิด": "👁 Show all boxes: off",
   "ฉากนี้ยังไม่มีประโยค": "This scene has no sentences yet",
   "ด่าน": "Level",
+  "📍 เผยตำแหน่ง": "📍 Show where",
+  "บอกว่าคำนี้อยู่ตรงไหนในภาพ (ข้อนี้จะไม่นับเป็นถูกตั้งแต่ครั้งแรก)": "Show where this word is in the picture (it won't count as right the first time)",
   "เกาะเริ่มต้น": "Starter Island",
   "ป่าคำศัพท์": "Word Forest",
   "หาดเสียงคลื่น": "Echo Beach",

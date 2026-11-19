@@ -1,5 +1,5 @@
 // Piccab — Practice games: quiz (typing), find (listen & tap), speaking.
-import { G, $, artNote, box, check, el, foldDe, ids, items, LANGS, lev, mean, normFor, pk, progress, qcard, S, scene, shuffle, speak, store, toast } from './core.js';
+import { G, $, artNote, box, check, el, foldDe, ids, items, LANGS, lev, mean, normFor, pk, progress, qcard, S, scene, shuffle, speak, store, tally, toast } from './core.js';
 import { prog, progRaw, saveProg, srsAnswer } from './progress.js';
 import { accentKey, ask, closeModal, doFlash, openModal, refresh, renderChips, renderSub, sayOf, setHL, updateOverlay } from './scene.js';
 import { markActive, wordEl } from './home.js';
@@ -100,6 +100,12 @@ function nextFind(){
   else speak('Well done!');
 }
 function lockNext(ms){ G.find.lock=true; setTimeout(nextFind, ms); }
+// 📍 show where the word is (the spotlight and a pulsing box, no word); then tap it to go on. Not counted as right the first time.
+function findReveal(){
+  if(!G.find.target || G.find.lock) return;
+  G.find.missed=true; tally('find_reveal');
+  doFlash(G.find.target,'hint',3500); speak(sayOf(G.find.target));
+}
 function findTap(id){
   if(!G.find.target || G.find.lock) return;
   if(id===G.find.target){ if(!G.find.missed) G.find.score++; markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
@@ -258,4 +264,4 @@ function renderSpeakSub(put){
     el('span',{class:'pill',text:`ถูก ${spk.score} • เหลือ ${spk.queue.length+1}/${spk.total}`}));
 }
 
-export { closeQuiz, findTap, lockNext, openQuiz, pattern, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak };
+export { closeQuiz, findReveal, findTap, lockNext, openQuiz, pattern, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak };
