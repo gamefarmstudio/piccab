@@ -14,6 +14,7 @@ import { classLinkCode, openJoinClass } from './js/classes.js';
 import { FR, friendLinkCode, openFriendLink } from './js/friends.js';
 import './js/admin.js';
 import './js/gallery.js';
+import './js/path.js';
 import { openSharedLink, sharedLinkId } from './js/share.js';
 import { installUi, openInstallHelp } from './js/pwa.js';
 import { syncStart } from './js/sync.js';

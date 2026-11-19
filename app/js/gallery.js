@@ -2,8 +2,9 @@
 import { G, $, el, ic, progress, S, scenes, store, tally, toast, UI } from './core.js';
 import { forgetSceneLocal, saveProg, saveScenes } from './progress.js';
 import { ask, closeModal, goHome, openModal, openScene } from './scene.js';
-import { LIB } from './home.js';
+import { LIB, renderHome } from './home.js';
 import { ADM, adminApi } from './admin.js';
+import { renderPath, stageLabel } from './path.js';
 import { blobToDataUrl } from './share.js';
 import { syncDeleted } from './sync.js';
 
@@ -21,7 +22,7 @@ async function loadGallery(force){
   GAL.busy=true;
   const r=await fetch('/api/gallery').then(x=>x.ok?x.json():null).catch(()=>null);
   GAL.busy=false; GAL.data=r && Array.isArray(r.scenes) ? r : { categories:[], scenes:[], offline:!r };
-  if(S.view==='library') renderPicLib();
+  if(S.view==='library') renderPicLib(); else if(S.view==='path') renderPath(); else if(S.view==='home') renderHome();
 }
 function renderPicLib(){
   const box=$('#galBox'); if(!box) return;
@@ -36,7 +37,8 @@ function renderPicLib(){
   const vis=list.filter(g=>(GAL.cat==='all' || g.category===GAL.cat) && (!q || g.title.toLowerCase().includes(q) || String(g.title_th||'').toLowerCase().includes(q)));
   const chip=(id,label,k)=>el('button',{type:'button',class:GAL.cat===id?'on':'',onclick:()=>{ GAL.cat=id; renderPicLib(); }}, label, el('span',{class:'n',text:String(k)}));
   box.append(
-    el('div',{class:'ghead lh galhead'}, el('div',{}, el('h2',{}, ic('photo_library'), 'คลังภาพ Piccab'), el('p',{text:`ฉากพร้อมคำศัพท์ ${list.length} ฉาก · เก็บเข้าคลังของคุณได้ฟรี ไม่ใช้เครดิต AI`}))),
+    el('div',{class:'ghead lh galhead'}, el('div',{}, el('h2',{}, ic('photo_library'), 'คลังภาพ Piccab'), el('p',{text:`ฉากพร้อมคำศัพท์ ${list.length} ฉาก · เก็บเข้าคลังของคุณได้ฟรี ไม่ใช้เครดิต AI`})),
+      el('button',{type:'button',class:'linkbtn pathlink',onclick:()=>goHome('path')}, ic('auto_stories'), 'ดูตามระดับชั้น')),
     el('div',{class:'fchips galcats',role:'group','aria-label':'หมวด'}, chip('all', el('span',{text:'ทั้งหมด'}), list.length),
       ...cats.filter(c=>n[c.id]).map(c=>chip(c.id, el('span',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), n[c.id]))),
     vis.length ? el('div',{class:'libgrid galgrid'}, ...vis.map(galCard)) : el('p',{class:'libempty',text:'ไม่พบฉากในคลังภาพที่ตรงกับคำค้น'}));
@@ -50,7 +52,7 @@ function galCard(g){
         g.sentence_count ? el('span',{class:'cnt sent',title:`${g.sentence_count} ประโยค · เล่นเกมแต่งประโยคได้`}, '💬 ', String(g.sentence_count)) : null,
         el('span',{class:'cnt',title:`${g.word_count} คำ`}, ic('sell-fill'), String(g.word_count)))),
     el('div',{class:'cbody'}, el('b',{text:g.title}),
-      el('div',{class:'meta2'}, UI==='en' ? null : el('span',{'data-noi18n':'',text:g.title_th||''}), el('span',{class:'lv',text:GAL_LV[g.level]||''}))));
+      el('div',{class:'meta2'}, UI==='en' ? null : el('span',{'data-noi18n':'',text:g.title_th||''}), el('span',{class:'lv','data-noi18n':'',text:stageLabel(g)}))));
 }
 function openGalleryScene(g){
   const mine=galMine(g.id), cat=((GAL.data&&GAL.data.categories)||[]).find(c=>c.id===g.category);
@@ -70,7 +72,7 @@ function openGalleryScene(g){
     });
     m.append(el('div',{class:'pv-head'},
         el('div',{}, el('h3',{'data-noi18n':'',text:g.title+(g.title_th && UI!=='en' ? ' · '+g.title_th : '')}),
-          el('div',{class:'meta'}, cat ? el('span',{'data-noi18n':'',text:`${cat.emoji} ${catName(cat)} · `}) : null, el('span',{text:`${g.word_count} คำศัพท์ · ระดับ${GAL_LV[g.level]||''}`}),
+          el('div',{class:'meta'}, cat ? el('span',{'data-noi18n':'',text:`${cat.emoji} ${catName(cat)} · `}) : null, el('span',{text:`${g.word_count} คำศัพท์ · `}), el('span',{'data-noi18n':'',text:stageLabel(g)}),
             g.sentence_count ? el('span',{text:` · ${g.sentence_count} ประโยค`}) : null)),
         el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('div',{class:'pv-fig sharefig'}, el('img',{alt:'',src:galImg(g)})),
@@ -125,4 +127,4 @@ function galEditBar(){
     save);
 }
 
-export { catName, GAL, GAL_LV, galAdded, galCopy, galEditBar, galEditOf, galEdits, galImg, galPushEdit, renderPicLib };
+export { catName, GAL, galAdded, galCard, galCopy, galEditBar, galEditOf, galEdits, galImg, galMine, galPushEdit, loadGallery, renderPicLib };

@@ -879,6 +879,11 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.equal(cleanGalleryScene({ category:'home', title:'x', w:10, h:100, items:{} }, false).error, 'bad_size');
   assert.deepEqual(cleanGalleryScene({ published:1 }, true), { published:true });
   // sentences for the sentence game
+  // the learning path: school years and CEFR, from the level when not given
+  assert.deepEqual([cleanGalleryScene({ stage:'m13', cefr:'A2' }, true).stage, cleanGalleryScene({ stage:'m13', cefr:'A2' }, true).cefr], ['m13', 'A2']);
+  assert.deepEqual(cleanGalleryScene({ stage:'p9', cefr:'Z1' }, true), { stage:'p12', cefr:'preA1' });
+  assert.deepEqual(cleanGalleryScene({ cefr:'B1' }, true), { cefr:'B1' });
+  { const o = cleanGalleryScene({ category:'home', title:'T', level:'intermediate', w:100, h:100, items:{} }, false); assert.deepEqual([o.stage, o.cefr], ['p56', 'A1']); }
   const { cleanGallerySentences } = await import('../src/worker.js');
   assert.deepEqual(cleanGallerySentences([{ en:'  The girl is   sleeping. ', th:' เด็กหลับ ', words:['Bed','bed',' ',7] }, { en:'the girl is sleeping.' }, { en:'' }, null, 'x']),
     [{ en:'The girl is sleeping.', th:'เด็กหลับ', words:['bed','7'] }]);

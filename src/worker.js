@@ -1199,7 +1199,7 @@ async function clientError(request, env) {
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback', 'gallery_add',
-  'sent_round', 'sent_ai'];
+  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};
@@ -1256,6 +1256,10 @@ export function cleanGallerySentences(list) {
   }
   return out;
 }
+export const GALLERY_STAGES = ['p12', 'p34', 'p56', 'm13', 'm46', 'adult'];
+export const GALLERY_CEFR = ['preA1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const GALLERY_STAGE_OF = { beginner: 'p12', intermediate: 'p56', advanced: 'm13' };
+const GALLERY_CEFR_OF = { p12: 'preA1', p34: 'A1', p56: 'A1', m13: 'A2', m46: 'B1', adult: 'B2' };
 export function cleanGalleryScene(b, partial) {
   const o = {};
   const str = (v, n) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, n);
@@ -1266,6 +1270,9 @@ export function cleanGalleryScene(b, partial) {
   if ('published' in b) o.published = !!b.published;
   if ('sort' in b) o.sort = Math.max(-100000, Math.min(100000, Math.round(Number(b.sort)) || 0));
   if ('sentences' in b) o.sentences = cleanGallerySentences(b.sentences);
+  // which school years and CEFR level it suits (the learning path); without them, worked out from level
+  if (!partial || 'stage' in b) o.stage = GALLERY_STAGES.includes(b.stage) ? b.stage : GALLERY_STAGE_OF[o.level || b.level] || 'p12';
+  if (!partial || 'cefr' in b) o.cefr = GALLERY_CEFR.includes(b.cefr) ? b.cefr : GALLERY_CEFR_OF[o.stage || b.stage] || 'preA1';
   if (!partial || 'items' in b) {
     const w = Math.round(Number(b.w)), h = Math.round(Number(b.h));
     if (!(w >= 50 && w <= 4000 && h >= 50 && h <= 4000)) return { error: 'bad_size' };
@@ -1276,6 +1283,18 @@ export function cleanGalleryScene(b, partial) {
   return o;
 }
 const GAL_LIST = 'id,category,title,title_th,level,w,h,word_count,img_ver,sort';
+// Columns added by later SQL files (sentences, stage, cefr): asked for, and left out when that file has not been run yet.
+async function galSelect(env, mk, extra) {
+  let cols = [...extra];
+  for (;;) {
+    try { return { rows: await q(env, mk(cols.length ? ',' + cols.join(',') : '')), cols }; }
+    catch (e) {
+      const m = e.status === 400 && /column [a-z_]+\.([a-z_]+) does not exist/.exec(String(e.body || ''));
+      if (!m || !cols.includes(m[1])) throw e;
+      cols = cols.filter(c => c !== m[1]);
+    }
+  }
+}
 async function galleryPublic(request, env, url) {
   if (request.method !== 'GET') return error('method_not_allowed', 405);
   if (!env.SUPABASE_SECRET_KEY) return json({ categories: [], scenes: [] });
@@ -1283,17 +1302,15 @@ async function galleryPublic(request, env, url) {
   try {
     if (id) {
       if (!GAL_ID.test(id)) return error('not_found', 404);
-      const one = cols => q(env, `gallery_scenes?select=${GAL_LIST},${cols}&id=eq.${id}&published=is.true&img_ver=gt.0`);
-      const r = await one('items,sentences').catch(e => { if (e.status !== 400) throw e; return one('items'); });   // before 2026-11-gallery-sentences.sql
+      const { rows: r } = await galSelect(env, c => `gallery_scenes?select=${GAL_LIST},items${c}&id=eq.${id}&published=is.true&img_ver=gt.0`, ['sentences', 'stage', 'cefr']);
       if (!r || !r[0]) return error('not_found', 404);
       return json(r[0]);
     }
     const [categories, scenes] = await Promise.all([
       q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
-      // how many sentences each has (for the 💬 badge); without 2026-11-gallery-sentences.sql, none
-      q(env, `gallery_scenes?select=${GAL_LIST},sentences&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`)
-        .then(r => (r || []).map(({ sentences, ...g }) => ({ ...g, sentence_count: Array.isArray(sentences) ? sentences.length : 0 })))
-        .catch(e => { if (e.status !== 400) throw e; return q(env, `gallery_scenes?select=${GAL_LIST}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`); }),
+      // how many sentences each has (for the 💬 badge), and its school years / CEFR level
+      galSelect(env, c => `gallery_scenes?select=${GAL_LIST}${c}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`, ['sentences', 'stage', 'cefr'])
+        .then(({ rows }) => (rows || []).map(({ sentences, ...g }) => ({ ...g, sentence_count: Array.isArray(sentences) ? sentences.length : 0 }))),
     ]);
     const res = json({ categories: categories || [], scenes: scenes || [] });
     res.headers.set('cache-control', 'public, max-age=60');
@@ -1316,25 +1333,32 @@ async function galleryImage(request, env, url) {
 }
 // Saves a library scene; until supabase/2026-11-gallery-sentences.sql is run the sentences column is missing,
 // so it saves the rest and says the sentences were not kept.
+// Saves a library scene; a column from a SQL file not run yet (sentences, stage, cefr) is left out, and the reply says so.
 async function galSaveSentences(o, save) {
-  if (!('sentences' in o)) { await save(o); return {}; }
-  try { await save(o); return { sentences: o.sentences.length }; }
-  catch (e) {
-    if (e.status !== 400 || !/sentences/.test(e.body || '')) throw e;
-    const { sentences, ...rest } = o; await save(rest); return { sentences_not_saved: true };
+  let x = { ...o };
+  const out = {};
+  for (;;) {
+    try { await save(x); break; }
+    catch (e) {
+      const m = e.status === 400 && /'([a-z_]+)' column|column [a-z_]+\.([a-z_]+)/.exec(String(e.body || ''));
+      const c = m && (m[1] || m[2]);
+      if (!c || !(c in x) || !['sentences', 'stage', 'cefr'].includes(c)) throw e;
+      delete x[c]; out[c + '_not_saved'] = true;
+    }
   }
+  if ('sentences' in x) out.sentences = x.sentences.length;
+  return out;
 }
 async function galleryAdmin(request, env, m, id, act, body) {
   if (!id && m === 'GET') {
-    let noSentences = false;
     try {
-      const [categories, scenes] = await Promise.all([
+      const [categories, sel] = await Promise.all([
         q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
-        q(env, `gallery_scenes?select=${GAL_LIST},items,sentences,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`)
-          .catch(e => { if (e.status !== 400) throw e;      // supabase/2026-11-gallery-sentences.sql not run yet
-            noSentences = true; return q(env, `gallery_scenes?select=${GAL_LIST},items,published,created_at,updated_at&order=sort.asc,created_at.asc&limit=2000`); }),
+        galSelect(env, c => `gallery_scenes?select=${GAL_LIST},items,published,created_at,updated_at${c}&order=sort.asc,created_at.asc&limit=2000`, ['sentences', 'stage', 'cefr']),
       ]);
-      return json({ categories: categories || [], scenes: scenes || [], ...(noSentences ? { no_sentences: true } : {}) });
+      // a SQL file not run yet: the admin page says which
+      return json({ categories: categories || [], scenes: sel.rows || [], ...(!sel.cols.includes('sentences') ? { no_sentences: true } : {}),
+        ...(!sel.cols.includes('stage') ? { no_stage: true } : {}) });
     } catch (e) { if (e.status === 404) return json({ setup: true }); throw e; }
   }
   if (!id && m === 'POST') {
