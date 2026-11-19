@@ -1,6 +1,6 @@
 // Piccab — the admin page (/admin): reports, feedback, picture library, usage, errors, AI usage.
 // Loaded with import() only when an admin opens it (see renderAdmin in admin.js), so other people never download it.
-import { $, cleanLang, el, S, scenes, store, toast } from './core.js';
+import { $, cleanLang, el, S, scenes, store, toast, tx } from './core.js';
 import { ask, closeModal, openModal, openScene } from './scene.js';
 import { deckNameDialog } from './decks.js';
 import { sceneWordsIn } from './sentence.js';
@@ -166,9 +166,14 @@ function renderGalleryAdmin(v){
     card('คำศัพท์ทั้งหมด', st.words, `คำไม่ซ้ำ ${st.uniq} คำ`),
     card('ต้องตรวจ', st.noTh, `คำที่ยังไม่มีคำแปลไทย · ไม่มีภาษาเยอรมัน ${st.noDe} คำ`)));
   const tb=el('table',{class:'aitable stat'}, el('tr',{}, ...['หมวด','เผยแพร่','ฉบับร่าง','คำ','คำไม่ซ้ำ'].map(h=>el('th',{text:h}))));
-  D.categories.forEach(c=>{ const p=st.per[c.id]; tb.append(el('tr',{}, el('td',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), ...[p.pub,p.draft,p.words,p.uniq.size].map(x=>el('td',{text:String(x)})))); });
-  tb.append(el('tr',{class:'tot'}, el('td',{text:'รวม'}), ...[pub, D.scenes.length-pub, st.words, st.uniq].map(x=>el('td',{text:String(x)}))));
-  v.append(el('h4',{class:'aih',text:'แต่ละหมวด'}), el('div',{class:'aitablewrap'}, tb));
+  const num=(n, cat, stt, cls)=>el('td',{}, n ? el('button',{class:'galnum'+(cls?' '+cls:''),text:String(n),title:'ดูฉากเหล่านี้',onclick:()=>galShow(cat, stt)}) : '0');
+  D.categories.forEach(c=>{ const p=st.per[c.id]; tb.append(el('tr',{},
+    el('td',{}, el('button',{class:'linkbtn galcatlink','data-noi18n':'',text:`${c.emoji} ${catName(c)}`,onclick:()=>galShow(c.id,'all')})),
+    num(p.pub, c.id, 'pub'), num(p.draft, c.id, 'draft', 'draft'), ...[p.words,p.uniq.size].map(x=>el('td',{text:String(x)})))); });
+  tb.append(el('tr',{class:'tot'}, el('td',{}, el('button',{class:'linkbtn galcatlink',text:'รวม',onclick:()=>galShow('all','all')})),
+    num(pub, 'all', 'pub'), num(D.scenes.length-pub, 'all', 'draft', 'draft'), ...[st.words, st.uniq].map(x=>el('td',{text:String(x)}))));
+  if(D.scenes.length>pub) v.append(el('div',{class:'admcard galdrafts'}, el('b',{text:`📝 ฉบับร่าง ${D.scenes.length-pub} ฉาก ยังไม่เผยแพร่`}),
+    el('button',{class:'primary',text:'ดูฉบับร่าง',onclick:()=>galShow('all','draft')})));
   if(D.no_stage) v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังตั้งระดับชั้นไม่ได้'})),
     el('p',{text:'รันไฟล์ supabase/2026-11-gallery-levels.sql ใน Supabase → SQL Editor ครั้งเดียว ฉากจะมีระดับชั้นและ CEFR สำหรับหน้าเส้นทางคำศัพท์'})));
   if(D.no_sentences) v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังเก็บประโยคไม่ได้'})),
@@ -203,14 +208,36 @@ function renderGalleryAdmin(v){
     v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:`คำที่ยังไม่มีระดับ CEFR อยู่ใน ${noCefr.length} ฉาก`})),
       el('p',{class:'note',text:'ให้ AI ใส่ระดับ CEFR ให้ทีละฉาก (ส่งเฉพาะคำ ไม่ส่งรูป ไม่ใช้เครดิต) ใช้นับคำตามระดับในหน้าเส้นทางคำศัพท์'}), el('div',{class:'row'}, btn)));
   }
-  // scenes by category
+  // per category (the numbers open those scenes just below)
+  v.append(el('h4',{class:'aih',text:'แต่ละหมวด'}), el('div',{class:'aitablewrap'}, tb), el('p',{class:'note small',text:'กดชื่อหมวดหรือตัวเลขเพื่อไปที่ฉากเหล่านั้น'}));
+  // scenes: choose a category (and drafts / published) first — the whole list is long
+  const live=g=>!!(g.published && g.img_ver), known=new Set(D.categories.map(c=>c.id));
+  if(GA.fcat && GA.fcat!=='all' && !known.has(GA.fcat)) GA.fcat='';
+  if(!['all','draft','pub'].includes(GA.fst)) GA.fst='all';
+  const inCat=g=>GA.fcat==='all' || g.category===GA.fcat;
+  const ofSt=g=>GA.fst==='all' || (GA.fst==='draft' ? !live(g) : live(g));
+  v.append(el('h4',{class:'aih',id:'galList',text:'ฉากในคลังภาพ'}));
+  const chip=(id, label, list)=>{ const dr=list.filter(g=>!live(g)).length;
+    return el('button',{type:'button',class:GA.fcat===id?'on':'','aria-pressed':GA.fcat===id?'true':'false',onclick:()=>galShow(id)},
+      el('span',{'data-noi18n':'',text:label}), el('small',{text:String(list.length)}), dr ? el('span',{class:'galdr',title:'ฉบับร่าง',text:'ร่าง '+dr}) : null); };
+  v.append(el('div',{class:'fchips galchips',role:'group','aria-label':'หมวด'},
+    chip('all', tx('ทุกหมวด'), D.scenes),
+    ...D.categories.filter(c=>D.scenes.some(g=>g.category===c.id)).map(c=>chip(c.id, `${c.emoji} ${catName(c)}`, D.scenes.filter(g=>g.category===c.id)))));
+  if(!GA.fcat){ v.append(el('p',{class:'libempty',text:'เลือกหมวดด้านบนเพื่อดูและแก้ฉาก'})); return; }
+  const base=D.scenes.filter(inCat), nd=base.filter(g=>!live(g)).length;
+  v.append(el('div',{class:'seg galst',role:'group','aria-label':'สถานะ'},
+    el('button',{class:GA.fst==='all'?'on':'',text:`ทั้งหมด (${base.length})`,onclick:()=>galShow(GA.fcat,'all')}),
+    el('button',{class:GA.fst==='draft'?'on':'',text:`📝 ฉบับร่าง (${nd})`,onclick:()=>galShow(GA.fcat,'draft')}),
+    el('button',{class:GA.fst==='pub'?'on':'',text:`✓ เผยแพร่แล้ว (${base.length-nd})`,onclick:()=>galShow(GA.fcat,'pub')})));
+  const shown=base.filter(ofSt);
+  if(!shown.length){ v.append(el('p',{class:'libempty',text: GA.fst==='draft' ? '🎉 ไม่มีฉบับร่างในหมวดนี้' : 'ไม่มีฉากในตัวกรองนี้'})); return; }
+  if(GA.fcat!=='all'){ shown.forEach(g=>v.append(galAdminRow(g, D))); return; }
   D.categories.forEach(c=>{
-    const list=D.scenes.filter(g=>g.category===c.id); if(!list.length) return;
+    const list=shown.filter(g=>g.category===c.id); if(!list.length) return;
     v.append(el('h4',{class:'aih','data-noi18n':'',text:`${c.emoji} ${catName(c)} (${list.length})`}));
     list.forEach(g=>v.append(galAdminRow(g, D)));
   });
-  const orphan=D.scenes.filter(g=>!D.categories.some(c=>c.id===g.category));
-  orphan.forEach(g=>v.append(galAdminRow(g, D)));
+  shown.filter(g=>!known.has(g.category)).forEach(g=>v.append(galAdminRow(g, D)));
 }
 function galAdminRow(g, D){
   const items=Object.values(g.items||{}), live=g.published && g.img_ver, sents=g.sentences||[];
@@ -253,7 +280,12 @@ async function galEditLocal(g, existing){
     toast('แก้กรอบหรือคำได้เลย เสร็จแล้วกด ⬆️ บันทึกเข้าคลังภาพ ด้านบน', 5000);
   }catch(e){ toast('เปิดไม่สำเร็จ'); }
 }
-var GA={ crop:true, cat:'' };
+var GA={ crop:true, cat:'', fcat:String(store.get('pv-adm-gcat','')||''), fst:String(store.get('pv-adm-gst','all')||'all') };
+// which scenes the list shows: a category ('all' = every one, '' = none chosen yet) and published / drafts
+function galShow(cat, st){
+  GA.fcat=cat; if(st) GA.fst=st; store.set('pv-adm-gcat',GA.fcat); store.set('pv-adm-gst',GA.fst); renderAdmin();
+  const h=document.getElementById('galList'); if(h) h.scrollIntoView({ block:'start' });
+}
 // Gemini's answer: {"category","title","title_th","level","items":[{word, th, alts, de, de_art, de_alts, box_2d}]} (or just the items array)
 function galParse(text, sentencesOnly){
   const s=String(text||''), a=s.indexOf('{'), b=s.lastIndexOf('}'), a2=s.indexOf('['), b2=s.lastIndexOf(']');
@@ -406,6 +438,7 @@ async function galImport(files){
     catch(e){ fail.push(`${p.name}: ${e && e.message || e}`); }
   }
   toast('นำเข้าเสร็จแล้ว', 1500);
+  if(done.length){ GA.fcat=GA.cat||'all'; GA.fst='draft'; store.set('pv-adm-gcat',GA.fcat); store.set('pv-adm-gst',GA.fst); }
   ADM.gal=null; renderAdmin();
   openModal(m=>m.append(...[el('h3',{text:'📥 นำเข้าคลังภาพ'}),
     el('p',{}, el('b',{text:`นำเข้าแล้ว ${done.length} ฉาก`})), ...done.map(t=>el('p',{class:'note small','data-noi18n':'',text:'✓ '+t})),
