@@ -10,6 +10,7 @@ import { isStudent, renderClass } from './classes.js';
 import { renderAdmin } from './admin.js';
 import { renderPicLib } from './gallery.js';
 import { pathTile, renderPath } from './path.js';
+import { sendReportSoon } from './report.js';
 import { installApp, installAvailable } from './pwa.js';
 import { accessToken } from './sync.js';
 
@@ -19,7 +20,17 @@ let lastMode=store.get('pv-lastmode',{}); if(typeof lastMode!=='object'||!lastMo
 let days=store.get('pv-days',{}); if(typeof days!=='object'||!days) days={};
 const MODE_NAMES={learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา', speak:'ฝึกพูด'};
 const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-function markActive(words){ const k=dkey(new Date()); if(!days[k]) days[k]={n:0}; days[k].n+=words||0; store.set('pv-days',days); }
+// A day you practised: n = words answered; for the learning report also m = answers per game (or rounds / opens),
+// t = minutes with at least one answer (lm = the last such minute).
+function markActive(words, kind){
+  const now=new Date(), k=dkey(now), d=days[k]||(days[k]={n:0});
+  d.n+=words||0;
+  const md=kind || (words ? (S.mode||'learn') : '');
+  if(md){ d.m=d.m||{}; d.m[md]=(d.m[md]||0)+1;
+    const mi=Math.floor(now.getTime()/60000); if(d.lm!==mi){ d.t=(d.t||0)+1; d.lm=mi; } }
+  store.set('pv-days',days);
+  if(md && typeof sendReportSoon==='function') sendReportSoon();
+}
 function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-1); let n=0; while(days[dkey(d)]){ n++; d.setDate(d.getDate()-1); } return n; }
 function sceneTime(sc){ return recent[sc.id] || (sc.builtin?0:(parseInt(sc.id.slice(1),36)||0)); }
 function byRecent(a,b){ return sceneTime(b)-sceneTime(a); }

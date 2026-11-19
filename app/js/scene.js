@@ -148,7 +148,7 @@ function goHome(view){
   S.view=(view==='library'||view==='words'||view==='class'||view==='admin'||view==='path')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
-  if(!edit) tally('mode:'+(mode||'learn'));
+  if(!edit){ tally('mode:'+(mode||'learn')); if(!mode || mode==='learn') markActive(0,'learn'); }
   apReset();
   recent[id]=Date.now(); lastMode[id]=mode||'learn'; store.set('pv-recent',recent); store.set('pv-lastmode',lastMode); markActive(0);
   S.sceneId=id; store.set('pv-scene',id); G.help={}; G.used={}; G.qMiss={};
@@ -575,7 +575,7 @@ svg.addEventListener('click', e=>{
 
 // ---------- modes / buttons ----------
 document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListener('click',()=>{
-  apReset(); spkStop(); S.mode=b.dataset.mode; G.pinnedId=G.hoverId=null; G.flash=null; closeQuiz(true); tally('mode:'+S.mode);
+  apReset(); spkStop(); S.mode=b.dataset.mode; G.pinnedId=G.hoverId=null; G.flash=null; closeQuiz(true); tally('mode:'+S.mode); if(S.mode==='learn') markActive(0,'learn');
   try{ speechSynthesis.cancel(); }catch(e){}
   if(isList(scene())) renderScene();   // a word sheet shows the English words only while learning
   if(S.mode==='sent') sentReset();

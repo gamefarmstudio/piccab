@@ -121,4 +121,4 @@ function cefrBlock(cur){
     el('p',{class:'note small',text:'นับคำในคลังภาพ Piccab และฉากของคุณที่มีระดับ CEFR · รู้แล้ว = ผ่านแล้วอย่างน้อยครั้งหนึ่ง'}));
 }
 
-export { CEFR_NAME, cefrKey, cefrOf, pathTile, renderPath, stageById, stageLabel, stageName, stageOf, STAGES };
+export { CEFR_NAME, cefrKey, cefrOf, cefrRows, myStage, pathTile, renderPath, stageById, stageCefr, stageLabel, stageName, stageOf, STAGES };

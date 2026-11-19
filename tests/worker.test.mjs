@@ -437,13 +437,13 @@ import { pickProvider, geminiModels } from '../src/worker.js';
 // ---------- classrooms ----------
 {
   const T = 'aaaaaaaa-2222-2222-2222-222222222222', S1 = 'bbbbbbbb-2222-2222-2222-222222222222', S2 = 'cccccccc-2222-2222-2222-222222222222', X = 'dddddddd-2222-2222-2222-222222222222';
-  const users = { tt: { id: T }, s1: { id: S1, is_anonymous: true }, s2: { id: S2, is_anonymous: true }, xx: { id: X } };
-  const db = { classes: [], class_members: [], class_items: [], class_progress: [], shares: [
+  const users = { tt: { id: T, email: 'teacher@school.th' }, s1: { id: S1, is_anonymous: true }, s2: { id: S2, is_anonymous: true }, xx: { id: X } };
+  const db = { classes: [], class_members: [], class_items: [], class_progress: [], learner_reports: [], plans: [], shares: [
     { id: 'ShareScene1', owner: T, kind: 'scene', name: 'Kitchen', data: { scenes: [{ id: 's1', items: { a: {}, b: {}, c: {} } }] } },
     { id: 'ShareDeck01', owner: T, kind: 'deck', name: 'Hard', data: { scenes: [], words: ['tea|x', 'tea|y'] } },
     { id: 'ShareOther1', owner: X, kind: 'scene', name: 'Not mine', data: { scenes: [{ id: 'z', items: {} }] } } ] };
-  const keyCols = { classes: ['id'], class_members: ['class_id', 'user_id'], class_items: ['class_id', 'share_id'], class_progress: ['class_id', 'share_id', 'user_id'], shares: ['id'] };
-  const parseVal = v => v.startsWith('eq.') ? [v.slice(3)] : v.startsWith('in.(') ? v.slice(4, -1).split(',').map(x => x.replace(/^"|"$/g, '')) : null;
+  const keyCols = { classes: ['id'], class_members: ['class_id', 'user_id'], class_items: ['class_id', 'share_id'], class_progress: ['class_id', 'share_id', 'user_id'], shares: ['id'], learner_reports: ['user_id'], plans: ['email'] };
+  const parseVal = v => v === 'is.true' ? ['true'] : v.startsWith('eq.') ? [v.slice(3)] : v.startsWith('in.(') ? v.slice(4, -1).split(',').map(x => x.replace(/^"|"$/g, '')) : null;
   const cascade = (t, rows) => {
     for (const r of rows) {
       if (t === 'classes') ['class_members', 'class_items', 'class_progress'].forEach(tt => db[tt] = db[tt].filter(x => x.class_id !== r.id));
@@ -455,7 +455,7 @@ import { pickProvider, geminiModels } from '../src/worker.js';
     const u = new URL(url);
     if (u.pathname === '/auth/v1/user') { const t = (init.headers.authorization || '').slice(7); return users[t] ? new Response(JSON.stringify(users[t])) : new Response('{}', { status: 401 }); }
     const t = u.pathname.replace('/rest/v1/', ''); assert.ok(db[t], 'table ' + t);
-    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict'].includes(k)).map(([k, v]) => [k, parseVal(v)]);
+    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict', 'limit'].includes(k)).map(([k, v]) => [k, parseVal(v)]);
     const match = r => filters.every(([k, vals]) => vals.includes(String(r[k])));
     const m = init.method || 'GET';
     if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
@@ -512,7 +512,37 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.deepEqual(r.j.progress.map(p => p.share_id), ['ShareDeck01']);                                    // only their own
   assert.equal((await go(`/api/classes/${cls.id}`, 'GET', null, 'xx')).status, 404);                       // outsiders see nothing
   r = await go('/api/classes', 'GET', null, 'tt'); assert.equal(r.j.teaching[0].members, 2);
-  r = await go('/api/classes', 'GET', null, 's1'); assert.deepEqual(r.j.learning, [{ id: cls.id, name: 'ป.4/2 ภาษาอังกฤษ', nickname: 'Mint' }]);
+  r = await go('/api/classes', 'GET', null, 's1'); assert.deepEqual(r.j.learning, [{ id: cls.id, name: 'ป.4/2 ภาษาอังกฤษ', kind: 'class', nickname: 'Mint', report: false }]);
+  // 📈 learning reports: kept only while shared; the teacher sees only those who share
+  const rep = { s: { streak: 2, week: 9, total: 30, star: 4, min7: 12, last: '2026-11-19' }, days: [['2026-11-19', 5, 6, 1, { quiz: 4, evil: 1 }]], weak: [['cat', 'แมว', 3]], stage: 'p34', extra: 'x'.repeat(50) };
+  assert.deepEqual((await go('/api/classes/report', 'POST', { data: rep }, 's1')).j, { ok: true, shared: false });
+  assert.equal(db.learner_reports.length, 0);                                                            // not shared → not kept
+  assert.equal((await go('/api/classes/join', 'POST', { code: cls.code, nickname: 'Mint', report: true }, 's1')).j.report, true);
+  assert.deepEqual((await go('/api/classes/report', 'POST', { data: rep }, 's1')).j, { ok: true, shared: true });
+  assert.equal(db.learner_reports.length, 1); assert.equal(db.learner_reports[0].data.extra, undefined); assert.deepEqual(db.learner_reports[0].data.days[0][4], { quiz: 4 });
+  r = await go(`/api/classes/${cls.id}`, 'GET', null, 'tt');
+  assert.deepEqual(r.j.members.map(x => [x.nickname, x.report]).sort(), [['Mint', true], ['Ploy', false]]);
+  assert.deepEqual(r.j.reports.map(x => [x.user_id, x.s.streak]), [[S1, 2]]); assert.deepEqual(r.j.plan, { pro: false, required: false });
+  r = await go(`/api/classes/${cls.id}/report/${S1}`, 'GET', null, 'tt'); assert.equal(r.j.nickname, 'Mint'); assert.equal(r.j.data.weak[0][0], 'cat');
+  assert.equal((await go(`/api/classes/${cls.id}/report/${S2}`, 'GET', null, 'tt')).j.error, 'not_shared');
+  assert.equal((await go(`/api/classes/${cls.id}/report/${S1}`, 'GET', null, 's2')).status, 403);        // students can't read others' reports
+  // Pro lock (PRO_REQUIRED=1): only accounts with a plan
+  const goPro = async (path, tok) => { const x = await worker.fetch(new Request('https://piccab.com' + path, { headers: { authorization: 'Bearer ' + tok } }), { ...E, PRO_REQUIRED: '1' }); return { status: x.status, j: await x.json() }; };
+  assert.equal((await goPro(`/api/classes/${cls.id}/report/${S1}`, 'tt')).status, 402);
+  db.plans.push({ email: 'teacher@school.th', plan: 'pro', until: null });
+  assert.equal((await goPro(`/api/classes/${cls.id}/report/${S1}`, 'tt')).status, 200);
+  assert.deepEqual((await goPro('/api/classes', 'tt')).j.plan, { pro: true, until: null, required: true });
+  db.plans[0].until = '2020-01-01T00:00:00Z'; assert.equal((await goPro(`/api/classes/${cls.id}/report/${S1}`, 'tt')).status, 402);   // expired
+  // stop sharing → report deleted
+  assert.equal((await go(`/api/classes/${cls.id}/members/me`, 'PATCH', { report: false }, 's1')).j.report, false);
+  assert.equal(db.learner_reports.length, 0);
+  // family group: members always share
+  const fam = (await go('/api/classes', 'POST', { name: 'บ้าน', kind: 'family' }, 'tt')).j; assert.equal(fam.kind, 'family');
+  assert.deepEqual((await go('/api/classes/join', 'POST', { code: fam.code, nickname: 'Mint', report: false }, 's1')).j, { id: fam.id, name: 'บ้าน', nickname: 'Mint', kind: 'family', report: true });
+  assert.equal((await go(`/api/classes/${fam.id}/members/me`, 'PATCH', { report: false }, 's1')).j.error, 'family_report');
+  await go('/api/classes/report', 'POST', { data: rep }, 's1'); assert.equal(db.learner_reports.length, 1);
+  await go(`/api/classes/${fam.id}/members/me`, 'DELETE', null, 's1'); assert.equal(db.learner_reports.length, 0);   // left → deleted
+  await go(`/api/classes/${fam.id}`, 'DELETE', null, 'tt');
   // students can't change the class or remove others
   assert.equal((await go(`/api/classes/${cls.id}/members/${S2}`, 'DELETE', null, 's1')).status, 403);
   assert.equal((await go(`/api/classes/${cls.id}`, 'DELETE', null, 's1')).status, 403);
