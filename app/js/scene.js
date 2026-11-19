@@ -6,8 +6,9 @@ import { isKept, listCards, openDeckPicker, sceneWord } from './decks.js';
 import { closeQuiz, findReveal, findTap, lockNext, openQuiz, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak } from './games.js';
 import { loadSentences, renderSentSub, sentIds, sentModeShown, sentReset, sentTap } from './sentence.js';
 import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, missingIn, openAI, openItemForm, orderHs, setDrawMode, TLfail, toSvg, translateAll, translateScene, translating, updDraft } from './editor.js';
-import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
+import { deleteScene, isList, openImport, openSheetMaker, redrawPic } from './sheets.js';
 import { openLogin } from './account.js';
+import { isStudent } from './classes.js';
 import { galEditBar } from './gallery.js';
 import { CEFR_NAME, cefrKey } from './path.js';
 import { lvPill } from './journey.js';
@@ -288,7 +289,8 @@ function updateTag(){
   { const c=S.lang==='en' && cefrKey(it.cefr); if(c) wb.append(el('span',{class:'cefrb','data-noi18n':'',text:CEFR_NAME[c],title:'ระดับคำศัพท์ CEFR'})); }
   if(mean(it)) txt.append(el('small',{text:mean(it)}));
   const kept=isKept(scene().id,id);
-  tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),
+  const redraw = isList(scene()) && it.pic && !isStudent() && S.mode==='learn' ? el('button',{class:'say','aria-label':'วาดรูปนี้ใหม่',title:'วาดรูปนี้ใหม่ (ฟรี 3 ครั้งต่อชีท)',text:'🔄',onclick:e=>{ e.stopPropagation(); redrawPic(id); }}) : null;
+  tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}), redraw,
     el('button',{class:'say keep'+(kept?' on':''),'aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ',text:'🔖',
       onclick:e=>{ e.stopPropagation(); openDeckPicker(sceneWord(id), ()=>{ updateTag(); renderChips(); }); }}));
   tag.className='tag'+(pinned?' pinned':'')+(kind?' '+kind:'');

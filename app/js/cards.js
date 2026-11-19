@@ -4,7 +4,7 @@
 import { el, mean, store, tally, toast } from './core.js';
 import { closeModal, openModal, sceneImg } from './scene.js';
 import { allWords } from './home.js';
-import { isList } from './sheets.js';
+import { isList, svgUrl } from './sheets.js';
 
 var PC={ size:store.get('pv-pc-size',8)===12 ? 12 : 8, back:store.get('pv-pc-back','back'), todo:false };
 
@@ -58,7 +58,7 @@ async function printCards(sc, words){
   const per=PC.size, cols=per===12 ? 3 : 2, rows=4;
   const img=isList(sc) ? null : await loadImg(sceneImg(sc));
   const cards=words.map(w=>{ const src=(sc.items||{})[w.id]||w.it;
-    return { word:w.it.word, mean:mean(w.it)||'', pic: img && src.w ? cardPicture(img, sc, src) : '' }; });
+    return { word:w.it.word, mean:mean(w.it)||'', pic: src.pic ? svgUrl(src.pic) : img && src.w ? cardPicture(img, sc, src) : '' }; });
   const sheet=el('div',{id:'printSheet',class:'pc'+per});
   const card=(c, side)=>{
     const kids=!c ? [] : side==='back' ? [el('div',{class:'pm big',text:c.mean})]

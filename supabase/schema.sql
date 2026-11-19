@@ -315,3 +315,14 @@ revoke execute on function public.use_ai_credit(uuid, integer) from public, anon
 revoke execute on function public.refund_ai_credit(uuid)       from public, anon, authenticated;
 grant  execute on function public.use_ai_credit(uuid, integer) to service_role;
 grant  execute on function public.refund_ai_credit(uuid)       to service_role;
+
+-- 🎨 line pictures for word sheets (also in 2026-11-word-pics.sql)
+create table if not exists public.word_pics (
+  word        text primary key check (word = lower(word) and char_length(word) between 1 and 60),
+  svg         text not null check (char_length(svg) <= 4000),
+  created_at  timestamptz not null default now()
+);
+alter table public.word_pics enable row level security;          -- only the server (secret key) reads and writes
+revoke all on public.word_pics from anon, authenticated;
+grant select, insert, update, delete on public.word_pics to service_role;
+
