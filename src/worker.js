@@ -92,6 +92,10 @@ export default {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return wordlist(request, env);
     }
+    if (url.pathname === '/api/wordpics') {
+      if (request.method !== 'POST') return error('method_not_allowed', 405);
+      return wordpics(request, env);
+    }
     if (url.pathname === '/api/sentences') {
       if (request.method !== 'POST') return error('method_not_allowed', 405);
       return sentences(request, env);
@@ -292,6 +296,120 @@ export function parseSentences(text) {
   try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
   const out = cleanGallerySentences(arr).filter(r => { const n = r.en.split(/\s+/).length; return n >= 3 && n <= 14 && /[A-Za-z]/.test(r.en); });
   return out.length ? out : null;
+}
+// ---------- 🎨 line pictures for word sheets ----------
+// A small line drawing (SVG, viewBox 0 0 100 100) for each word, written by the text AI (no image model).
+// Kept in a shared bank (word_pics) so each word is drawn once for everyone; only words not in the bank use AI.
+// Everything the AI writes is rebuilt from a short allow-list below — no scripts, links, styles or text other than digits.
+const SVG_TAGS = new Set(['g', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'text']);
+const svgNum = (lo, hi) => v => /^-?\d{1,4}(\.\d{1,3})?$/.test(v) && +v >= lo && +v <= hi;
+const svgColor = v => /^(none|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/.test(v);
+const SVG_ATTRS = {
+  d: v => /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s-]{1,1600}$/.test(v), points: v => /^[0-9.,\s-]{1,600}$/.test(v),
+  cx: svgNum(-50, 150), cy: svgNum(-50, 150), r: svgNum(0, 100), rx: svgNum(0, 100), ry: svgNum(0, 100), x: svgNum(-50, 150), y: svgNum(-50, 150),
+  width: svgNum(0, 150), height: svgNum(0, 150), x1: svgNum(-50, 150), y1: svgNum(-50, 150), x2: svgNum(-50, 150), y2: svgNum(-50, 150),
+  'stroke-width': svgNum(0, 20), fill: svgColor, stroke: svgColor, opacity: svgNum(0, 1), 'fill-opacity': svgNum(0, 1), 'stroke-opacity': svgNum(0, 1),
+  'stroke-linecap': v => /^(round|butt|square)$/.test(v), 'stroke-linejoin': v => /^(round|miter|bevel)$/.test(v),
+  'stroke-dasharray': v => /^[\d.\s,]{1,30}$/.test(v), 'text-anchor': v => /^(start|middle|end)$/.test(v),
+  'font-size': svgNum(4, 70), 'font-weight': v => /^(400|500|600|700|bold|normal)$/.test(v),
+  transform: v => /^((translate|rotate|scale)\(\s*-?[\d.]+(\s*[\s,]\s*-?[\d.]+){0,2}\s*\)\s*){1,3}$/.test(v),
+};
+export function cleanSvg(src) {
+  const s = String(src || '').slice(0, 8000), out = [], open = [];
+  let skip = 0, n = 0, inText = false;
+  const re = /<!--[\s\S]*?-->|<\s*(\/?)\s*([a-zA-Z][\w:-]*)([^<>]*?)(\/?)\s*>|([^<>]+)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    if (m[0].startsWith('<!--')) continue;
+    if (m[5] !== undefined) {                                   // text between tags: only digits and maths signs, inside <text>
+      const t = m[5].trim();
+      if (!skip && inText && t && /^[0-9+\-×÷=.,%½¼¾ ]{1,9}$/.test(t)) out.push(t.replace(/&/g, ''));
+      continue;
+    }
+    const close = m[1] === '/', tag = m[2].toLowerCase(), selfClose = m[4] === '/';
+    if (tag === 'svg') continue;
+    if (!SVG_TAGS.has(tag)) { if (!selfClose) skip += close ? -1 : 1; if (skip < 0) skip = 0; continue; }
+    if (skip) continue;
+    if (close) { const i = open.lastIndexOf(tag); if (i >= 0) { while (open.length > i) { const t = open.pop(); out.push(`</${t}>`); if (t === 'text') inText = false; } } continue; }
+    if (++n > 40) break;
+    const attrs = [];
+    for (const a of m[3].matchAll(/([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
+      const k = a[1].toLowerCase(), v = (a[3] ?? a[4] ?? '').trim();
+      if (SVG_ATTRS[k] && SVG_ATTRS[k](v)) attrs.push(`${k}="${v}"`);
+    }
+    if (tag === 'text') { if (!attrs.some(x => x.startsWith('fill='))) attrs.push('fill="#2d2a5a"'); if (!attrs.some(x => x.startsWith('stroke='))) attrs.push('stroke="none"'); if (!attrs.some(x => x.startsWith('font-size='))) attrs.push('font-size="30"'); if (!attrs.some(x => x.startsWith('text-anchor='))) attrs.push('text-anchor="middle"'); }
+    out.push(`<${tag}${attrs.length ? ' ' + attrs.join(' ') : ''}${selfClose ? '/>' : '>'}`);
+    if (!selfClose) { open.push(tag); if (tag === 'text') inText = true; }
+  }
+  while (open.length) out.push(`</${open.pop()}>`);
+  const body = out.join('');
+  if (!/<(path|circle|ellipse|rect|line|polyline|polygon)\b/.test(body)) return '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="#2d2a5a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  return svg.length <= 4000 ? svg : '';
+}
+export const picKey = w => String(w || '').toLowerCase().replace(/[^a-z0-9' -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+export function buildPicsPrompt(words) {
+  return `You draw tiny, very simple line icons for a vocabulary app for Thai children (6–12 years old).
+For each English word or phrase below, draw ONE clear picture a child would recognise, as an SVG.
+
+Rules for every SVG:
+- viewBox="0 0 100 100"; keep the drawing inside 8..92
+- line art only: stroke="#2d2a5a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"
+- you may fill at most 2 small shapes with ONE accent colour from: #f2683a #23915a #ffc928 #5b4fc4 #ef5a78 #3fa7f5
+- only these elements: g, path, circle, ellipse, rect, line, polyline, polygon (and <text> only for digits or maths signs, e.g. "100", "+", "½")
+- integers only, at most 14 elements, under 700 characters, no comments
+- never write letters or words in the picture
+- abstract words: use a familiar symbol or a tiny scene (e.g. "past": a clock with an arrow going back; "minus": a big minus sign; "equals": two lines)
+- verbs: a simple stick figure doing the action
+- nothing scary, violent or unsuitable for children
+
+Words:
+${words.map((w, i) => `${i + 1}. ${w}`).join('\n')}
+
+Reply with a JSON array only, in the same order, like [{"w":"apple","svg":"<svg viewBox=\"0 0 100 100\">…</svg>"}].`;
+}
+export function parsePics(text) {
+  const s = String(text || ''), a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a < 0 || b <= a) return null;
+  let arr; try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  if (!Array.isArray(arr)) return null;
+  const out = arr.map(r => r && typeof r === 'object' ? { w: picKey(r.w), svg: cleanSvg(r.svg) } : null).filter(r => r && r.w && r.svg);
+  return out.length ? out : null;
+}
+const PICS_PER_CALL = 12;
+async function picBank(env, keys) {
+  if (!keys.length) return {};
+  const r = await q(env, `word_pics?word=in.(${keys.map(k => `"${k.replace(/"/g, '')}"`).join(',')})&select=word,svg`) || [];
+  return Object.fromEntries(r.map(x => [x.word, x.svg]));
+}
+// POST /api/wordpics {words:[...], draw, redraw}
+//   draw false: what the bank already has (no sign-in, no credit)
+//   draw true: AI draws the words not in the bank — 1 credit for the whole sheet; 0 if the bank has them all
+//   redraw true (one word): a new drawing for that word, free (rate-limited); the bank keeps its first one
+async function wordpics(request, env) {
+  let body; try { body = await request.json(); } catch (e) { return error('bad_request', 400); }
+  const keys = [...new Set((Array.isArray(body.words) ? body.words : []).map(picKey).filter(k => k && /[a-z]/.test(k)))].slice(0, 60);
+  if (!keys.length) return error('bad_request', 400);
+  let pics = {};
+  if (env.SUPABASE_SECRET_KEY) { try { pics = await picBank(env, keys); } catch (e) { if (e.status !== 404) throw e; } }
+  const redraw = body.redraw === true && keys.length === 1;
+  const missing = redraw ? keys : keys.filter(k => !pics[k]);
+  if (body.draw !== true || !missing.length) return json({ pics, missing });
+  const acc = await aiAccess(request, env); if (acc instanceof Response) return acc;
+  const draw = async () => {
+    const log = [], got = {};
+    const parts = []; for (let i = 0; i < missing.length; i += PICS_PER_CALL) parts.push(missing.slice(i, i + PICS_PER_CALL));
+    const rs = await Promise.all(parts.map(ws => runAI(env, acc.providers, null, null, () => buildPicsPrompt(ws), parsePics, log).then(r => r.status === 200 ? r.json() : null).catch(() => null)));
+    rs.forEach((r, i) => (r && r.items || []).forEach(x => { if (parts[i].includes(x.w)) got[x.w] = x.svg; }));
+    await saveUsage(env, 'pics', log);
+    if (!Object.keys(got).length) return error('ai_failed', 502);
+    if (env.SUPABASE_SECRET_KEY) {
+      const rows = Object.entries(got).filter(([k]) => !pics[k]).map(([word, svg]) => ({ word, svg }));
+      if (rows.length) await q(env, 'word_pics?on_conflict=word', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(rows) }).catch(e => console.log('word_pics save', String(e)));
+    }
+    return json({ pics: { ...pics, ...got }, missing: missing.filter(k => !got[k]), drawn: Object.keys(got).length });
+  };
+  return redraw ? draw() : withCredit(env, acc, draw);
 }
 export function buildWordlistPrompt() {
   return `This is a photo of a vocabulary list that a teacher in Thailand gave to students to learn for a spelling / dictation test (a worksheet, a page in a notebook, a whiteboard or a screen). It may be printed or handwritten.
@@ -857,6 +975,7 @@ export function cleanShareBody(b) {
         if (!it || typeof it.word !== 'string' || !SCENE_ID.test(k)) continue;
         items[k] = { word: cleanStr(it.word, 80), th: cleanStr(it.th, 120), alts: Array.isArray(it.alts) ? it.alts.filter(a => typeof a === 'string').slice(0, 4).map(a => a.slice(0, 60)) : [],
           ...(it.say ? { say: cleanStr(it.say, 80) } : {}), x: num(it.x), y: num(it.y), w: num(it.w), h: num(it.h) };
+        if (typeof it.pic === 'string') { const pic = cleanSvg(it.pic); if (pic) items[k].pic = pic; }   // 🎨 a word sheet's line picture
         // the same box in other languages (e.g. German with its article)
         if (it.l && typeof it.l === 'object') for (const lg of Object.keys(AI_LANGS)) {
           const v = it.l[lg] && cleanLangWord(it.l[lg]);
@@ -1331,7 +1450,7 @@ async function clientError(request, env) {
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
-  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win'];
+  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pic_redraw'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};

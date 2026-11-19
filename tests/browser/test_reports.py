@@ -54,7 +54,10 @@ async def main():
         await C.locator('.clitem', has_text='Afternoon tea').locator('button').click(); await C.wait_for_timeout(800)
         await C.click('#modes >> text=ทบทวน'); await C.wait_for_timeout(300)
         await C.click('#sub .listbtn'); await C.wait_for_timeout(300); await C.locator('.wlist .wrow').first.click(); await C.wait_for_timeout(400)
-        await C.fill('#qin','3-tier cake stand'); await C.press('#qin','Enter'); await C.wait_for_timeout(10000)   # report goes ~8s after an answer
+        await C.fill('#qin','3-tier cake stand'); await C.press('#qin','Enter')
+        for i in range(40):                                     # the report goes ~8s after an answer (slower on a busy machine)
+            await C.wait_for_timeout(500)
+            if state()['db']['learner_reports'] and len(state()['db']['learner_reports'][0]['data'].get('days',[]))>=15 and any(d[0]==__import__('datetime').date.today().isoformat() for d in state()['db']['learner_reports'][0]['data']['days']): break
         st=state()['db']; out['reports_db']=len(st['learner_reports']); rep=(st['learner_reports'] or [{}])[0].get('data',{})
         out['rep_s']=rep.get('s'); out['rep_weak']=[w[0] for w in rep.get('weak',[])]; out['rep_days']=len(rep.get('days',[])); out['rep_stage']=rep.get('stage')
         # parent: summary row, then the report

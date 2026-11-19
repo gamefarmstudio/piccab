@@ -3,6 +3,7 @@ import { G, $, cleanLang, el, ic, LOC, progress, S, scene, store, tally, toast, 
 import { dayNo, forgetSceneLocal, imgSaved, saveProg, saveScenes } from './progress.js';
 import { ask, closeModal, fullRender, openModal, openScene } from './scene.js';
 import { renderGallery } from './home.js';
+import { loadImg } from './cards.js';
 import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, aiWait, askCode, createSceneFromFile, onPickImage } from './editor.js';
 import { askLoginForAI, creditText, openLogin, user } from './account.js';
 import { myShares, shareApi } from './share.js';
@@ -36,8 +37,11 @@ function parseWordList(text){
 }
 function rrect(x,X,Y,W,H,R){ x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
 // The picture: numbered cards with the Thai meaning (or a speaker when there is none), on dotted paper.
+// 🎨 a word's line picture (SVG text, cleaned by the server) as an image
+const svgUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 async function drawSheet(words){
   try{ await Promise.all([document.fonts.load('600 32px Sarabun',String.fromCharCode(3585,3586,97)), document.fonts.load('600 20px Fredoka','123')]); }catch(e){}
+  const pics=await Promise.all(words.map(wd=>wd.pic ? loadImg(svgUrl(wd.pic)) : null));
   const W=1000, pad=28, gap=18, ch=150, cols=2;   // two big cards a row: readable on a phone
   const cw=(W-pad*2-gap*(cols-1))/cols, rows=Math.max(1,Math.ceil(words.length/cols));
   const H=Math.max(pad*2+rows*ch+(rows-1)*gap, 360);
@@ -51,7 +55,9 @@ async function drawSheet(words){
     x.fillStyle='#fff'; rrect(x,bx,by,cw,ch,20); x.fill(); x.strokeStyle='#efe6da'; x.lineWidth=2; x.stroke();
     x.fillStyle=SOFT[k]; x.beginPath(); x.arc(bx+44,by+ch/2,28,0,7); x.fill();
     x.fillStyle=DEEP[k]; x.font='600 27px Fredoka, Sarabun, sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(i+1),bx+44,by+ch/2+1);
-    const cx=bx+84+(cw-84-16)/2, room=cw-84-28, th=(wd.th||'').trim();
+    const pic=pics[i], ps=ch-28;                                 // the picture sits on the right of the card
+    if(pic){ x.fillStyle='#fbf8f2'; rrect(x,bx+cw-14-ps,by+14,ps,ps,16); x.fill(); x.drawImage(pic,bx+cw-14-ps+8,by+22,ps-16,ps-16); }
+    const cx=pic ? bx+84+(cw-84-ps-30)/2 : bx+84+(cw-84-16)/2, room=pic ? cw-84-ps-40 : cw-84-28, th=(wd.th||'').trim();
     x.fillStyle='#2d2a5a';
     if(th){
       let fs=50; const setF=()=>{ x.font=`600 ${fs}px Sarabun, sans-serif`; }; setF();
@@ -82,7 +88,7 @@ async function saveWordSheet(sc, name, words, meta){
     if(!id || items[id]){ do{ id='w'+(++n); }while(old[id] || items[id]); }
     const prev=old[id] && old[id].word && old[id].word.toLowerCase()===wd.w.toLowerCase() ? old[id] : {};
     const b=pic.boxes[i];
-    items[id]={ word:wd.w, th:wd.th||'', alts:prev.alts||[], ...(prev.l?{l:prev.l}:{}), x:b.x, y:b.y, w:b.w, h:b.h };
+    items[id]={ word:wd.w, th:wd.th||'', alts:prev.alts||[], ...(prev.l?{l:prev.l}:{}), ...(wd.pic?{pic:wd.pic}:{}), x:b.x, y:b.y, w:b.w, h:b.h };
   });
   if(sc){ Object.assign(sc,{ name, img:pic.img, w:pic.w, h:pic.h, items, meta }); markImgChanged(sc.id); }
   else { sc={ id:'s'+Date.now().toString(36), name, img:pic.img, w:pic.w, h:pic.h, items, meta }; G.customs.push(sc); tally('sheet_new'); }
@@ -172,6 +178,57 @@ function sheetCropper(file, onDone, onCancel){
   img.src=url;
   return panel;
 }
+// ---------- 🎨 line pictures: from the shared bank (free), the rest drawn by AI (1 credit a sheet) ----------
+async function picsApi(words, draw, redraw, auth){
+  const r=await fetch('/api/wordpics',{method:'POST', headers:{'content-type':'application/json', ...(auth && auth.tok?{authorization:'Bearer '+auth.tok}:{}), ...(auth && auth.code?{'x-piccab-code':auth.code}:{})},
+    body:JSON.stringify({ words, draw:!!draw, redraw:!!redraw })});
+  const data=await r.json().catch(()=>({}));
+  if(typeof data.credits_left==='number'){ G.aiLeft=data.credits_left; const n=$('#creditNote'); if(n) n.textContent=creditText(); }
+  return { ok:r.ok, data };
+}
+const picKeyOf=w=>String(w||'').toLowerCase().replace(/[^a-z0-9' -]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
+// fills wd.pic for the words without one; busy: an element to show the AI wait in. Returns how many still have none.
+async function fillPics(words, busy){
+  const need=words.filter(wd=>!wd.pic); if(!need.length) return 0;
+  const put=pics=>need.forEach(wd=>{ const p=pics && pics[picKeyOf(wd.w)]; if(p && !wd.pic) wd.pic=p; });
+  try{ const r=await picsApi(need.map(wd=>wd.w), false); if(r.ok) put(r.data.pics); }catch(e){ return need.length; }
+  const left=need.filter(wd=>!wd.pic); if(!left.length) return 0;
+  if(!G.aiReady) return left.length;
+  const auth=await aiAuth(); if(!auth) return left.length;
+  if(busy){ busy.replaceChildren(aiWait(`🎨 AI กำลังวาดลายเส้น ${left.length} คำ…`,'10–30')); busy.hidden=false; }
+  try{
+    const r=await picsApi(left.map(wd=>wd.w), true, false, auth);
+    if(!r.ok){ if(r.data.error==='bad_code') store.set('pv-ai-code',''); toast(aiErr(r.data.error), 5000); }
+    else { put(r.data.pics); tally('sheet_pics'); }
+  }catch(e){ toast(aiErr('offline')); }
+  finally{ if(busy) busy.hidden=true; }
+  return left.filter(wd=>!wd.pic).length;
+}
+const sheetWords=sc=>Object.values(sc.items||{}).filter(it=>it && it.word).map(it=>({ w:it.word, th:it.th||'', ...(it.pic?{pic:it.pic}:{}) }));
+// from the preview: give an existing sheet its pictures
+async function addSheetPics(sc){
+  const words=sheetWords(sc), busy=el('div',{class:'wsbusy'});
+  openModal(m=>m.append(el('h3',{text:'🎨 ใส่รูปลายเส้น'}), busy));
+  const left=await fillPics(words, busy);
+  await saveWordSheet(sc, sc.name, words, sc.meta);
+  closeModal(); if(S.view==='play') fullRender(); else renderGallery();
+  toast(left ? `ใส่รูปแล้ว ${words.length-left} คำ · ยังไม่มีรูป ${left} คำ` : 'ใส่รูปลายเส้นครบทุกคำแล้ว 🎨', 4000);
+}
+// a new drawing for one word (free, up to 3 a sheet)
+async function redrawPic(id){
+  const sc=scene(), it=sc.items[id]; if(!isList(sc) || !it) return;
+  const n=(sc.meta.redraws||0); if(n>=3){ toast('วาดใหม่ได้ 3 ครั้งต่อชีท'); return; }
+  const auth=await aiAuth(); if(!auth) return;
+  toast('🎨 กำลังวาดใหม่…', 8000);
+  try{
+    const r=await picsApi([it.word], true, true, auth);
+    const p=r.ok && r.data.pics && r.data.pics[picKeyOf(it.word)];
+    if(!p){ toast(r.ok ? 'วาดไม่สำเร็จ ลองอีกครั้ง' : aiErr(r.data.error), 4000); return; }
+    const words=sheetWords(sc).map(wd=>wd.w===it.word ? { ...wd, pic:p } : wd);
+    await saveWordSheet(sc, sc.name, words, { ...sc.meta, redraws:n+1 });
+    fullRender(); toast(`วาดใหม่แล้ว (เหลือ ${2-n} ครั้งสำหรับชีทนี้)`, 3000); tally('sheet_pic_redraw');
+  }catch(e){ toast(aiErr('offline')); }
+}
 function openSheetMaker(sc){
   const meta=(sc && sc.meta) || {kind:'list', exam:''};
   openModal(m=>{
@@ -182,6 +239,9 @@ function openSheetMaker(sc){
     const name=el('input',{maxlength:'40','aria-label':'ชื่อชุดคำ',value: sc ? sc.name : 'Dictation '+new Date().toLocaleDateString(LOC,{day:'numeric',month:'short'})});
     const date=el('input',{type:'date','aria-label':'วันสอบ',value:meta.exam||''});
     const ok=el('button',{class:'primary'}, sc ? 'บันทึก' : 'สร้างชุดคำ');
+    const pics=el('input',{type:'checkbox'}); pics.checked=store.get('pv-sheetpics',true)!==false;
+    pics.addEventListener('change',()=>store.set('pv-sheetpics',pics.checked));
+    const oldPics={}; if(sc) Object.values(sc.items||{}).forEach(it=>{ if(it && it.word && it.pic) oldPics[it.word.toLowerCase()]=it.pic; });
     const upd=()=>{ const n=parseWordList(ta.value).length; count.textContent=n ? `${n} คำ` : ''; ok.disabled=!n; };
     ta.addEventListener('input',upd);
     // a photo of the sheet: take one with the camera or choose one, then box the part to read
@@ -210,6 +270,8 @@ function openSheetMaker(sc){
     ok.addEventListener('click',async()=>{
       const words=parseWordList(ta.value); if(!words.length){ ta.focus(); return; }
       ok.disabled=true;
+      words.forEach(wd=>{ const p=oldPics[wd.w.toLowerCase()]; if(p) wd.pic=p; });
+      if(pics.checked) await fillPics(words, busy);
       const nm=(name.value.trim()||'Dictation').slice(0,40);
       const s2=await saveWordSheet(sc, nm, words, {kind:'list', exam:date.value||'', style:'listen'});
       closeModal();
@@ -223,6 +285,7 @@ function openSheetMaker(sc){
       ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
       el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
       el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),
+      el('label',{class:'chk wspics'}, pics, el('span',{}, el('b',{text:'🎨 ใส่รูปลายเส้นให้แต่ละคำ'}), el('small',{text:'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · คำที่ยังไม่มีรูปให้ AI วาด ใช้ 1 เครดิตต่อชีท'}))),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), ok));
     upd();
   });
@@ -320,4 +383,4 @@ $('#fileJson').addEventListener('change', e=>{
   const f=e.target.files[0]; e.target.value=''; importFile(f);
 });
 
-export { aiAuth, deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, shareScene };
+export { addSheetPics, aiAuth, deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, redrawPic, shareScene, svgUrl };

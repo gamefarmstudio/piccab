@@ -5,8 +5,9 @@ import { ask, closeModal, openModal, openScene, progOf, sceneImg, select } from 
 import { allWords, markActive, renderHome, sayWord, statChip, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb } from './home.js';
 import { openPrintCards } from './cards.js';
 import { pattern } from './games.js';
-import { deleteScene, examIn, examLabel, isList, listStyle, openSheetMaker } from './sheets.js';
+import { addSheetPics, deleteScene, examIn, examLabel, isList, listStyle, openSheetMaker } from './sheets.js';
 import { user } from './account.js';
+import { isStudent } from './classes.js';
 import { ADM } from './admin.js';
 import { galEditOf, galPushEdit } from './gallery.js';
 import { answerXp, fxBad, fxGood } from './fx.js';
@@ -348,7 +349,8 @@ function listCards(sc, list){
   const g=document.createElementNS(NS,'g'); g.setAttribute('class','lcards'); g.setAttribute('pointer-events','none');
   const put=(tag,attrs,text)=>{ const e=document.createElementNS(NS,tag); Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v)); if(text!=null) e.textContent=text; g.appendChild(e); return e; };
   for(const it of list){ if(!it || !it.word || it.w==null) continue;
-    const x=it.x+76, y=it.y+5, w=it.w-82, h=it.h-10, cx=x+w/2, room=w-28, th=mean(it);
+    const ps=it.pic ? it.h-28 : 0;   // 🎨 the line picture on the right of the card stays visible
+    const x=it.x+76, y=it.y+5, w=it.w-82-(ps ? ps+14 : 0), h=it.h-10, cx=x+w/2, room=w-28, th=mean(it);
     put('rect',{x,y,width:w,height:h,rx:14,fill:'#fff'});
     const en=fitFont(it.word,600,'Fredoka',52,22,room);
     const t=put('text',{x:cx,y:th ? y+h*0.38 : y+h/2+2,'text-anchor':'middle','dominant-baseline':'central','font-family':'Fredoka, Sarabun, sans-serif','font-weight':600,'font-size':en.fs,fill:'#2d2a5a'},it.word);
@@ -415,6 +417,7 @@ function openPreview(id){
         n ? el('button',{text:'🖨️ แฟลชการ์ด',title:'พิมพ์แฟลชการ์ด หรือบันทึกเป็น PDF',onclick:()=>{ closeModal(); openPrintCards(sc); }}) : null,
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
+        isList(sc) && !isStudent() && Object.values(sc.items||{}).some(it=>it && it.word && !it.pic) ? el('button',{text:'🎨 ใส่รูปลายเส้น',title:'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · ที่เหลือ AI วาด 1 เครดิตต่อชีท',onclick:()=>{ closeModal(); addSheetPics(sc); }}) : null,
         ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id, true); }}) : null,
         sc.builtin || isList(sc) ? null : el('button',{text:'✏️ แก้ไขฉาก',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }}),
         sc.builtin || isList(sc) ? null : el('button',{text:'📝 เปลี่ยนชื่อ',onclick:()=>{ closeModal(); S.sceneId=sc.id; $('#renameBtn').click(); }}),

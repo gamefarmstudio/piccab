@@ -867,6 +867,35 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   console.log('sentence tests passed');
 }
 
+// ---------- 🎨 /api/wordpics: line pictures for word sheets (text AI writes SVG; cleaned to an allow-list) ----------
+{
+  const { cleanSvg, parsePics, picKey } = await import('../src/worker.js');
+  const bad = cleanSvg('<svg onload="x()"><script>alert(1)</script><a href="javascript:x"><circle cx="5" cy="5" r="3"/></a><path d="M1 1 L9 9" onclick="y()" style="z" stroke="url(#g)"/><image href="http://x/y.png"/><text x="5" y="5">hello</text><text>12</text><foreignObject><div>x</div></foreignObject></svg>');
+  assert.ok(!/script|onload|onclick|href|style|url\(|image|hello|foreignObject|div/i.test(bad), bad);
+  assert.match(bad, /<path d="M1 1 L9 9"\/>/); assert.match(bad, />12<\/text>/); assert.match(bad, /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 100 100"/);
+  assert.equal(cleanSvg('<svg><text>only text</text></svg>'), '');
+  assert.equal(picKey('  Divided By! '), 'divided by');
+  assert.deepEqual(parsePics('x [{"w":"Minus","svg":"<svg><line x1=\\"10\\" y1=\\"50\\" x2=\\"90\\" y2=\\"50\\"/></svg>"},{"w":"y","svg":"<b>no</b>"}]').map(r => r.w), ['minus']);
+  const saved = globalThis.fetch, prompts = [];
+  globalThis.fetch = async (url, init) => {
+    const b = JSON.parse(init.body); const text = b.messages[0].content.find(c => c.type === 'text').text; prompts.push(text);
+    const ws = [...text.matchAll(/^\d+\. (.+)$/gm)].map(m => m[1]);
+    return new Response(JSON.stringify({ stop_reason:'end_turn', content:[{ type:'text', text: JSON.stringify(ws.map(w => ({ w, svg:'<svg><circle cx="50" cy="50" r="30"/></svg>' }))) }], usage:{ input_tokens:300, output_tokens:800 } }), { status:200 });
+  };
+  const wp = (body, env) => worker.fetch(new Request('https://piccab.com/api/wordpics', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) }), { ASSETS: assets, ...env });
+  assert.equal((await wp({ words:[] }, KEY)).status, 400);
+  // look-up only: nothing drawn, no AI
+  let j = await (await wp({ words:['Minus','plus'] }, KEY)).json();
+  assert.deepEqual(j, { pics:{}, missing:['minus','plus'] }); assert.equal(prompts.length, 0);
+  // draw: 14 words → two AI calls (12 a call), all pictures back
+  const ws = Array.from({ length:14 }, (_, i) => 'word ' + String.fromCharCode(97 + i));
+  j = await (await wp({ words: ws, draw:true }, KEY)).json();
+  assert.equal(prompts.length, 2); assert.equal(Object.keys(j.pics).length, 14); assert.deepEqual(j.missing, []); assert.equal(j.drawn, 14);
+  assert.match(prompts[0], /line art only/); assert.match(prompts[0], /never write letters or words/); assert.match(prompts[0], /unsuitable for children/);
+  globalThis.fetch = saved;
+  console.log('word picture tests passed');
+}
+
 // trial tools: feedback, client errors, usage counts
 {
   const { cleanFeedback, cleanUsage } = await import('../src/worker.js');
