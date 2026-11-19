@@ -250,13 +250,24 @@ export function buildCefrPrompt(words) {
 Reply with only a JSON object from each word exactly as given to its level, like {"cat":"preA1","library":"A1","get dressed":"A1"}.
 Words: ${words.join(', ')}`;
 }
+// The AI's levels: {"cat":"A1"}, or a list like [{"word":"cat","level":"A1"}], or either wrapped in one more object.
 export function parseCefr(text) {
-  const s = String(text || ''), a = s.indexOf('{'), b = s.lastIndexOf('}');
-  if (a < 0 || b <= a) return null;
-  let o;
-  try { o = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  const s = String(text || '');
+  let o = null;
+  for (const [x, y] of [['{', '}'], ['[', ']']]) {
+    const a = s.indexOf(x), b = s.lastIndexOf(y);
+    if (o == null && a >= 0 && b > a) { try { o = JSON.parse(s.slice(a, b + 1)); } catch (e) { o = null; } }
+  }
   const out = {};
-  for (const [k, v] of Object.entries(o && typeof o === 'object' ? o : {})) { const c = cleanCefr(v); if (c) out[String(k).trim().toLowerCase()] = c; }
+  const take = v => {
+    if (Array.isArray(v)) { for (const r of v) if (r && typeof r === 'object') { const w = r.word || r.w || r.term, c = cleanCefr(r.cefr || r.level || r.cefr_level); if (w && c) out[String(w).trim().toLowerCase()] = c; } return; }
+    if (!v || typeof v !== 'object') return;
+    for (const [k, x] of Object.entries(v)) {
+      const c = cleanCefr(typeof x === 'object' && x ? (x.cefr || x.level) : x);
+      if (c) out[String(k).trim().toLowerCase()] = c; else if (x && typeof x === 'object') take(x);
+    }
+  };
+  take(o);
   return Object.keys(out).length ? out : null;
 }
 export function buildSentencesPrompt(words, picture) {
