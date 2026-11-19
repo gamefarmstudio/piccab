@@ -118,6 +118,11 @@ const UI = window.PV_UI==='en' ? 'en' : 'th';
 const tx = s => window.PV_T ? window.PV_T(s) : s;   // for text that never reaches the screen: files, share text
 const LOC = UI==='en' ? 'en-GB' : 'th-TH';
 const HL = UI==='en' ? '?hl=en' : '';   // link previews (Line, Facebook…) in the sharer's language
+// A null / undefined / false child (from `cond ? el(…) : null`) is left out, instead of showing as the word "null".
+for(const m of ['append','prepend','replaceChildren','before','after']){
+  const f=Element.prototype[m];
+  Element.prototype[m]=function(...a){ return f.apply(this, a.filter(x=>x!=null && x!==false)); };
+}
 function el(tagName, props, ...kids){
   const e=document.createElement(tagName);
   if(props) for(const k in props){

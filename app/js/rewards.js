@@ -130,7 +130,7 @@ function openQuests(){
           el('span',{class:'qck','aria-hidden':'true',text:x.done?'✅':'⬜'}),
           el('span',{class:'grow'}, el('b',{text:x.text}), el('span',{class:'pbar'}, el('i',{style:`width:${Math.round(x.have/x.goal*100)}%`}))),
           el('small',{text:`${x.have}/${x.goal}`})))),
-        RW.chests.length ? el('div',{class:'qchest'}, el('p',{class:'note',text:`มีหีบรอเปิด ${RW.chests.length} ใบ`}), chestEl(()=>setTimeout(()=>{ if(m.isConnected && RW.chests.length) draw(); }, 1800))) : null,
+        RW.chests.length ? el('div',{class:'qchest'}, el('p',{class:'note',text:`มีหีบรอเปิด ${RW.chests.length} ใบ`}), chestEl(()=>setTimeout(()=>{ if(m.isConnected) draw(); }, 1800))) : null,
         el('div',{class:'row'}, el('button',{class:'linkbtn',text:'📒 สมุดสติกเกอร์',onclick:()=>{ closeModal(); goHome('journey'); setTimeout(()=>{ const e=document.getElementById('stkBook'); if(e) e.scrollIntoView({block:'start'}); }, 80); }}),
           el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
     };
