@@ -88,7 +88,7 @@ function fxBad(target){
   const e=target && target.getBoundingClientRect ? target : (typeof target==='string' ? document.getElementById('wrap') : null);
   if(e && !fxCalm()){ e.classList.remove('fxshake'); void e.offsetWidth; e.classList.add('fxshake'); }
 }
-function fxNote(text){ const L=fxLayer(), n=el('div',{class:'fxnote',text}); L.append(n); n.animate([{opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.8},{opacity:0}],{duration:1600}).onfinish=()=>n.remove(); }
+function fxNote(text, low){ const L=fxLayer(), n=el('div',{class:'fxnote'+(low?' low':''),text}); L.append(n); n.animate([{opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.8},{opacity:0}],{duration:1600}).onfinish=()=>n.remove(); }
 // right, but not the first time: XP, a plain chime, no combo
 function fxSoft(xp){ FX.combo=0; FX.rx+=xp||2; sfx('good',1); }
 // a new game / scene / word shown without answering: the combo starts again (quietly)
@@ -97,4 +97,4 @@ function fxReset(){ FX.combo=0; }
 const answerXp=(isNew, newStar)=>2+(isNew?10:0)+(newStar?5:0);
 { const c=document.getElementById('sfx'); if(c){ c.checked=FX.on; c.addEventListener('change',()=>{ FX.on=c.checked; store.set('pv-sfx', FX.on); if(FX.on) sfx('good',1); }); } }
 
-export { answerXp, confetti, FX, fxBad, fxCalm, fxGood, fxReset, fxSoft, sfx };
+export { answerXp, confetti, FX, fxBad, fxCalm, fxGood, fxNote, fxReset, fxSoft, sfx };

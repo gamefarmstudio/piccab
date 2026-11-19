@@ -20,6 +20,7 @@ import './js/journey.js';
 import './js/fx.js';
 import './js/rounds.js';
 import './js/rewards.js';
+import './js/challenge.js';
 import './js/report.js';
 import { openSharedLink, sharedLinkId } from './js/share.js';
 import { installUi, openInstallHelp } from './js/pwa.js';

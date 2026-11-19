@@ -82,4 +82,4 @@ async function printCards(sc, words){
   setTimeout(()=>{ if(document.body.classList.contains('printing') && !window.matchMedia('print').matches) done(); }, 60000);
 }
 
-export { openPrintCards };
+export { cardPicture, loadImg, openPrintCards };
