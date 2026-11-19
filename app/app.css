@@ -1097,3 +1097,17 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .rw em{font-style:normal;font-size:12px;color:var(--muted)}
 .rw.weak{border-color:#f6c9b6;background:#fff7f2}.rw.weak em{color:#c4501f;font-weight:600}
 .proform .row{flex-wrap:wrap;gap:8px;margin-top:8px}.proform input{min-width:200px}
+
+/* 🖼️ admin picture library: choose a category and drafts / published */
+.galnum{border:none;background:none;padding:2px 8px;border-radius:8px;font-weight:600;color:#534ab7;text-decoration:underline;cursor:pointer;min-height:0}
+.galnum:hover{background:var(--lav)}
+.galnum.draft{background:#fff1d6;color:#8a5a00;text-decoration:none}
+.galcatlink{font-weight:600;color:var(--ink);text-align:left}.galcatlink:hover{text-decoration:underline}
+.galdrafts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff8e8;border-color:#f3dca6}
+.galdrafts b{flex:1}
+.galchips{flex-wrap:wrap;margin:4px 0 10px}
+.galchips button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.galchips button small{font-weight:500;opacity:.7}
+.galdr{font-size:11.5px;font-weight:600;background:#fff1d6;color:#8a5a00;border-radius:99px;padding:1px 7px}
+.galchips button.on .galdr{background:#fff;color:#8a5a00}
+.galst{margin:0 0 12px}

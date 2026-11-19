@@ -56,6 +56,12 @@ async def main():
         out['table']=await A.inner_text('#adminView table')
         out['row']=await A.inner_text('#adminView .galrow')
         out['cefr_btn']=await A.locator('#adminView button:has-text("ใส่ระดับ CEFR")').count()
+        # after an import the list shows that category's drafts; other filters
+        out['chip_on']=await A.inner_text('.galchips button.on'); out['st_on']=await A.inner_text('.galst button.on')
+        await A.click('.galst button:has-text("เผยแพร่แล้ว")'); await A.wait_for_timeout(300); out['pub_rows']=await A.locator('.galrow').count()
+        await A.locator('table .galnum.draft').last.click(); await A.wait_for_timeout(300)
+        out['via_num']=[await A.inner_text('.galchips button.on'), await A.inner_text('.galst button.on'), await A.locator('.galrow').count()]
+        out['banner']=await A.inner_text('.galdrafts')
         await A.screenshot(path=shot('gal1_admin.png'), full_page=True)
         g=fake('/rest/v1/gallery_scenes')[0]
         out['db']=(g['category'], g['title'], g['title_th'], g['w'], g['h'], g['word_count'], g['img_ver'], g['published'])
@@ -87,6 +93,8 @@ async def main():
         out['copies_after']=await A.evaluate("Object.keys(JSON.parse(localStorage.getItem('pv-gal-edit')||'{}')).length")
         out['upd_btn']=await A.locator('.galrow button:has-text("อัปเดตจากฉบับแก้ไข")').count()
         await A.click('.galrow button:has-text("เผยแพร่")'); await A.wait_for_timeout(1500)
+        out['after_pub']=await A.inner_text('#adminView .libempty')                  # gone from the drafts
+        await A.click('.galst button:has-text("เผยแพร่แล้ว")'); await A.wait_for_timeout(300)
         out['pill']=await A.inner_text('.galrow .pill')
         await A.context.close()
         # a visitor finds it in the library and adds it
@@ -196,6 +204,9 @@ async def main():
     check('หมวด\n4' in out['empty'] and 'ฉาก\n0' in out['empty'], 'admin: counts before import', out['empty'])
     check('นำเข้าแล้ว 1 ฉาก' in out['result'] and 'Kitchen: 3 คำ · ประโยค 3' in out['result'] and 'lonely (ไม่มีรูป)' in out['result'], 'import result: 1 scene, 3 words, 3 sentences, a file without its pair', out['result'])
     check('null' not in out['result'], 'no stray null in the import result', out['result'])
+    check('อาหาร' in out['chip_on'] and 'ร่าง 1' in out['chip_on'] and 'ฉบับร่าง (1)' in out['st_on'] and out['pub_rows']==0, 'after import: that category, drafts shown', (out['chip_on'], out['st_on'], out['pub_rows']))
+    check('ทุกหมวด' in out['via_num'][0] and 'ฉบับร่าง' in out['via_num'][1] and out['via_num'][2]==1 and 'ฉบับร่าง 1 ฉาก' in out['banner'], 'draft number in the table goes to the drafts', (out['via_num'], out['banner']))
+    check('ไม่มีฉบับร่าง' in out['after_pub'], 'a published scene leaves the drafts list', out['after_pub'])
     check(out['sent_db']==[{'en':'The red box is on the table.','th':'กล่องสีแดงอยู่บนโต๊ะ','words':['red box','table']},{'en':'There are two suns.','th':'มีดวงอาทิตย์สองดวง','words':['sun']},{'en':'It is a nice day.','th':'วันนี้อากาศดี','words':[]}], 'sentences saved; their words found in the scene (plural too)', out['sent_db'])
     check('เติมประโยคแล้ว 1 ฉาก' in out['result2'] and 'kitchen-sentences → Kitchen · ห้องครัว: 2 ประโยค' in out['result2'], 'a JSON alone adds sentences to the scene by title', out['result2'])
     check(out['sent_db2']==[('The desk is big.',['table']),('The sun is hot.',['sun'])], 'sentences replaced; an other name (desk) counts as the word', out['sent_db2'])
