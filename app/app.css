@@ -997,3 +997,33 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .aidisc{color:var(--muted)}
 .busy .aidisc{display:block;max-width:300px;text-align:center;font-size:12px;line-height:1.35}
 .sentgame .saisrc{margin:0;opacity:.8}
+/* 🧭 learning path */
+#pathView .pstages{margin:6px 0 12px}
+.plevel{background:#efedff;border-radius:16px;padding:14px 16px;margin-bottom:6px}
+.plevel .prow{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.plevel .prow b{font-size:18px;color:#3c3489}
+.plevel .cefr{font-size:13px;font-weight:600;color:#534ab7;background:#fff;border-radius:999px;padding:2px 10px}
+.plevel .note{margin:4px 0 10px;color:#534ab7}
+.pbar{height:10px;border-radius:6px;background:#cecbf6;overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:6px;background:#534ab7;min-width:4px}
+.psub{font-size:15px;margin:18px 2px 8px;color:var(--muted);font-weight:600}
+.ptopics{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.ptopic{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:#fff;text-align:left}
+.ptopic.on{border-color:#534ab7;box-shadow:0 0 0 2px #cecbf6}
+.ptopic b{font-size:15px}
+.ptopic small{color:var(--muted)}
+.ptopic .pst{margin-top:4px;font-size:13px;font-weight:600;color:#a06a00}
+.ptopic .pst.full{color:var(--ok)}
+.pexam{margin-top:18px;opacity:.85}
+.ppick{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:8px}
+.ppick>b{font-size:18px}
+.ppick .note{margin:4px 0 12px}
+.ppickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ppickgrid button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;border-radius:14px;border:1px solid var(--line);background:var(--bg)}
+.ppickgrid .e{font-size:26px}
+.ppickgrid small{color:var(--muted)}
+.ptile .grow{flex:1;display:flex;flex-direction:column;min-width:0}
+.ptile .ic{background:#efedff;color:#534ab7}
+.galhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pathlink{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-weight:600}
+.galsels{flex-wrap:wrap;gap:8px}

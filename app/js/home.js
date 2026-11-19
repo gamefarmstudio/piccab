@@ -9,6 +9,7 @@ import { user } from './account.js';
 import { isStudent, renderClass } from './classes.js';
 import { renderAdmin } from './admin.js';
 import { renderPicLib } from './gallery.js';
+import { pathTile, renderPath } from './path.js';
 import { installApp, installAvailable } from './pwa.js';
 import { accessToken } from './sync.js';
 
@@ -23,7 +24,7 @@ function streak(){ const d=new Date(); if(!days[dkey(d)]) d.setDate(d.getDate()-
 function sceneTime(sc){ return recent[sc.id] || (sc.builtin?0:(parseInt(sc.id.slice(1),36)||0)); }
 function byRecent(a,b){ return sceneTime(b)-sceneTime(a); }
 function greet(){ const h=new Date().getHours(); return h<11?'อรุณสวัสดิ์':h<16?'สวัสดีตอนบ่าย':'สวัสดีตอนเย็น'; }
-function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else if(S.view==='class') renderClass(); else if(S.view==='admin') renderAdmin(); else renderHome(); }
+function renderGallery(){ if(S.view==='library') renderLibrary(); else if(S.view==='words') renderWords(); else if(S.view==='class') renderClass(); else if(S.view==='path') renderPath(); else if(S.view==='admin') renderAdmin(); else renderHome(); }
 
 function ago(ts){
   if(!ts) return 'ยังไม่เคยเปิด';
@@ -183,6 +184,7 @@ function renderHome(){
       el('button',{class:'primary',text:'ติดตั้ง',onclick:installApp}),
       el('button',{class:'x','aria-label':'ไม่ต้องแสดงอีก',title:'ไม่ต้องแสดงอีก',text:'✕',onclick:()=>{ store.set('pv-install-hide',true); renderHome(); }})));
   }
+  h.append(pathTile());
   // first visit: nothing of their own yet → invite them to make a scene from a photo
   const firstRun=!all.some(sc=>!sc.builtin) && !store.get('pv-welcome-hide',false);
   if(firstRun) h.append(welcomeCard());

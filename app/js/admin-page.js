@@ -8,7 +8,8 @@ import { loadImageFile } from './editor.js';
 import { user } from './account.js';
 import { ago2, CHEER_TEXT } from './friends.js';
 import { ADM, adminApi } from './admin.js';
-import { catName, GAL, GAL_LV, galCopy, galEdits, galImg, galPushEdit } from './gallery.js';
+import { catName, GAL, galCopy, galEdits, galImg, galPushEdit } from './gallery.js';
+import { CEFR_NAME, cefrOf, stageById, stageName, stageOf, STAGES } from './path.js';
 import { accessToken } from './sync.js';
 
 async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?all=1':'')).catch(()=>({ok:false})); ADM.data = r.ok ? r.j : { error: r.status===404 ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'โหลดไม่สำเร็จ' }; }
@@ -136,6 +137,8 @@ function renderGalleryAdmin(v){
   D.categories.forEach(c=>{ const p=st.per[c.id]; tb.append(el('tr',{}, el('td',{'data-noi18n':'',text:`${c.emoji} ${catName(c)}`}), ...[p.pub,p.draft,p.words,p.uniq.size].map(x=>el('td',{text:String(x)})))); });
   tb.append(el('tr',{class:'tot'}, el('td',{text:'รวม'}), ...[pub, D.scenes.length-pub, st.words, st.uniq].map(x=>el('td',{text:String(x)}))));
   v.append(el('h4',{class:'aih',text:'แต่ละหมวด'}), el('div',{class:'aitablewrap'}, tb));
+  if(D.no_stage) v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังตั้งระดับชั้นไม่ได้'})),
+    el('p',{text:'รันไฟล์ supabase/2026-11-gallery-levels.sql ใน Supabase → SQL Editor ครั้งเดียว ฉากจะมีระดับชั้นและ CEFR สำหรับหน้าเส้นทางคำศัพท์'})));
   if(D.no_sentences) v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังเก็บประโยคไม่ได้'})),
     el('p',{text:'รันไฟล์ supabase/2026-11-gallery-sentences.sql ใน Supabase → SQL Editor ครั้งเดียว แล้วประโยคที่นำเข้าจะถูกบันทึกไว้กับฉาก'})));
   // import
@@ -166,14 +169,22 @@ function galAdminRow(g, D){
   const patch=async(body, okMsg)=>{ const r=await adminApi('PATCH','/gallery/'+g.id, body).catch(()=>({ok:false})); toast(r.ok ? okMsg : 'บันทึกไม่สำเร็จ'); ADM.gal=null; GAL.data=null; renderAdmin(); };
   const sel=el('select',{'aria-label':'หมวด'}, ...D.categories.map(c=>el('option',{value:c.id,text:`${c.emoji} ${catName(c)}`})));
   sel.value=g.category; sel.addEventListener('change',()=>patch({ category:sel.value }, 'ย้ายหมวดแล้ว'));
+  // the learning path: which school years and CEFR level this scene suits
+  const stSel=el('select',{'aria-label':'ระดับชั้น'}, ...STAGES.map(x=>el('option',{value:x.id,text:`${x.e} ${stageName(x)}`})));
+  stSel.value=stageOf(g); stSel.addEventListener('change',()=>patch({ stage:stSel.value }, 'เปลี่ยนระดับชั้นแล้ว'));
+  const cfSel=el('select',{'aria-label':'CEFR'}, ...Object.entries(CEFR_NAME).map(([k,t])=>el('option',{value:k,text:t})));
+  cfSel.value=g.cefr || Object.keys(CEFR_NAME).find(k=>CEFR_NAME[k]===cefrOf(g)) || 'preA1'; cfSel.addEventListener('change',()=>patch({ cefr:cfSel.value }, 'เปลี่ยน CEFR แล้ว'));
+  if(D.no_stage){ [stSel, cfSel].forEach(x=>{ x.disabled=true; x.title='รัน supabase/2026-11-gallery-levels.sql ก่อน'; }); }
   return el('div',{class:'admcard galrow'},
     g.img_ver ? el('img',{class:'galthumb',alt:'',loading:'lazy',src:galImg(g,true)}) : el('div',{class:'galthumb none',text:'ไม่มีรูป'}),
     el('div',{class:'galinfo'},
       el('div',{class:'admtop'}, el('b',{'data-noi18n':'',text:g.title+(g.title_th?' · '+g.title_th:'')}),
         el('span',{class:'pill'+(live?' ok':''),text: live ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})),
-      el('p',{class:'note small',text:`${items.length} คำ · ประโยค ${sents.length} · ระดับ${GAL_LV[g.level]||''} · ${g.w}×${g.h}`}),
+      el('p',{class:'note small',text:`${items.length} คำ · ประโยค ${sents.length} · ${g.w}×${g.h}`}),
       el('p',{class:'note small galwl','data-noi18n':'',text:items.map(it=>it.word+(it.th?'':' (?)')).join(', ')}),
-      el('div',{class:'row'}, el('label',{class:'galcatrow'}, el('span',{text:'หมวด'}), sel), el('span',{class:'sp'}),
+      el('div',{class:'row galsels'}, el('label',{class:'galcatrow'}, el('span',{text:'หมวด'}), sel),
+        el('label',{class:'galcatrow'}, el('span',{text:'ระดับชั้น'}), stSel), el('label',{class:'galcatrow'}, el('span',{text:'CEFR'}), cfSel)),
+      el('div',{class:'row'}, el('span',{class:'sp'}),
         el('button',{class:live?'':'primary',text: live ? 'ซ่อน' : 'เผยแพร่',...(g.img_ver?{}:{disabled:''}),onclick:()=>patch({ published:!g.published }, g.published ? 'ซ่อนแล้ว' : 'เผยแพร่แล้ว ✓')}),
         edit ? el('button',{class:'primary',text:'⬆️ อัปเดตจากฉบับแก้ไข',onclick:()=>galPushEdit(edit, true)}) : null,
         el('button',{text:'✏️ แก้กรอบ',onclick:()=>galEditLocal(g, edit)}),
@@ -308,7 +319,8 @@ async function galImportOne(p, cats){
   if(!Object.keys(items).length) throw new Error('ไม่มีคำที่ใช้ได้');
   const cat=GA.cat || String(meta.category||'').trim().toLowerCase();
   const r=await adminApi('POST','/gallery',{ category: cats.includes(cat) ? cat : cats[0], title:String(meta.title||p.name).slice(0,60),
-    title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items, ...(Array.isArray(meta.sentences)?{ sentences:galSentences(meta.sentences, items) }:{}) }).catch(()=>({ok:false,j:{}}));
+    title_th:String(meta.title_th||'').slice(0,60), level:meta.level, w:W, h:H, items,
+    ...(stageById(meta.stage)?{ stage:meta.stage }:{}), ...(CEFR_NAME[meta.cefr]?{ cefr:meta.cefr }:{}), ...(Array.isArray(meta.sentences)?{ sentences:galSentences(meta.sentences, items) }:{}) }).catch(()=>({ok:false,j:{}}));
   if(!r.ok) throw new Error((r.j && r.j.error) || 'บันทึกไม่สำเร็จ');
   await galPutImg(r.j.id, await galEncode(bmp, W1, H1, 480, Math.round(H*480/W), 0.8), true);
   await galPutImg(r.j.id, await galEncode(bmp, W1, H1, W, H, 0.86), false);

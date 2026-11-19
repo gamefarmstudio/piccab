@@ -129,7 +129,7 @@ function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}, its=itemsOf(sc)
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
-  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#adminView').hidden=v!=='admin'; $('#playView').hidden=g;
+  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#adminView').hidden=v!=='admin'; $('#pathView').hidden=v!=='path'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
   document.body.classList.toggle('gview', g);
@@ -143,7 +143,8 @@ function goHome(view){
   if(aiCtl) aiCtl.abort();
   closeQuiz(true); spkStop(); G.pinnedId=G.hoverId=null; G.flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
-  S.view=(view==='library'||view==='words'||view==='class'||view==='admin')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
+  if(view==='path') tally('path');
+  S.view=(view==='library'||view==='words'||view==='class'||view==='admin'||view==='path')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
   if(!edit) tally('mode:'+(mode||'learn'));
