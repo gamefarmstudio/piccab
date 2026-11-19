@@ -5,6 +5,7 @@ import { boot } from './js/progress.js';
 import { closeModal, fullRender, goHome, langLabel, openModal, refresh, renderScene, setLang, UI_LANGS, uiRow } from './js/scene.js';
 import './js/home.js';
 import './js/decks.js';
+import './js/cards.js';
 import './js/games.js';
 import './js/sentence.js';
 import './js/editor.js';
