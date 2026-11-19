@@ -997,6 +997,10 @@ async function sharePage(request, env, url) {
 //   POST   /api/classes/<id>/items {share_id}   (teacher; a share link of theirs)
 //   DELETE /api/classes/<id>/items/<share_id>   (teacher)
 //   DELETE /api/classes/<id>/members/<user id|me>  (teacher removes / student leaves)
+//   PATCH  /api/classes/<id>/members/me {report}   (a member shares their learning report, or stops)
+//   POST   /api/classes/report     {data}       (a learner's own report; kept only while shared with a group)
+//   GET    /api/classes/<id>/report/<user id>   (owner: the report of a member who shares it; Pro)
+// A family group is a class with kind 'family' (supabase/2026-11-reports.sql): members always share their report.
 const CLASS_CODE = /^[A-Z2-9]{6}$/;
 const MAX_CLASSES = 50, MAX_MEMBERS = 200, MAX_ITEMS = 100;
 const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1043,6 +1047,53 @@ export function leaderboard(members, progress, itemIds, me) {
   return rows;
 }
 const cleanNick = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 30);
+// ---------- 📈 learning reports ----------
+// Worked out on the learner's device (see app/js/report.js); kept here only in this shape, with limits.
+const REPORT_MODES = ['learn', 'quiz', 'find', 'speak', 'sent', 'review'];
+export function cleanReport(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const int = (v, max = 100000) => Math.max(0, Math.min(max, Math.round(+v || 0)));
+  const txt = (v, n = 60) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
+  const day = v => /^20\d\d-[01]\d-[0-3]\d$/.test(String(v)) ? String(v) : null;
+  const arr = (v, n) => (Array.isArray(v) ? v : []).filter(Array.isArray).slice(0, n);
+  const s = d.s && typeof d.s === 'object' ? d.s : {}, w = d.words && typeof d.words === 'object' ? d.words : {};
+  const days = arr(d.days, 62).map(x => {
+    const modes = {}, m = x[4] && typeof x[4] === 'object' ? x[4] : {};
+    for (const k of REPORT_MODES) if (m[k]) modes[k] = int(m[k], 5000);
+    return [day(x[0]), int(x[1], 5000), int(x[2], 1440), int(x[3], 1000), modes];
+  }).filter(x => x[0]);
+  return {
+    v: 1,
+    s: { streak: int(s.streak, 3650), week: int(s.week), total: int(s.total), star: int(s.star), min7: int(s.min7, 10080), last: day(s.last) },
+    stage: GALLERY_STAGES.includes(d.stage) ? d.stage : '',
+    lang: AI_LANGS[d.lang] ? d.lang : 'en',
+    words: { total: int(w.total), done: int(w.done), star: int(w.star), due: int(w.due) },
+    days,
+    weak: arr(d.weak, 20).map(x => [txt(x[0]), txt(x[1]), int(x[2], 1000)]).filter(x => x[0]),
+    learned: arr(d.learned, 20).map(x => [txt(x[0]), txt(x[1]), day(x[2])]).filter(x => x[0]),
+    cefr: arr(d.cefr, 7).map(x => [String(x[0]), int(x[1]), int(x[2])]).filter(x => GALLERY_CEFR.includes(x[0])),
+    scenes: arr(d.scenes, 15).map(x => [txt(x[0]), int(x[1], 10000), int(x[2], 10000)]).filter(x => x[0]),
+  };
+}
+// Pro plan: given per e-mail by an admin (plans table). PRO_REQUIRED=1 turns the lock on.
+const proRequired = env => String(env.PRO_REQUIRED || '').trim() === '1';
+async function proOf(env, me) {
+  if (!me || me.anon || !me.email) return { pro: false };
+  try {
+    const r = (await q(env, `plans?email=eq.${encodeURIComponent(me.email)}&select=plan,until`) || [])[0];
+    if (r && (!r.until || Date.parse(r.until) > Date.now())) return { pro: true, until: r.until || null };
+  } catch (e) {}                                                                 // table not made yet
+  return { pro: false };
+}
+// The report is kept only while the learner shares it with a group.
+async function sharesReport(env, uid) {
+  try { return !!(await q(env, `class_members?user_id=eq.${uid}&report=is.true&select=class_id&limit=1`) || []).length; }
+  catch (e) { return false; }
+}
+async function dropReportIfUnshared(env, uid) {
+  if (await sharesReport(env, uid)) return;
+  await q(env, `learner_reports?user_id=eq.${uid}`, { method: 'DELETE' }).catch(() => {});
+}
 async function classes(request, env, url, ctx) {
   if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
   const me = await userInfo(request, env);
@@ -1051,25 +1102,28 @@ async function classes(request, env, url, ctx) {
   const m = request.method, id = parts[2];
   try {
     if (!id && m === 'GET') {
-      const teaching = await q(env, `classes?owner=eq.${uid}&select=id,code,name,created_at&order=created_at.desc`) || [];
-      const mem = await q(env, `class_members?user_id=eq.${uid}&select=class_id,nickname,joined_at`) || [];
-      const learn = mem.length ? await q(env, `classes?id=${inList(mem.map(x => x.class_id))}&select=id,name`) || [] : [];
+      const teaching = await q(env, `classes?owner=eq.${uid}&select=*&order=created_at.desc`) || [];     // * : works before the kind column exists
+      const mem = await q(env, `class_members?user_id=eq.${uid}&select=*`) || [];
+      const learn = mem.length ? await q(env, `classes?id=${inList(mem.map(x => x.class_id))}&select=*`) || [] : [];
       const counts = {};
       if (teaching.length) for (const r of await q(env, `class_members?class_id=${inList(teaching.map(c => c.id))}&select=class_id`) || []) counts[r.class_id] = (counts[r.class_id] || 0) + 1;
-      const nick = new Map(mem.map(x => [x.class_id, x.nickname]));
-      return json({ teaching: teaching.map(c => ({ ...c, members: counts[c.id] || 0 })), learning: learn.map(c => ({ id: c.id, name: c.name, nickname: nick.get(c.id) })) });
+      const mine = new Map(mem.map(x => [x.class_id, x]));
+      const plan = me.anon ? undefined : { ...(await proOf(env, me)), required: proRequired(env) };
+      return json({ teaching: teaching.map(c => ({ id: c.id, code: c.code, name: c.name, created_at: c.created_at, kind: c.kind || 'class', members: counts[c.id] || 0 })),
+        learning: learn.map(c => ({ id: c.id, name: c.name, kind: c.kind || 'class', nickname: (mine.get(c.id) || {}).nickname, report: !!(mine.get(c.id) || {}).report })), plan });
     }
     if (!id && m === 'POST') {
       if (me.anon) return error('student_account', 403);
       const body = await request.json().catch(() => ({}));
       const name = String(body.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
       if (!name) return error('bad_request', 400);
+      const kind = body.kind === 'family' ? 'family' : 'class';
       const mine = await q(env, `classes?owner=eq.${uid}&select=id`) || [];
       if (mine.length >= MAX_CLASSES) return error('too_many_classes', 429);
       for (let tries = 0; tries < 6; tries++) {
-        const row = { id: newShareId(), code: newClassCode(), owner: uid, name };
-        try { await q(env, 'classes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify(row) }); return json({ id: row.id, code: row.code, name }); }
-        catch (e) { if (e.status !== 409) throw e; }                    // code taken → try another
+        const row = { id: newShareId(), code: newClassCode(), owner: uid, name, ...(kind === 'family' ? { kind } : {}) };
+        try { await q(env, 'classes', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify(row) }); return json({ id: row.id, code: row.code, name, kind }); }
+        catch (e) { if (e.status === 409) continue; if (kind === 'family' && e.status === 400) return error('needs_update', 503); throw e; }   // code taken → try another; kind column not added yet
       }
       return error('db_error', 502);
     }
@@ -1080,13 +1134,28 @@ async function classes(request, env, url, ctx) {
       const nickname = cleanNick(body.nickname);
       if (!CLASS_CODE.test(code)) return error('bad_code', 400);
       if (!nickname) return error('bad_nickname', 400);
-      const c = (await q(env, `classes?code=eq.${code}&select=id,name,owner`) || [])[0];
+      const c = (await q(env, `classes?code=eq.${code}&select=*`) || [])[0];
       if (!c) return error('bad_code', 404);
       if (c.owner === uid) return error('own_class', 400);
       const members = await q(env, `class_members?class_id=eq.${c.id}&select=user_id`) || [];
       if (!members.some(x => x.user_id === uid) && members.length >= MAX_MEMBERS) return error('class_full', 429);
-      await q(env, 'class_members?on_conflict=class_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ class_id: c.id, user_id: uid, nickname }) });
-      return json({ id: c.id, name: c.name, nickname });
+      const kind = c.kind || 'class', report = kind === 'family' || body.report === true;
+      const row = { class_id: c.id, user_id: uid, nickname };
+      const put = r => q(env, 'class_members?on_conflict=class_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(r) });
+      let shared = report;
+      try { await put({ ...row, report }); }
+      catch (e) { if (e.status !== 400) throw e; await put(row); shared = false; }   // report column not added yet
+      return json({ id: c.id, name: c.name, nickname, kind, report: shared });
+    }
+    if (id === 'report' && m === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      if (!(await sharesReport(env, uid))) { await q(env, `learner_reports?user_id=eq.${uid}`, { method: 'DELETE' }).catch(() => {}); return json({ ok: true, shared: false }); }
+      const data = cleanReport(body.data);
+      if (!data) return error('bad_request', 400);
+      if (JSON.stringify(data).length > 38000) return error('too_big', 413);
+      try { await q(env, 'learner_reports?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: uid, data, updated_at: new Date().toISOString() }) }); }
+      catch (e) { if (e.status === 404) return error('needs_update', 503); throw e; }
+      return json({ ok: true, shared: true });
     }
     if (id === 'progress' && m === 'POST') {
       const body = await request.json().catch(() => ({}));
@@ -1105,15 +1174,24 @@ async function classes(request, env, url, ctx) {
     const c = (await q(env, `classes?id=eq.${id}&select=*`) || [])[0];          // * : works before the leaderboard column exists
     if (!c) return error('not_found', 404);
     const teacher = c.owner === uid;
-    const membership = teacher ? null : (await q(env, `class_members?class_id=eq.${id}&user_id=eq.${uid}&select=nickname`) || [])[0];
+    const membership = teacher ? null : (await q(env, `class_members?class_id=eq.${id}&user_id=eq.${uid}&select=*`) || [])[0];
     if (!teacher && !membership) return error('not_found', 404);
     const sub = parts[3];
     if (!sub && m === 'GET') {
       const items = await classItems(env, id);
       if (teacher) {
-        const members = await q(env, `class_members?class_id=eq.${id}&select=user_id,nickname,joined_at&order=nickname.asc`) || [];
+        const members = (await q(env, `class_members?class_id=eq.${id}&select=*&order=nickname.asc`) || [])
+          .map(x => ({ user_id: x.user_id, nickname: x.nickname, joined_at: x.joined_at, report: !!x.report }));
         const progress = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,total,done,star,updated_at`) || [];
-        return json({ role: 'teacher', id: c.id, code: c.code, name: c.name, leaderboard: !!c.leaderboard, items, members, progress });
+        const shared = members.filter(x => x.report).map(x => x.user_id);
+        let reports = [];
+        if (shared.length) {
+          try { reports = (await q(env, `learner_reports?user_id=${inList(shared)}&select=user_id,updated_at,s:data->s`) || [])
+            .map(r => ({ user_id: r.user_id, updated_at: r.updated_at, s: r.s || (r.data && r.data.s) || {} })); }
+          catch (e) {}                                                         // table not made yet
+        }
+        const plan = { ...(await proOf(env, me)), required: proRequired(env) };
+        return json({ role: 'teacher', id: c.id, code: c.code, name: c.name, kind: c.kind || 'class', leaderboard: !!c.leaderboard, items, members, progress, reports, plan });
       }
       const progress = await q(env, `class_progress?class_id=eq.${id}&user_id=eq.${uid}&select=share_id,total,done,star,updated_at`) || [];
       let board = null;
@@ -1122,14 +1200,38 @@ async function classes(request, env, url, ctx) {
         const all = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,done,star`) || [];
         board = leaderboard(members, all, new Set(items.map(i => i.share_id)), uid);
       }
-      return json({ role: 'student', id: c.id, name: c.name, nickname: membership.nickname, items, progress, leaderboard: board });
+      return json({ role: 'student', id: c.id, name: c.name, kind: c.kind || 'class', nickname: membership.nickname, report: !!membership.report, items, progress, leaderboard: board });
     }
     if (sub === 'members' && m === 'DELETE' && parts[4]) {
       const who = parts[4] === 'me' ? uid : parts[4];
       if (!teacher && who !== uid) return error('forbidden', 403);
       if (!/^[0-9a-f-]{36}$/i.test(who)) return error('bad_request', 400);
       await q(env, `class_members?class_id=eq.${id}&user_id=eq.${who}`, { method: 'DELETE' });
+      await dropReportIfUnshared(env, who);
       return json({ ok: true });
+    }
+    if (sub === 'members' && m === 'PATCH' && parts[4] === 'me') {
+      if (teacher) return error('forbidden', 403);
+      const body = await request.json().catch(() => ({}));
+      if ((c.kind || 'class') === 'family' && body.report === false) return error('family_report', 400);   // a family group is for the report
+      const on = body.report === true;
+      try { await q(env, `class_members?class_id=eq.${id}&user_id=eq.${uid}`, { method: 'PATCH', body: JSON.stringify({ report: on }) }); }
+      catch (e) { if (e.status === 400) return error('needs_update', 503); throw e; }
+      if (!on) await dropReportIfUnshared(env, uid);
+      return json({ ok: true, report: on });
+    }
+    if (sub === 'report' && m === 'GET' && teacher) {
+      const who = parts[4];
+      if (!UUID.test(who || '')) return error('bad_request', 400);
+      const mb = (await q(env, `class_members?class_id=eq.${id}&user_id=eq.${who}&select=*`) || [])[0];
+      if (!mb) return error('not_found', 404);
+      if (!mb.report) return error('not_shared', 403);
+      const plan = await proOf(env, me);
+      if (proRequired(env) && !plan.pro) return error('pro_required', 402);
+      let r = null;
+      try { r = (await q(env, `learner_reports?user_id=eq.${who}&select=data,updated_at`) || [])[0]; }
+      catch (e) { if (e.status === 404) return error('needs_update', 503); throw e; }
+      return json({ nickname: mb.nickname, joined_at: mb.joined_at, updated_at: r ? r.updated_at : null, data: r ? r.data : null });
     }
     if (!teacher) return error('forbidden', 403);
     if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
@@ -1226,7 +1328,7 @@ async function clientError(request, env) {
 }
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
-  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'feedback', 'gallery_add',
+  'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
   'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards'];
 export function cleanUsage(b) {
   const out = {};
@@ -1604,6 +1706,24 @@ async function admin(request, env, url) {
         for (const [t, v] of userCache) if (v.uid === id) userCache.delete(t);
       }
       return json({ ok: true, banned: on });
+    }
+    // ⭐ Pro plan per e-mail (supabase/2026-11-reports.sql)
+    if (what === 'plans' && !id && m === 'GET') {
+      try { return json({ plans: await q(env, 'plans?select=email,plan,until,note,created_at&order=created_at.desc&limit=500') || [], required: proRequired(env) }); }
+      catch (e) { if (e.status === 404) return json({ setup: true, required: proRequired(env) }); throw e; }
+    }
+    if (what === 'plans' && !id && m === 'POST') {
+      const email = String(body.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return error('bad_email', 400);
+      const until = body.until ? new Date(body.until) : null;
+      if (until && isNaN(until)) return error('bad_request', 400);
+      await q(env, 'plans?on_conflict=email', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ email, plan: 'pro', until: until ? until.toISOString() : null, note: String(body.note || '').slice(0, 200) || null }) });
+      return json({ ok: true });
+    }
+    if (what === 'plans' && id && m === 'DELETE') {
+      await q(env, `plans?email=eq.${encodeURIComponent(decodeURIComponent(id).toLowerCase())}`, { method: 'DELETE' });
+      return json({ ok: true });
     }
     if (what === 'shares' && SHARE_ID.test(id || '') && m === 'DELETE') {
       if (env.IMAGES) await deletePrefix(env, `s/${id}/`);

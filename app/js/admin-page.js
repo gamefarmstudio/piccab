@@ -16,9 +16,9 @@ async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?a
 function renderAdmin(){
   const v=$('#adminView'); v.innerHTML='';
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🛡️ ดูแลระบบ'}), el('p',{text:'รายงานจากผู้ใช้ · ระงับบัญชี · ลบลิงก์แชร์'})),
-    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=ADM.ai=ADM.fb=ADM.errs=ADM.stats=ADM.gal=null; renderAdmin(); }})));
+    el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ ADM.data=ADM.ai=ADM.fb=ADM.errs=ADM.stats=ADM.gal=ADM.pro=null; renderAdmin(); }})));
   if(!user || !ADM.ok){ v.append(el('p',{class:'libempty',text: user ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'เข้าสู่ระบบด้วยบัญชีผู้ดูแลก่อน'})); return; }
-  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['gallery','🖼️ คลังภาพ'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI'],['compare','🧪 เทียบ AI']];
+  const tabs=[['reports','🚩 รายงาน'],['feedback','💬 ความเห็น'],['gallery','🖼️ คลังภาพ'],['stats','📊 การใช้งาน'],['errors','🐞 ข้อผิดพลาด'],['ai','✨ การใช้ AI'],['compare','🧪 เทียบ AI'],['pro','⭐ Pro']];
   v.append(el('div',{class:'seg admtabs'}, ...tabs.map(([k,t])=>el('button',{class:ADM.tab===k?'on':'',text:t,onclick:()=>{ ADM.tab=k; if(k==='ai') ADM.ai=null; renderAdmin(); }}))));
   if(ADM.tab==='ai'){ renderAiUsage(v); return; }
   if(ADM.tab==='compare'){ renderCompare(v); return; }
@@ -26,6 +26,7 @@ function renderAdmin(){
   if(ADM.tab==='stats'){ renderStatsAdmin(v); return; }
   if(ADM.tab==='errors'){ renderErrorsAdmin(v); return; }
   if(ADM.tab==='gallery'){ renderGalleryAdmin(v); return; }
+  if(ADM.tab==='pro'){ renderProAdmin(v); return; }
   v.append(el('div',{class:'seg'},
     el('button',{class:ADM.all?'':'on',text:'ยังไม่จัดการ',onclick:()=>{ ADM.all=false; ADM.data=null; renderAdmin(); }}),
     el('button',{class:ADM.all?'on':'',text:'ทั้งหมด',onclick:()=>{ ADM.all=true; ADM.data=null; renderAdmin(); }})));
@@ -110,6 +111,37 @@ function renderErrorsAdmin(v){
     el('p',{class:'note small',text:`ที่ ${o.src||'-'} · หน้า ${o.page||'-'}`}),
     el('p',{class:'note small',text:o.ua||''}),
     o.stack ? el('details',{}, el('summary',{text:'stack'}), el('pre',{class:'errstack',text:o.stack})) : null)));
+}
+// ⭐ Pro plan per e-mail (detailed learning reports for teachers and parents)
+function renderProAdmin(v){
+  if(adminLoad('pro','/plans','pro')){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); return; }
+  const P=ADM.pro;
+  if(P.error){ v.append(el('p',{class:'err',text:P.error})); return; }
+  v.append(el('div',{class:'admcard'},
+    el('p',{}, el('b',{text: P.required ? '🔒 ล็อก Pro: เปิด' : '🔓 ล็อก Pro: ปิด (ช่วงทดลอง ทุกคนใช้รายงานละเอียดได้)'})),
+    el('p',{class:'note small',text:'เปิดล็อกโดยตั้งตัวแปร PRO_REQUIRED = 1 ใน Cloudflare Worker → Settings → Variables · ตอนนี้ Pro มีผลกับรายงานการเรียนแบบละเอียด'})));
+  if(P.setup){ v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:'ยังไม่ได้เปิดใช้'})), el('p',{text:'รันไฟล์ supabase/2026-11-reports.sql ใน Supabase → SQL Editor ครั้งเดียว'}))); return; }
+  const em=el('input',{type:'email',placeholder:'อีเมลของครูหรือผู้ปกครอง','aria-label':'อีเมล'});
+  const until=el('input',{type:'date','aria-label':'ใช้ได้ถึง'});
+  const note=el('input',{maxlength:'200',placeholder:'บันทึก เช่น โรงเรียน… / ชำระแล้ว','aria-label':'บันทึก'});
+  const add=el('button',{class:'primary',text:'⭐ เปิด Pro',onclick:async()=>{
+    if(!em.value.trim()){ em.focus(); return; } add.disabled=true;
+    const r=await adminApi('POST','/plans',{ email:em.value.trim(), until:until.value ? until.value+'T23:59:59+07:00' : null, note:note.value }).catch(()=>({ok:false}));
+    add.disabled=false;
+    if(!r.ok){ toast(r.j && r.j.error==='bad_email' ? 'อีเมลไม่ถูกต้อง' : 'บันทึกไม่สำเร็จ'); return; }
+    toast('เปิด Pro แล้ว'); ADM.pro=null; renderAdmin(); }});
+  v.append(el('div',{class:'admcard proform'}, el('b',{text:'เปิด Pro ให้บัญชี'}),
+    el('div',{class:'row'}, em, el('label',{class:'small'},'ใช้ได้ถึง (ว่าง = ไม่มีวันหมด) ', until), note, add)));
+  if(!P.plans.length){ v.append(el('p',{class:'libempty',text:'ยังไม่มีบัญชี Pro'})); return; }
+  P.plans.forEach(x=>{ const live=!x.until || Date.parse(x.until)>Date.now();
+    v.append(el('div',{class:'admcard'+(live?'':' done')},
+      el('div',{class:'admtop'}, el('span',{class:'pill'+(live?' ok':''),text: live ? '⭐ Pro' : 'หมดอายุ'}), el('b',{'data-noi18n':'',text:x.email})),
+      el('p',{class:'note small',text:(x.until ? 'ใช้ได้ถึง '+new Date(x.until).toLocaleDateString() : 'ไม่มีวันหมด')+(x.note ? ' · '+x.note : '')}),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{class:'danger',text:'ยกเลิก Pro',onclick:async()=>{
+        if(!(await ask(`ยกเลิก Pro ของ ${x.email}?`,'ยกเลิก Pro'))) return;
+        const r=await adminApi('DELETE','/plans/'+encodeURIComponent(x.email)).catch(()=>({ok:false}));
+        if(!r.ok) toast('ไม่สำเร็จ'); ADM.pro=null; renderAdmin(); }}))));
+  });
 }
 // 🖼️ Admin: what the library holds, import from Gemini (picture + JSON), publish, fix boxes
 function galStats(D){

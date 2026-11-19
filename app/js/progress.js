@@ -3,6 +3,7 @@ import { G, langMap, progress, S, scene, store, toast } from './core.js';
 import { allWords } from './home.js';
 import { reportClassProgressSoon } from './classes.js';
 import { reportFriendStatsSoon } from './friends.js';
+import { sendReportSoon } from './report.js';
 import { syncSoon } from './sync.js';
 
 // ---------- spaced repetition ----------
@@ -21,9 +22,20 @@ function srsOf(scId,id){
   return {b:1, d:base+1+hashStr(scId+'|'+id)%4, legacy:true};
 }
 const srsDue=(scId,id)=>{ const r=srsOf(scId,id); return !!r && r.d<=dayNo(); };
+// For the learning report: per word [times it needed help or a wrong try, day first passed] (pv-wstat).
+var WST=null;
+function wordStats(){ if(!WST){ WST=store.get('pv-wstat',{}); if(!WST || typeof WST!=='object') WST={}; } return WST; }
+function noteAnswer(scId, id, clean, first){
+  if(clean && !first) return;                               // nothing new to note
+  const W=wordStats(), k=scId+'|'+id, r=Array.isArray(W[k]) ? W[k] : [0,0];
+  if(!clean) r[0]=Math.min(999,(r[0]|0)+1);
+  if(first && !r[1]) r[1]=dayNo();
+  W[k]=r; store.set('pv-wstat',W);
+}
 // Called when a word is typed right. clean = no hint/listen/answer and no wrong try.
 function srsAnswer(p, scId, id, clean){
   const t=dayNo(), cur=srsOf(scId,id);
+  noteAnswer(scId, id, clean, !cur);
   if(!cur){ p.done[id]={b:1, d:t+1}; return; }                         // just learned → see it again tomorrow
   if(cur.d>t){ if(cur.legacy) p.done[id]={b:cur.b, d:cur.d}; return; }  // not due yet: keep the plan
   if(clean){ const b=Math.min(cur.b+1, SRS_DAYS.length); p.done[id]={b, d:t+SRS_DAYS[b-1]}; }
@@ -46,6 +58,7 @@ function saveProg(){
   if(typeof syncSoon==='function') syncSoon();
   if(typeof reportClassProgressSoon==='function') reportClassProgressSoon();
   if(typeof reportFriendStatsSoon==='function') reportFriendStatsSoon();
+  if(typeof sendReportSoon==='function') sendReportSoon();
 }
 Object.values(progress).forEach(p=>{ if(p) Object.defineProperty(p,'_sig',{value:JSON.stringify([p.done||{},p.star||{}]),writable:true,configurable:true,enumerable:false}); });
 // ---------- local persistence ----------
@@ -98,4 +111,4 @@ async function boot(){
   G.customs.forEach(sc=>Object.defineProperty(sc,'_sig',{value:sigOf(sc),writable:true,configurable:true,enumerable:false}));
 }
 
-export { boot, dayNo, dueOn, dueWords, forgetSceneLocal, imgSaved, nextReviewText, persistScenesQuiet, prog, progRaw, saveProg, saveScenes, sigOf, srsAnswer, srsDue, srsOf };
+export { boot, dayNo, dueOn, dueWords, forgetSceneLocal, imgSaved, nextReviewText, persistScenesQuiet, prog, progRaw, saveProg, saveScenes, sigOf, srsAnswer, srsDue, srsOf, wordStats };

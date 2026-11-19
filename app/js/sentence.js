@@ -6,6 +6,7 @@
 import { G, el, ids, items, S, scene, shuffle, speak, store, tally, toast, UI } from './core.js';
 import { saveScenes } from './progress.js';
 import { ask, doFlash, refresh, renderSub, setHL } from './scene.js';
+import { markActive } from './home.js';
 import { aiErr, aiNotice, aiWait } from './editor.js';
 import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
@@ -140,7 +141,7 @@ function sentNext(){
   sg.i++;
   if(sg.i<sg.order.length) sentNew();
   else {
-    sg.cur=null; tally('sent_round');
+    sg.cur=null; tally('sent_round'); markActive(0,'sent');
     const k=sg.sid+(sg.lv===2?':2':''), b=sentBest[k]; if(!b || sg.stars>b.stars){ sentBest[k]={ stars:sg.stars, n:sg.order.length }; store.set('pv-sentbest', sentBest); }
   }
   renderSub(); setHL();

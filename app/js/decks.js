@@ -285,7 +285,7 @@ function rvCheck(v){
     if(!progress[w.sc.id]) progress[w.sc.id]={done:{},star:{}};
     const p=progress[w.sc.id]; p.done=p.done||{}; p.star=p.star||{};
     const clean=!RV.used && !RV.miss && res.art!=='missing';
-    srsAnswer(p, w.sc.id, w.pid, clean); if(clean) p.star[w.pid]=true; saveProg(); markActive(1);
+    srsAnswer(p, w.sc.id, w.pid, clean); if(clean) p.star[w.pid]=true; saveProg(); markActive(1,'review');
     RV.ok++; if(clean) RV.star++;
     rvMsg('ok',(clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+w.it.word+artNote(res));
     speak(sayWord(w.it));

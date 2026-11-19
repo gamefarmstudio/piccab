@@ -5,6 +5,7 @@ import { deckCount, deckList, deckName, deckNameDialog, getDeck, liveKeys, wkey 
 import { autoLangState, autoTranslate, missingIn } from './editor.js';
 import { authErr, capErr, humanCheck, openDeleteAccount, openLogin, sb, user } from './account.js';
 import { badgeEl, FR, renderFriends } from './friends.js';
+import { openMemberReport, proBadge, proLocked, renderReport, reportLine, setReportOn } from './report.js';
 import { copyLink, importShare, myShares, openImported, picturesUploaded, shareApi, shareErr, shareKey, shareLinkNative, sharePayload } from './share.js';
 import { accessToken, syncText } from './sync.js';
 
@@ -15,7 +16,7 @@ import { accessToken, syncText } from './sync.js';
 // (function / var: the account code above may ask before this part of the script has run)
 function isStudent(){ return !!(user && user.is_anonymous); }
 function studentNick(){ return String((user && user.user_metadata && user.user_metadata.nickname) || 'นักเรียน').slice(0,30); }
-var CL={ list:null, openId:null, detail:null, busy:false };
+var CL={ list:null, openId:null, detail:null, busy:false, report:null };
 const classItemsMap=()=>store.get('pv-class-items',{})||{};       // { classId: [shareId…] } for progress reports
 async function classApi(method, path, body){
   const tok=await accessToken();
@@ -25,13 +26,13 @@ async function classApi(method, path, body){
 }
 const classErr=(r)=>({ bad_code:'ไม่พบห้องเรียนนี้ ตรวจรหัส 6 ตัวอีกครั้ง', bad_nickname:'ใส่ชื่อเล่นก่อนนะ', own_class:'นี่คือห้องที่คุณสอนอยู่แล้ว',
   class_full:'ห้องนี้เต็มแล้ว (200 คน)', rate_limited:'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', student_account:'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ — ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google',
-  too_many_classes:'สร้างห้องเรียนครบ 50 ห้องแล้ว', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
+  too_many_classes:'สร้างห้องเรียนและกลุ่มครอบครัวครบ 50 กลุ่มแล้ว', family_report:'กลุ่มครอบครัวแชร์รายงานกับผู้ปกครองเสมอ — ถ้าไม่ต้องการ ให้ออกจากกลุ่ม', not_shared:'ยังไม่ได้แชร์รายงาน', pro_required:'รายงานละเอียดเป็นฟีเจอร์ Pro', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
   || (r.status===401 ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง'));
 async function loadClasses(){
   if(!user){ CL.list={teaching:[],learning:[]}; return; }
   const r=await classApi('GET','').catch(()=>({ok:false}));
   CL.list = r.ok ? r.j : (CL.list||null);
-  if(!r.ok) CL.err=classErr(r); else CL.err=null;
+  if(!r.ok) CL.err=classErr(r); else { CL.err=null; setReportOn((r.j.learning||[]).some(c=>c.report)); }
 }
 function socialTabs(v){
   const t=FR.tab;
@@ -47,22 +48,29 @@ function renderClass(){
   socialTabs(v);
   v.append(el('div',{class:'tiles cltiles'},
     el('button',{class:'tile cljoin',onclick:()=>openJoinClass()}, el('span',{class:'ic'},ic('key')),
-      el('span',{class:'tt'}, el('b',{text:'เข้าห้องด้วยรหัส'}), el('small',{text:'นักเรียน · ใช้รหัสจากครู ไม่ต้องมีอีเมล'})), el('span',{class:'arrow'},ic('arrow_forward'))),
-    el('button',{class:'tile clnew',onclick:createClassDialog}, el('span',{class:'ic'},ic('add')),
-      el('span',{class:'tt'}, el('b',{text:'สร้างห้องเรียน'}), el('small',{text:'ครู · มอบหมายฉากและชุดคำ'})), el('span',{class:'arrow'},ic('arrow_forward')))));
+      el('span',{class:'tt'}, el('b',{text:'เข้าห้องด้วยรหัส'}), el('small',{text:'นักเรียน / ลูก · ใช้รหัสจากครูหรือผู้ปกครอง ไม่ต้องมีอีเมล'})), el('span',{class:'arrow'},ic('arrow_forward'))),
+    el('button',{class:'tile clnew',onclick:()=>createClassDialog('class')}, el('span',{class:'ic'},ic('add')),
+      el('span',{class:'tt'}, el('b',{text:'สร้างห้องเรียน'}), el('small',{text:'ครู · มอบหมายฉากและชุดคำ ดูรายงานนักเรียน'})), el('span',{class:'arrow'},ic('arrow_forward'))),
+    el('button',{class:'tile clfam',onclick:()=>createClassDialog('family')}, el('span',{class:'ic'},ic('home')),
+      el('span',{class:'tt'}, el('b',{text:'สร้างกลุ่มครอบครัว'}), el('small',{text:'ผู้ปกครอง · ดูความคืบหน้าของลูก'})), el('span',{class:'arrow'},ic('arrow_forward')))));
   if(!user) return;
   if(!CL.list){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClasses().then(()=>{ if(S.view==='class' && !CL.openId) renderClass(); }); return; }
   if(CL.err) v.append(el('p',{class:'err',text:CL.err}));
   const sec=(icon, title, arr, mk)=>{ v.append(el('div',{class:'hsec'}, el('h3',{}, ic(icon), title))); const box=el('div',{class:'liblist'}); arr.forEach(c=>box.append(mk(c))); v.append(box); };
-  if(CL.list.learning.length) sec('backpack', 'ห้องที่ฉันเรียน', CL.list.learning, c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
-    el('span',{class:'clic'},ic('backpack')), el('span',{class:'lb'}, el('b',{text:c.name}), el('span',{class:'lm'}, ic('person'), c.nickname||'')), ic('chevron_right','chev')));
-  if(CL.list.teaching.length) sec('co_present', 'ห้องที่ฉันสอน', CL.list.teaching, c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
-    el('span',{class:'clic t'},ic('co_present')), el('span',{class:'lb'}, el('b',{text:c.name}),
-      el('span',{class:'lm'}, el('span',{class:'clcode',title:'รหัสห้อง'}, ic('key'), c.code), el('span',{title:'นักเรียน'}, ic('group'), String(c.members)))), ic('chevron_right','chev')));
+  const isFam=c=>c.kind==='family';
+  if(CL.list.learning.length) sec('backpack', 'ห้องและกลุ่มที่ฉันอยู่', CL.list.learning, c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
+    el('span',{class:'clic'+(isFam(c)?' f':'')},ic(isFam(c)?'home':'backpack')), el('span',{class:'lb'}, el('b',{text:c.name}),
+      el('span',{class:'lm'}, ic('person'), c.nickname||'', isFam(c) ? el('span',{text:' · ครอบครัว'}) : null, c.report ? el('span',{title:'แชร์รายงานการเรียน',text:' · 📈'}) : null)), ic('chevron_right','chev')));
+  const teachRow=c=>el('button',{class:'lrow',onclick:()=>openClass(c.id)},
+    el('span',{class:'clic t'+(isFam(c)?' f':'')},ic(isFam(c)?'home':'co_present')), el('span',{class:'lb'}, el('b',{text:c.name}),
+      el('span',{class:'lm'}, el('span',{class:'clcode',title:'รหัส'}, ic('key'), c.code), el('span',{title:isFam(c)?'ลูก':'นักเรียน'}, ic('group'), String(c.members)))), ic('chevron_right','chev'));
+  const fams=CL.list.teaching.filter(isFam), cls=CL.list.teaching.filter(c=>!isFam(c));
+  if(fams.length) sec('home', 'กลุ่มครอบครัวของฉัน', fams, teachRow);
+  if(cls.length) sec('co_present', 'ห้องที่ฉันสอน', cls, teachRow);
   if(!CL.list.learning.length && !CL.list.teaching.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีห้องเรียน'}));
 }
-function openClass(id){ CL.openId=id; CL.detail=null; renderClass(); window.scrollTo(0,0); }
-function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; renderClass(); }
+function openClass(id){ CL.openId=id; CL.detail=null; CL.report=null; renderClass(); window.scrollTo(0,0); }
+function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; CL.report=null; renderClass(); }
 async function loadClassDetail(){
   const id=CL.openId, r=await classApi('GET','/'+id).catch(()=>({ok:false}));
   if(CL.openId!==id) return;
@@ -110,6 +118,7 @@ function renderClassDetail(){
   v.append(el('div',{class:'clback'}, el('button',{class:'linkbtn',onclick:backToClasses}, ic('arrow_back'), 'ห้องเรียนทั้งหมด')));
   if(!d){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClassDetail(); return; }
   if(d.error){ v.append(el('p',{class:'libempty',text:d.error})); return; }
+  if(d.role==='teacher' && CL.report){ v.lastChild.remove(); renderReport(v,d); return; }
   if(d.role==='teacher') renderTeacher(v,d); else renderStudent(v,d);
 }
 // 🏆 leaderboard (rows: {rank, nickname, done, star, me})
@@ -131,9 +140,19 @@ function boardRows(members, progress, items, me){
   return rows;
 }
 function renderStudent(v,d){
-  v.append(el('div',{class:'ghead'}, el('h2',{text:'🎒 '+d.name}), el('p',{text:'ชื่อในห้อง: '+d.nickname})));
+  const fam=d.kind==='family';
+  v.append(el('div',{class:'ghead'}, el('h2',{text:(fam?'🏠 ':'🎒 ')+d.name}), el('p',{text:(fam?'ชื่อในกลุ่ม: ':'ชื่อในห้อง: ')+d.nickname})));
+  if(fam) v.append(el('p',{class:'note rshare on',text:'📈 ผู้ปกครองเห็นรายงานการเรียนของคุณ: วันที่ฝึก เกมที่เล่น คำที่ผ่านแล้ว คำที่ยังพลาด และระดับ'}));
+  else {
+    const tg=el('button',{class:'toggle'+(d.report?' on':''),text:d.report?'📈 แชร์รายงานกับครู: เปิด':'📈 แชร์รายงานกับครู: ปิด',onclick:async()=>{
+      tg.disabled=true;
+      const r=await classApi('PATCH',`/${d.id}/members/me`,{ report:!d.report }).catch(()=>({ok:false}));
+      if(!r.ok){ tg.disabled=false; toast(r.j && r.j.error==='needs_update' ? 'ระบบรายงานยังไม่พร้อม' : classErr(r)); return; }
+      toast(!d.report ? 'แชร์รายงานกับครูแล้ว' : 'เลิกแชร์รายงานแล้ว'); CL.list=null; await loadClasses(); CL.detail=null; renderClassDetail(); }});
+    v.append(el('div',{class:'cllb'}, tg, el('span',{class:'note small',text: d.report ? 'ครูเห็นวันที่ฝึก เกมที่เล่น คำที่ผ่านแล้ว คำที่ยังพลาด และระดับของคุณ' : 'เปิดเพื่อให้ครูเห็นภาพรวมการเรียนของคุณ (ไม่ใช่แค่งานที่มอบหมาย)'})));
+  }
   const srv=new Map(d.progress.map(p=>[p.share_id,p]));
-  if(!d.items.length){ v.append(el('p',{class:'libempty',text:'ครูยังไม่ได้มอบหมายงาน'})); }
+  if(!d.items.length){ v.append(el('p',{class:'libempty',text:fam?'ยังไม่มีงานจากผู้ปกครอง':'ครูยังไม่ได้มอบหมายงาน'})); }
   else {
     v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่ได้รับมอบหมาย'})));
     const box=el('div',{class:'liblist'});
@@ -148,17 +167,17 @@ function renderStudent(v,d){
         el('button',{class:started?'':'primary',text:started?'▶ ทำต่อ':'▶ เริ่ม',onclick:e=>startAssignment(it, e.currentTarget)})));
     });
     v.append(box);
-    v.append(el('p',{class:'note small',text:'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ'}));
+    v.append(el('p',{class:'note small',text: fam ? 'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) · ความคืบหน้าจะส่งให้ผู้ปกครองอัตโนมัติ' : 'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ'}));
   }
   if(Array.isArray(d.leaderboard)){
     v.append(el('div',{class:'hsec'}, el('h3',{text:'🏆 อันดับในห้อง'}), el('span',{class:'hint',style:'color:var(--muted);font-size:13px',text:'นับคำที่พิมพ์ตอบถูกในงานที่ครูมอบหมาย'})));
     v.append(boardEl(d.leaderboard));
   }
-  v.append(el('div',{class:'clfoot'}, el('button',{class:'linkbtn small danger-link',text:'ออกจากห้องนี้',onclick:async()=>{
-    if(!(await ask(`ออกจากห้อง “${d.name}”? ครูจะไม่เห็นความคืบหน้าของคุณอีก (ฉากที่เก็บไว้ยังอยู่)`,'ออกจากห้อง'))) return;
+  v.append(el('div',{class:'clfoot'}, el('button',{class:'linkbtn small danger-link',text:fam?'ออกจากกลุ่มครอบครัว':'ออกจากห้องนี้',onclick:async()=>{
+    if(!(await ask(fam ? `ออกจากกลุ่ม “${d.name}”? ผู้ปกครองจะไม่เห็นรายงานของคุณอีก (ฉากที่เก็บไว้ยังอยู่)` : `ออกจากห้อง “${d.name}”? ครูจะไม่เห็นความคืบหน้าของคุณอีก (ฉากที่เก็บไว้ยังอยู่)`, fam?'ออกจากกลุ่ม':'ออกจากห้อง'))) return;
     const r=await classApi('DELETE',`/${d.id}/members/me`).catch(()=>({ok:false}));
     if(!r.ok){ toast(classErr(r)); return; }
-    const mp=classItemsMap(); delete mp[d.id]; store.set('pv-class-items',mp); toast('ออกจากห้องแล้ว'); backToClasses();
+    const mp=classItemsMap(); delete mp[d.id]; store.set('pv-class-items',mp); toast(fam?'ออกจากกลุ่มแล้ว':'ออกจากห้องแล้ว'); backToClasses();
   }})));
   reportClassProgress();
 }
@@ -177,15 +196,17 @@ async function startAssignment(it, btn){
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='▶ ลองอีกครั้ง'; } toast('โหลดงานไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่'); }
 }
 function renderTeacher(v,d){
-  const link=location.origin+'/c/'+d.code+HL;
-  v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:'🧑‍🏫 '+d.name}), el('p',{text:`นักเรียน ${d.members.length} คน · งาน ${d.items.length} รายการ`})),
+  const link=location.origin+'/c/'+d.code+HL, fam=d.kind==='family';
+  v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{text:(fam?'🏠 ':'🧑‍🏫 ')+d.name}), el('p',{text: fam ? `ลูก ${d.members.length} คน · งาน ${d.items.length} รายการ` : `นักเรียน ${d.members.length} คน · งาน ${d.items.length} รายการ`})),
     el('button',{class:'ghost',text:'🔄',title:'โหลดใหม่',onclick:()=>{ CL.detail=null; renderClassDetail(); }})));
   v.append(el('div',{class:'clinvite'},
-    el('div',{}, el('small',{text:'รหัสห้อง'}), el('div',{class:'clcode',text:d.code})),
+    el('div',{}, el('small',{text:fam?'รหัสกลุ่ม':'รหัสห้อง'}), el('div',{class:'clcode',text:d.code})),
     el('div',{class:'clinv-r'},
-      el('p',{text:'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
-      el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,'เข้าห้องเรียน '+d.name)})))));
-  // leaderboard switch + preview
+      el('p',{text: fam ? 'ในเครื่องของลูก เปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือเปิดลิงก์เชิญในเครื่องของลูก' : 'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
+      el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,(fam?'เข้ากลุ่มครอบครัว ':'เข้าห้องเรียน ')+d.name)})))));
+  memberReports(v,d);
+  // leaderboard switch + preview (classes only)
+  if(!fam){
   const lbBtn=el('button',{class:'toggle'+(d.leaderboard?' on':''),text:d.leaderboard?'🏆 ตารางอันดับ: เปิด':'🏆 ตารางอันดับ: ปิด',onclick:async()=>{
     lbBtn.disabled=true;
     const r=await classApi('PATCH','/'+d.id,{ leaderboard:!d.leaderboard }).catch(()=>({ok:false}));
@@ -193,13 +214,14 @@ function renderTeacher(v,d){
     toast(!d.leaderboard?'เปิดตารางอันดับแล้ว นักเรียนจะเห็นอันดับในห้อง':'ปิดตารางอันดับแล้ว'); CL.detail=null; renderClassDetail(); }});
   v.append(el('div',{class:'cllb'}, lbBtn, el('span',{class:'note small',text: d.leaderboard ? 'นักเรียนเห็นชื่อเล่นและจำนวนคำของเพื่อนในห้องนี้' : 'เปิดเพื่อให้นักเรียนเห็นอันดับของเพื่อนในห้อง (เฉพาะชื่อเล่นและจำนวนคำ)'})));
   if(d.leaderboard && d.members.length) v.append(boardEl(boardRows(d.members, d.progress, d.items, null)));
+  }
   // assignments
-  v.append(el('div',{class:'hsec'}, el('h3',{text:'งานที่มอบหมาย'}), el('button',{class:'linkbtn',text:'➕ มอบหมายฉากหรือชุดคำ',onclick:()=>openAssignPicker(d)})));
+  v.append(el('div',{class:'hsec'}, el('h3',{text:fam?'งานที่ให้ลูกฝึก':'งานที่มอบหมาย'}), el('button',{class:'linkbtn',text:'➕ มอบหมายฉากหรือชุดคำ',onclick:()=>openAssignPicker(d)})));
   if(!d.items.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีงาน — กด “มอบหมายฉากหรือชุดคำ” เลือกจากคลังของคุณ'}));
   // progress table
   if(d.items.length){
     const wrap=el('div',{class:'cltablewrap'}), tb=el('table',{class:'cltable'});
-    const head=el('tr',{}, el('th',{text:'นักเรียน'}));
+    const head=el('tr',{}, el('th',{text:fam?'ลูก':'นักเรียน'}));
     d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:(it.lang&&it.lang!=='en'&&LANGS[it.lang]?LANGS[it.lang].flag+' ':'')+it.total+' คำ'}),
       el('button',{class:'x',title:'เลิกมอบหมายงานนี้','aria-label':'เลิกมอบหมาย '+it.name,text:'✕',onclick:async()=>{
         if(!(await ask(`เลิกมอบหมาย “${it.name}”? ความคืบหน้าของงานนี้จะถูกลบ`,'เลิกมอบหมาย'))) return;
@@ -207,7 +229,7 @@ function renderTeacher(v,d){
     head.append(el('th',{}));
     tb.append(head);
     const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
-    if(!d.members.length) tb.append(el('tr',{}, el('td',{colspan:String(d.items.length+2),class:'muted',text:'ยังไม่มีนักเรียนเข้าห้อง — ส่งรหัสหรือลิงก์เชิญให้นักเรียน'})));
+    if(!d.members.length) tb.append(el('tr',{}, el('td',{colspan:String(d.items.length+2),class:'muted',text:fam?'ลูกยังไม่ได้เข้ากลุ่ม':'ยังไม่มีนักเรียนเข้าห้อง — ส่งรหัสหรือลิงก์เชิญให้นักเรียน'})));
     d.members.forEach(mb=>{
       const tr=el('tr',{}, el('td',{class:'nick',text:mb.nickname}));
       d.items.forEach(it=>{
@@ -233,10 +255,25 @@ function renderTeacher(v,d){
     v.append(el('p',{class:'note',text:'นักเรียนในห้อง: '+d.members.map(m=>m.nickname).join(', ')}));
   }
   v.append(el('div',{class:'clfoot'},
-    el('button',{class:'linkbtn small',text:'✏️ เปลี่ยนชื่อห้อง',onclick:()=>deckNameDialog('เปลี่ยนชื่อห้องเรียน', d.name, 'บันทึก', async nm=>{ const r=await classApi('PATCH','/'+d.id,{name:nm}); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }, 'ชื่อห้องเรียน', 60)}),
-    el('button',{class:'linkbtn small danger-link',text:'🗑 ลบห้องเรียน',onclick:async()=>{
-      if(!(await ask(`ลบห้อง “${d.name}”? นักเรียนจะออกจากห้องทั้งหมด และความคืบหน้าในห้องนี้จะถูกลบ`,'ลบห้องเรียน'))) return;
-      const r=await classApi('DELETE','/'+d.id); if(!r.ok){ toast(classErr(r)); return; } toast('ลบห้องเรียนแล้ว'); backToClasses(); }})));
+    el('button',{class:'linkbtn small',text:fam?'✏️ เปลี่ยนชื่อกลุ่ม':'✏️ เปลี่ยนชื่อห้อง',onclick:()=>deckNameDialog(fam?'เปลี่ยนชื่อกลุ่มครอบครัว':'เปลี่ยนชื่อห้องเรียน', d.name, 'บันทึก', async nm=>{ const r=await classApi('PATCH','/'+d.id,{name:nm}); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }, fam?'ชื่อกลุ่ม':'ชื่อห้องเรียน', 60)}),
+    el('button',{class:'linkbtn small danger-link',text:fam?'🗑 ลบกลุ่มครอบครัว':'🗑 ลบห้องเรียน',onclick:async()=>{
+      if(!(await ask(fam ? `ลบกลุ่ม “${d.name}”? ลูกจะออกจากกลุ่ม และคุณจะไม่เห็นรายงานอีก` : `ลบห้อง “${d.name}”? นักเรียนจะออกจากห้องทั้งหมด และความคืบหน้าในห้องนี้จะถูกลบ`, fam?'ลบกลุ่ม':'ลบห้องเรียน'))) return;
+      const r=await classApi('DELETE','/'+d.id); if(!r.ok){ toast(classErr(r)); return; } toast(fam?'ลบกลุ่มแล้ว':'ลบห้องเรียนแล้ว'); backToClasses(); }})));
+}
+// 📈 one row per member: a short summary and their full report (members who share it)
+function memberReports(v,d){
+  const fam=d.kind==='family', reps=new Map((d.reports||[]).map(r=>[r.user_id,r]));
+  v.append(el('div',{class:'hsec'}, el('h3',{text:'📈 รายงานการเรียน'}), proBadge(d.plan)));
+  if(!d.members.length){ v.append(el('p',{class:'libempty',text: fam ? 'ยังไม่มีลูกในกลุ่ม — เปิดลิงก์เชิญหรือใส่รหัสในเครื่องของลูก' : 'ยังไม่มีนักเรียนเข้าห้อง'})); return; }
+  const box=el('div',{class:'liblist rmembers'}), locked=proLocked(d.plan);
+  d.members.forEach(mb=>{
+    const r=reps.get(mb.user_id);
+    const meta = !mb.report ? el('span',{class:'lm muted',text:'ยังไม่ได้แชร์รายงาน'}) : !r ? el('span',{class:'lm muted',text:'รอรายงานแรก — จะส่งมาเมื่อเปิดแอปและฝึกขณะออนไลน์'}) : el('span',{class:'lm',text:reportLine(r.s||{})});
+    box.append(el('div',{class:'lrow'}, el('span',{class:'clic'},ic('person')), el('span',{class:'lb'}, el('b',{text:mb.nickname}), meta),
+      mb.report ? el('button',{class:locked?'':'primary',text:locked?'🔒 ดูรายงาน':'📈 ดูรายงาน',onclick:()=>openMemberReport(d,mb)}) : null));
+  });
+  v.append(box);
+  if(!fam && d.members.some(m=>!m.report)) v.append(el('p',{class:'note small',text:'นักเรียนเลือกเองว่าจะแชร์รายงานหรือไม่ (เปิดได้ในหน้าห้องของนักเรียน)'}));
 }
 // ---------- teacher: export progress (Excel .xlsx built here, or CSV) ----------
 // Rows: one per student; per assignment the words passed and ★; then totals. A second sheet has one row per
@@ -398,12 +435,13 @@ function openJoinClass(code){
     const ci=el('input',{class:'code clcodein',maxlength:'7',placeholder:'รหัส 6 ตัว',autocomplete:'off',autocapitalize:'characters',spellcheck:'false',value:code||'','aria-label':'รหัสห้องเรียน'});
     const ni=el('input',{maxlength:'30',placeholder:'ชื่อเล่น เช่น มิ้นท์ ป.4/2',autocomplete:'nickname','aria-label':'ชื่อเล่น',value:isStudent()?studentNick():''});
     const err=el('p',{class:'err'}), go=el('button',{class:'primary',text:'เข้าห้อง'});
+    const rep=el('input',{type:'checkbox',checked:true});
     const tsbox=el('div',{class:'tsbox'}); let hc=null;
     G.modalClose=()=>{ if(hc) hc.remove(); };
     ci.addEventListener('input',()=>{ ci.value=ci.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6); });
     const submit=async()=>{
       const c=ci.value.trim(), nick=ni.value.trim();
-      if(c.length!==6){ err.textContent='ใส่รหัสห้อง 6 ตัวจากครู'; ci.focus(); return; }
+      if(c.length!==6){ err.textContent='ใส่รหัส 6 ตัวจากครูหรือผู้ปกครอง'; ci.focus(); return; }
       if(!nick){ err.textContent='ใส่ชื่อเล่นที่ครูจะเห็น'; ni.focus(); return; }
       go.disabled=true; go.textContent='กำลังเข้าห้อง…'; err.textContent='';
       if(!user){
@@ -414,30 +452,35 @@ function openJoinClass(code){
           err.textContent=/anonymous.*(disabled|not enabled)|provider.*disabled/i.test(error.message||'') ? 'ยังเปิดให้นักเรียนเข้าห้องแบบไม่ใช้อีเมลไม่ได้ ลองเข้าสู่ระบบด้วยอีเมลแทน' : authErr(error); return; }
         for(let i=0;i<30 && !user;i++) await new Promise(r=>setTimeout(r,100));
       }
-      const r=await classApi('POST','/join',{ code:c, nickname:nick }).catch(()=>({ok:false}));
+      const r=await classApi('POST','/join',{ code:c, nickname:nick, report:rep.checked }).catch(()=>({ok:false}));
       if(!r.ok){ go.disabled=false; go.textContent='เข้าห้อง'; err.textContent=classErr(r); return; }
-      closeModal(); toast('เข้าห้อง “'+r.j.name+'” แล้ว 🎉', 3500); tally('class_join');
+      if(r.j.report){ setReportOn(true); tally('report_share'); }
+      closeModal(); toast((r.j.kind==='family'?'เข้ากลุ่ม “':'เข้าห้อง “')+r.j.name+'” แล้ว 🎉', 3500); tally('class_join');
       CL.list=null; if(S.view!=='class') goHome('class'); openClass(r.j.id);
     };
     go.addEventListener('click',submit);
     [ci,ni].forEach(x=>x.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); }));
     m.append(el('h3',{text:'🔑 เข้าห้องเรียน'}),
-      el('label',{},'รหัสห้องจากครู', ci), el('label',{},'ชื่อเล่น (ครูจะเห็นชื่อนี้)', ni), tsbox, err,
+      el('label',{},'รหัสจากครูหรือผู้ปกครอง', ci), el('label',{},'ชื่อเล่น (ครูหรือผู้ปกครองจะเห็นชื่อนี้)', ni),
+      el('label',{class:'chk rchk'}, rep, el('span',{text:'แชร์รายงานการเรียน (วันที่ฝึก เกมที่เล่น คำที่ผ่านแล้ว คำที่ยังพลาด และระดับ) — กลุ่มครอบครัวแชร์เสมอ'})), tsbox, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
       el('p',{class:'note small'}, user ? (isStudent() ? 'เข้าด้วยบัญชีนักเรียนในเครื่องนี้' : 'เข้าด้วยบัญชี '+(user.email||'')) : 'ไม่ต้องมีอีเมล — ระบบจะสร้างบัญชีนักเรียนในเครื่องนี้ให้ · ใช้ชื่อเล่น ไม่ต้องใส่ชื่อจริงหรือนามสกุล',
         ' · ', el('a',{href:'/privacy#class',target:'_blank',text:'ความเป็นส่วนตัว'})));
     if(!user) hc=humanCheck(tsbox);       // only a new student account needs the check
   });
 }
-function createClassDialog(){
-  if(!user || isStudent()){ openModal(m=>m.append(el('h3',{text:'➕ สร้างห้องเรียน'}),
-    el('p',{text: isStudent() ? 'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ในเครื่องของครู' : 'ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ก่อน เพื่อเก็บห้องเรียนไว้ในบัญชี'}),
+function createClassDialog(kind){
+  const fam=kind==='family';
+  if(!user || isStudent()){ openModal(m=>m.append(el('h3',{text:fam?'🏠 สร้างกลุ่มครอบครัว':'➕ สร้างห้องเรียน'}),
+    el('p',{text: isStudent() ? (fam ? 'บัญชีนักเรียนสร้างกลุ่มครอบครัวไม่ได้ ผู้ปกครองต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ในเครื่องของผู้ปกครอง' : 'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ในเครื่องของครู')
+      : (fam ? 'ผู้ปกครองต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ก่อน เพื่อเก็บกลุ่มไว้ในบัญชี' : 'ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google ก่อน เพื่อเก็บห้องเรียนไว้ในบัญชี')}),
     el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal}), isStudent()?null:el('button',{class:'primary',text:'👤 เข้าสู่ระบบ',onclick:()=>openLogin()})))); return; }
-  deckNameDialog('สร้างห้องเรียน', '', 'สร้าง', async name=>{
-    const r=await classApi('POST','',{ name }).catch(()=>({ok:false}));
-    if(!r.ok){ toast(classErr(r), 4000); return; }
-    toast('สร้างห้อง “'+name+'” แล้ว — รหัส '+r.j.code, 4000); CL.list=null; openClass(r.j.id);
-  }, 'เช่น ป.4/2 ภาษาอังกฤษ', 60);
+  deckNameDialog(fam?'สร้างกลุ่มครอบครัว':'สร้างห้องเรียน', fam?'ครอบครัวของฉัน':'', 'สร้าง', async name=>{
+    const r=await classApi('POST','',{ name, ...(fam?{kind:'family'}:{}) }).catch(()=>({ok:false}));
+    if(!r.ok){ toast(r.j && r.j.error==='needs_update' ? 'ต้องรัน SQL 2026-11-reports.sql ใน Supabase ก่อน จึงจะสร้างกลุ่มครอบครัวได้' : classErr(r), 4500); return; }
+    if(fam) tally('family_new');
+    toast((fam?'สร้างกลุ่ม “':'สร้างห้อง “')+name+'” แล้ว — รหัส '+r.j.code, 4000); CL.list=null; openClass(r.j.id);
+  }, fam ? 'เช่น บ้านมิ้นท์' : 'เช่น ป.4/2 ภาษาอังกฤษ', 60);
 }
 function openStudentAccount(){
   openModal(m=>m.append(el('h3',{text:'🎓 บัญชีนักเรียน'}),
@@ -454,4 +497,4 @@ function openStudentAccount(){
 }
 const classLinkCode=((/^\/c\/([A-Za-z2-9]{6})\/?$/.exec(location.pathname)||[])[1]||'').toUpperCase()||null;
 
-export { CL, classLinkCode, isStudent, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };
+export { CL, classApi, classErr, classLinkCode, isStudent, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };
