@@ -10,6 +10,7 @@ import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
 import { openLogin } from './account.js';
 import { galEditBar } from './gallery.js';
 import { CEFR_NAME, cefrKey } from './path.js';
+import { lvPill } from './journey.js';
 import { openShare } from './share.js';
 import { exitFs, fitWrap, isFs } from './layout.js';
 
@@ -130,11 +131,11 @@ function progOf(sc){ const p=progress[sc.id]||{done:{},star:{}}, its=itemsOf(sc)
 function renderView(){
   const v=S.view, g=v!=='play';
   if(g && isFs()) exitFs();
-  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#adminView').hidden=v!=='admin'; $('#pathView').hidden=v!=='path'; $('#playView').hidden=g;
+  $('#homeView').hidden=v!=='home'; $('#libraryView').hidden=v!=='library'; $('#wordsView').hidden=v!=='words'; $('#classView').hidden=v!=='class'; $('#adminView').hidden=v!=='admin'; $('#pathView').hidden=v!=='path'; $('#journeyView').hidden=v!=='journey'; $('#playView').hidden=g;
   $('#galleryBar').hidden=!g; $('#playBar').hidden=g;
   document.querySelectorAll('.mainnav button, .bnav button[data-view]').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
   document.body.classList.toggle('gview', g);
-  streakPill();
+  streakPill(); lvPill();
   $('#curName').textContent=scene().name;
   $('#homeBtn').disabled=false;
 }
@@ -144,8 +145,8 @@ function goHome(view){
   if(aiCtl) aiCtl.abort();
   closeQuiz(true); spkStop(); G.pinnedId=G.hoverId=null; G.flash=null;
   try{ speechSynthesis.cancel(); }catch(e){}
-  if(view==='path') tally('path');
-  S.view=(view==='library'||view==='words'||view==='class'||view==='admin'||view==='path')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
+  if(view==='path' || view==='journey') tally(view);
+  S.view=(view==='library'||view==='words'||view==='class'||view==='admin'||view==='path'||view==='journey')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
 }
 function openScene(id, mode, edit){
   if(!edit){ tally('mode:'+(mode||'learn')); if(!mode || mode==='learn') markActive(0,'learn'); }

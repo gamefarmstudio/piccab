@@ -514,12 +514,12 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   r = await go('/api/classes', 'GET', null, 'tt'); assert.equal(r.j.teaching[0].members, 2);
   r = await go('/api/classes', 'GET', null, 's1'); assert.deepEqual(r.j.learning, [{ id: cls.id, name: 'ป.4/2 ภาษาอังกฤษ', kind: 'class', nickname: 'Mint', report: false }]);
   // 📈 learning reports: kept only while shared; the teacher sees only those who share
-  const rep = { s: { streak: 2, week: 9, total: 30, star: 4, min7: 12, last: '2026-11-19' }, days: [['2026-11-19', 5, 6, 1, { quiz: 4, evil: 1 }]], weak: [['cat', 'แมว', 3]], stage: 'p34', extra: 'x'.repeat(50) };
+  const rep = { s: { streak: 2, week: 9, total: 30, star: 4, min7: 12, last: '2026-11-19' }, days: [['2026-11-19', 5, 6, 1, { quiz: 4, evil: 1 }]], weak: [['cat', 'แมว', 3]], stage: 'p34', extra: 'x'.repeat(50), ach: { lv: 7, xp: 1240, place: 3, n: 12, total: 33, recent: [['w100', 20400], ['bad id!', 1]] } };
   assert.deepEqual((await go('/api/classes/report', 'POST', { data: rep }, 's1')).j, { ok: true, shared: false });
   assert.equal(db.learner_reports.length, 0);                                                            // not shared → not kept
   assert.equal((await go('/api/classes/join', 'POST', { code: cls.code, nickname: 'Mint', report: true }, 's1')).j.report, true);
   assert.deepEqual((await go('/api/classes/report', 'POST', { data: rep }, 's1')).j, { ok: true, shared: true });
-  assert.equal(db.learner_reports.length, 1); assert.equal(db.learner_reports[0].data.extra, undefined); assert.deepEqual(db.learner_reports[0].data.days[0][4], { quiz: 4 });
+  assert.equal(db.learner_reports.length, 1); assert.equal(db.learner_reports[0].data.extra, undefined); assert.deepEqual(db.learner_reports[0].data.days[0][4], { quiz: 4 }); assert.deepEqual(db.learner_reports[0].data.ach, { lv: 7, xp: 1240, place: 3, n: 12, total: 33, recent: [['w100', 20400]] });
   r = await go(`/api/classes/${cls.id}`, 'GET', null, 'tt');
   assert.deepEqual(r.j.members.map(x => [x.nickname, x.report]).sort(), [['Mint', true], ['Ploy', false]]);
   assert.deepEqual(r.j.reports.map(x => [x.user_id, x.s.streak]), [[S1, 2]]); assert.deepEqual(r.j.plan, { pro: false, required: false });

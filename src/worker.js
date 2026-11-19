@@ -1073,6 +1073,8 @@ export function cleanReport(d) {
     learned: arr(d.learned, 20).map(x => [txt(x[0]), txt(x[1]), day(x[2])]).filter(x => x[0]),
     cefr: arr(d.cefr, 7).map(x => [String(x[0]), int(x[1]), int(x[2])]).filter(x => GALLERY_CEFR.includes(x[0])),
     scenes: arr(d.scenes, 15).map(x => [txt(x[0]), int(x[1], 10000), int(x[2], 10000)]).filter(x => x[0]),
+    ach: d.ach && typeof d.ach === 'object' ? { lv: int(d.ach.lv, 999), xp: int(d.ach.xp, 100000000), place: int(d.ach.place, 50), n: int(d.ach.n, 500), total: int(d.ach.total, 500),
+      recent: arr(d.ach.recent, 8).filter(x => /^[a-zA-Z0-9_]{1,24}$/.test(String(x[0]))).map(x => [String(x[0]), int(x[1], 1000000)]) } : null,
   };
 }
 // Pro plan: given per e-mail by an admin (plans table). PRO_REQUIRED=1 turns the lock on.
@@ -1329,7 +1331,7 @@ async function clientError(request, env) {
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
-  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards'];
+  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};
@@ -1799,10 +1801,10 @@ async function friends(request, env, url, ctx) {
       const evs = await q(env, `friend_events?to_user=eq.${uid}&created_at=gte.${new Date(Date.now() - 30 * 86400000).toISOString()}&select=id,from_user,kind,data,seen,created_at&order=created_at.desc&limit=60`) || [];
       const evIds = [...new Set(evs.map(e => e.from_user))];
       const all = [...new Set(ids.concat(evIds))];
-      const profs = all.length ? await q(env, `friend_profiles?user_id=${inList(all)}&select=user_id,nickname,streak,week_words,total_words,updated_at`) || [] : [];
+      const profs = all.length ? await q(env, `friend_profiles?user_id=${inList(all)}&select=*`) || [] : [];       // * : works before the level column exists
       const P = new Map(profs.map(p => [p.user_id, p]));
       const card = id => { const p = P.get(id) || {}; return { id, nickname: p.nickname || '(ไม่มีชื่อ)' }; };
-      const stats = id => { const p = P.get(id) || {}; return { ...card(id), streak: p.streak || 0, week_words: p.week_words || 0, total_words: p.total_words || 0, updated_at: p.updated_at || null }; };
+      const stats = id => { const p = P.get(id) || {}; return { ...card(id), streak: p.streak || 0, week_words: p.week_words || 0, total_words: p.total_words || 0, level: p.level || 0, badges: p.badges || 0, updated_at: p.updated_at || null }; };
       const blockedSet = new Set(blocks.map(b => b.blocked));
       const friendSet = new Set(rows.filter(r => r.status === 'accepted').map(r => (r.a === uid ? r.b : r.a)));
       return json({
@@ -1822,10 +1824,12 @@ async function friends(request, env, url, ctx) {
       const st = body.stats || {};
       const row = { user_id: uid, nickname, student: !!who.anon, updated_at: new Date().toISOString(),
         ...(body.stats ? { streak: n(st.streak, 100000), week_words: n(st.week_words, 1000000), total_words: n(st.total_words, 1000000) } : {}) };
+      const lv = body.stats && st.level !== undefined ? { level: n(st.level, 999), badges: n(st.badges, 500) } : {};   // 🗺️ (supabase/2026-11-journey.sql)
       for (let tries = 0; tries < 6; tries++) {
         const code = (!cur || body.regenerate === true) ? newFriendCode() : cur.code;
+        const put = extra => q(env, 'friend_profiles?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ ...row, ...extra, code }) });
         try {
-          await q(env, 'friend_profiles?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ ...row, code }) });
+          try { await put(lv); } catch (e) { if (e.status !== 400 || !Object.keys(lv).length) throw e; await put({}); }   // level column not added yet
           return json({ ok: true, code, nickname });
         } catch (e) { if (e.status !== 409 || (cur && body.regenerate !== true)) throw e; }
       }
