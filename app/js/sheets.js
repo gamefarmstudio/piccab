@@ -179,45 +179,55 @@ function sheetCropper(file, onDone, onCancel){
   return panel;
 }
 // ---------- 🎨 line pictures: from the shared bank (free), the rest drawn by AI (1 credit a sheet) ----------
-async function picsApi(words, draw, redraw, auth){
+async function picsApi(words, draw, redraw, auth, retry){
   const r=await fetch('/api/wordpics',{method:'POST', headers:{'content-type':'application/json', ...(auth && auth.tok?{authorization:'Bearer '+auth.tok}:{}), ...(auth && auth.code?{'x-piccab-code':auth.code}:{})},
-    body:JSON.stringify({ words, draw:!!draw, redraw:!!redraw })});
+    body:JSON.stringify({ words, draw:!!draw, redraw:!!redraw, ...(retry?{retry}:{}) })});
   const data=await r.json().catch(()=>({}));
   if(typeof data.credits_left==='number'){ G.aiLeft=data.credits_left; const n=$('#creditNote'); if(n) n.textContent=creditText(); }
   return { ok:r.ok, data };
 }
 const picKeyOf=w=>String(w||'').toLowerCase().replace(/[^a-z0-9' -]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
-// fills wd.pic for the words without one; busy: an element to show the AI wait in. Returns how many still have none.
-async function fillPics(words, busy){
-  const need=words.filter(wd=>!wd.pic); if(!need.length) return 0;
+// fills wd.pic for the words without one; busy: an element to show the AI wait in.
+// retry: the note from an earlier drawing that left words out — those are drawn again free.
+// Returns {left: how many still have none, retry: a new note for them (or keeps the old one)}.
+async function fillPics(words, busy, retry){
+  const need=words.filter(wd=>!wd.pic); if(!need.length) return { left:0, retry:null };
   const put=pics=>need.forEach(wd=>{ const p=pics && pics[picKeyOf(wd.w)]; if(p && !wd.pic) wd.pic=p; });
-  try{ const r=await picsApi(need.map(wd=>wd.w), false); if(r.ok) put(r.data.pics); }catch(e){ return need.length; }
-  const left=need.filter(wd=>!wd.pic); if(!left.length) return 0;
-  if(!G.aiReady) return left.length;
-  const auth=await aiAuth(); if(!auth) return left.length;
+  try{ const r=await picsApi(need.map(wd=>wd.w), false); if(r.ok) put(r.data.pics); }catch(e){ return { left:need.length, retry }; }
+  const left=need.filter(wd=>!wd.pic); if(!left.length) return { left:0, retry:null };
+  if(!G.aiReady) return { left:left.length, retry };
+  const auth=await aiAuth(); if(!auth) return { left:left.length, retry };
   if(busy){ busy.replaceChildren(aiWait(`🎨 AI กำลังวาดลายเส้น ${left.length} คำ…`,'10–30')); busy.hidden=false; }
+  let next=retry;
   try{
-    const r=await picsApi(left.map(wd=>wd.w), true, false, auth);
+    const r=await picsApi(left.map(wd=>wd.w), true, false, auth, retry);
     if(!r.ok){ if(r.data.error==='bad_code') store.set('pv-ai-code',''); toast(aiErr(r.data.error), 5000); }
-    else { put(r.data.pics); tally('sheet_pics'); }
+    else { put(r.data.pics); next=r.data.retry||null; tally(retry ? 'sheet_pics_retry' : 'sheet_pics'); }
   }catch(e){ toast(aiErr('offline')); }
   finally{ if(busy) busy.hidden=true; }
-  return left.filter(wd=>!wd.pic).length;
+  const n=left.filter(wd=>!wd.pic).length;
+  return { left:n, retry: n ? next : null };
 }
+const picsToast=(words, f)=> f.left ? toast(`ใส่รูปแล้ว ${words.length-f.left} คำ · ยังไม่มีรูป ${f.left} คำ`+(f.retry ? ' — กด 🎨 ใส่รูปที่ขาด ในหน้าตัวอย่างชีทได้ฟรี' : ''), 6000) : null;
+const withRetry=(meta, f)=>{ const m={ ...meta }; if(f.retry) m.picRetry=f.retry; else delete m.picRetry; return m; };
 const sheetWords=sc=>Object.values(sc.items||{}).filter(it=>it && it.word).map(it=>({ w:it.word, th:it.th||'', ...(it.pic?{pic:it.pic}:{}) }));
 // from the preview: give an existing sheet its pictures
 async function addSheetPics(sc){
   const words=sheetWords(sc), busy=el('div',{class:'wsbusy'});
   openModal(m=>m.append(el('h3',{text:'🎨 ใส่รูปลายเส้น'}), busy));
-  const left=await fillPics(words, busy);
-  await saveWordSheet(sc, sc.name, words, sc.meta);
+  const f=await fillPics(words, busy, sc.meta.picRetry);
+  await saveWordSheet(sc, sc.name, words, withRetry(sc.meta, f));
   closeModal(); if(S.view==='play') fullRender(); else renderGallery();
-  toast(left ? `ใส่รูปแล้ว ${words.length-left} คำ · ยังไม่มีรูป ${left} คำ` : 'ใส่รูปลายเส้นครบทุกคำแล้ว 🎨', 4000);
+  if(f.left) picsToast(words, f); else toast('ใส่รูปลายเส้นครบทุกคำแล้ว 🎨', 4000);
 }
-// a new drawing for one word (free, up to 3 a sheet)
+// a new drawing for one word (free, up to 3 a sheet); a word with no picture yet: the bank first
 async function redrawPic(id){
   const sc=scene(), it=sc.items[id]; if(!isList(sc) || !it) return;
-  const n=(sc.meta.redraws||0); if(n>=3){ toast('วาดใหม่ได้ 3 ครั้งต่อชีท'); return; }
+  if(!it.pic){
+    try{ const r=await picsApi([it.word], false); const p=r.ok && r.data.pics && r.data.pics[picKeyOf(it.word)];
+      if(p){ await saveWordSheet(sc, sc.name, sheetWords(sc).map(wd=>wd.w===it.word ? { ...wd, pic:p } : wd), sc.meta); fullRender(); toast('ใส่รูปแล้ว 🎨'); return; } }catch(e){}
+  }
+  const n=(sc.meta.redraws||0); if(n>=3){ toast(it.pic ? 'วาดใหม่ได้ 3 ครั้งต่อชีท' : 'วาดฟรีครบ 3 ครั้งแล้ว — กด 🎨 ใส่รูปลายเส้น ในหน้าตัวอย่างชีท'); return; }
   const auth=await aiAuth(); if(!auth) return;
   toast('🎨 กำลังวาดใหม่…', 8000);
   try{
@@ -271,9 +281,10 @@ function openSheetMaker(sc){
       const words=parseWordList(ta.value); if(!words.length){ ta.focus(); return; }
       ok.disabled=true;
       words.forEach(wd=>{ const p=oldPics[wd.w.toLowerCase()]; if(p) wd.pic=p; });
-      if(pics.checked) await fillPics(words, busy);
+      const f=pics.checked ? await fillPics(words, busy, sc && sc.meta.picRetry) : { left:0, retry:sc && sc.meta.picRetry };
       const nm=(name.value.trim()||'Dictation').slice(0,40);
-      const s2=await saveWordSheet(sc, nm, words, {kind:'list', exam:date.value||'', style:'listen'});
+      const s2=await saveWordSheet(sc, nm, words, withRetry({kind:'list', exam:date.value||'', style:'listen', ...(sc && sc.meta.redraws ? { redraws:sc.meta.redraws } : {})}, f));
+      if(f.left) setTimeout(()=>picsToast(words, f), 4200);
       closeModal();
       if(sc){ if(S.view==='play') fullRender(); else renderGallery(); toast('บันทึกชุดคำแล้ว'); }
       else { openScene(s2.id,'learn'); toast(`สร้างชุดคำ ${words.length} คำแล้ว — แตะการ์ดเพื่อฟังคำ`, 4000); }

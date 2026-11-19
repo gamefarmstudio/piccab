@@ -417,7 +417,7 @@ function openPreview(id){
         n ? el('button',{text:'🖨️ แฟลชการ์ด',title:'พิมพ์แฟลชการ์ด หรือบันทึกเป็น PDF',onclick:()=>{ closeModal(); openPrintCards(sc); }}) : null,
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
-        isList(sc) && !isStudent() && Object.values(sc.items||{}).some(it=>it && it.word && !it.pic) ? el('button',{text:'🎨 ใส่รูปลายเส้น',title:'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · ที่เหลือ AI วาด 1 เครดิตต่อชีท',onclick:()=>{ closeModal(); addSheetPics(sc); }}) : null,
+        isList(sc) && !isStudent() && Object.values(sc.items||{}).some(it=>it && it.word && !it.pic) ? el('button',{text: sc.meta.picRetry ? '🎨 ใส่รูปที่ขาด (ฟรี)' : '🎨 ใส่รูปลายเส้น',title: sc.meta.picRetry ? 'คราวก่อนวาดได้ไม่ครบ — ครั้งนี้ไม่ใช้เครดิต' : 'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · ที่เหลือ AI วาด 1 เครดิตต่อชีท',onclick:()=>{ closeModal(); addSheetPics(sc); }}) : null,
         ADM.ok && galEditOf(sc.id) ? el('button',{class:'primary',text:'⬆️ อัปเดตในคลังภาพ',onclick:()=>{ closeModal(); galPushEdit(sc.id, true); }}) : null,
         sc.builtin || isList(sc) ? null : el('button',{text:'✏️ แก้ไขฉาก',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }}),
         sc.builtin || isList(sc) ? null : el('button',{text:'📝 เปลี่ยนชื่อ',onclick:()=>{ closeModal(); S.sceneId=sc.id; $('#renameBtn').click(); }}),

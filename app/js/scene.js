@@ -289,7 +289,9 @@ function updateTag(){
   { const c=S.lang==='en' && cefrKey(it.cefr); if(c) wb.append(el('span',{class:'cefrb','data-noi18n':'',text:CEFR_NAME[c],title:'ระดับคำศัพท์ CEFR'})); }
   if(mean(it)) txt.append(el('small',{text:mean(it)}));
   const kept=isKept(scene().id,id);
-  const redraw = isList(scene()) && it.pic && !isStudent() && S.mode==='learn' ? el('button',{class:'say','aria-label':'วาดรูปนี้ใหม่',title:'วาดรูปนี้ใหม่ (ฟรี 3 ครั้งต่อชีท)',text:'🔄',onclick:e=>{ e.stopPropagation(); redrawPic(id); }}) : null;
+  const redraw = isList(scene()) && !isStudent() && S.mode==='learn' && (it.pic || scene().meta.picRetry || Object.values(scene().items).some(x=>x && x.pic))
+    ? (it.pic ? el('button',{class:'say','aria-label':'วาดรูปนี้ใหม่',title:'วาดรูปนี้ใหม่ (ฟรี 3 ครั้งต่อชีท)',text:'🔄',onclick:e=>{ e.stopPropagation(); redrawPic(id); }})
+      : el('button',{class:'say','aria-label':'วาดรูปคำนี้',title:'วาดรูปคำนี้ (ฟรี 3 ครั้งต่อชีท)',text:'🎨',onclick:e=>{ e.stopPropagation(); redrawPic(id); }})) : null;
   tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}), redraw,
     el('button',{class:'say keep'+(kept?' on':''),'aria-label':'เพิ่ม '+it.word+' ลงชุดคำ',title:kept?'อยู่ในชุดคำแล้ว — แก้ไขชุดคำ':'เพิ่มลงชุดคำ',text:'🔖',
       onclick:e=>{ e.stopPropagation(); openDeckPicker(sceneWord(id), ()=>{ updateTag(); renderChips(); }); }}));
