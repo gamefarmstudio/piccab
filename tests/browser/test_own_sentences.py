@@ -5,6 +5,7 @@ from common import *
 SENT=[]
 REPLY={'scene':[{'en':'The cat is sleeping on the sofa.','th':'แมวกำลังนอนบนโซฟา','words':['cat','sofa']},
                 {'en':'A lamp is next to the sofa.','th':'มีโคมไฟอยู่ข้างโซฟา','words':['lamp','sofa']},
+                {'en':'The cat is running to the couch.','th':'แมวกำลังวิ่งไปที่โซฟา','words':[]},   # a verb form and an other name count
                 {'en':'The sun is very hot.','th':'ดวงอาทิตย์ร้อนมาก','words':[]}],   # no word from the scene: left out
        'list':[{'en':'I eat an apple every day.','th':'ฉันกินแอปเปิลทุกวัน','words':['apple']},
                {'en':'Monkeys like bananas.','th':'ลิงชอบกล้วย','words':['banana']},
@@ -24,7 +25,7 @@ async def main():
         pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.route('**/*', lambda r: app_route(r, health='{"ai":true}', extra=extra)); await pg.goto('https://piccab.test/app'); await pg.wait_for_timeout(600)
         # a scene of your own, with a picture
-        await pg.evaluate("""(img)=>{ const sc={id:'s1own',name:'My room',w:1200,h:900,img,items:{a1:{word:'cat',th:'แมว',alts:[],x:100,y:500,w:250,h:200},a2:{word:'sofa',th:'โซฟา',alts:['couch'],x:400,y:450,w:500,h:300},a3:{word:'lamp',th:'โคมไฟ',alts:[],x:950,y:100,w:150,h:400}}};
+        await pg.evaluate("""(img)=>{ const sc={id:'s1own',name:'My room',w:1200,h:900,img,items:{a1:{word:'cat',th:'แมว',alts:[],x:100,y:500,w:250,h:200},a2:{word:'sofa',th:'โซฟา',alts:['couch'],x:400,y:450,w:500,h:300},a3:{word:'lamp',th:'โคมไฟ',alts:[],x:950,y:100,w:150,h:400},a4:{word:'run',th:'วิ่ง',alts:[],x:100,y:100,w:200,h:300}}};
           const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); a.push(sc); localStorage.setItem('pv-scenes2',JSON.stringify(a)); localStorage.setItem('pv-scene','s1own'); localStorage.setItem('pv-ai-code',JSON.stringify('x')); }""", img)
         await pg.reload(); await pg.wait_for_timeout(700)
         await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300)
@@ -67,9 +68,9 @@ async def main():
     check('ไม่ใช่คน' in out['make'] and 'Anthropic Claude' in out['make'], 'before: says it is AI, not a person, and where the words go', out['make'])
     check('AI กำลังเขียนประโยค' in out['wait'] and 'ปกติ 10–30 วินาที' in out['wait'] and 'ไม่ใช่คน' in out['wait'], 'while waiting: what the AI is doing, usual time, AI not a person', out['wait'])
     check('เขียนโดยระบบ AI' in out['source'] and '🚩' in out['source'], 'the sentences say they are written by AI', out['source'])
-    check(out['req']==('scene',['cat','sofa','lamp'],'data:image/jpeg;base64') , 'its words and a small picture go to the AI', out['req'])
-    check(out['game']>0 and [s['en'] for s in out['saved']]==['The cat is sleeping on the sofa.','A lamp is next to the sofa.'] and out['saved'][1]['words']==['sofa','lamp'], 'sentences kept with the scene (those without its words left out); the game starts', out['saved'])
-    check(out['after_flag']==1, '🚩 takes a sentence out', out['after_flag'])
+    check(out['req']==('scene',['cat','sofa','lamp','run'],'data:image/jpeg;base64') , 'its words and a small picture go to the AI', out['req'])
+    check(out['game']>0 and [s['en'] for s in out['saved']]==['The cat is sleeping on the sofa.','A lamp is next to the sofa.','The cat is running to the couch.'] and out['saved'][1]['words']==['sofa','lamp'] and out['saved'][2]['words']==['cat','sofa','run'], 'sentences kept with the scene (those without its words left out); the game starts', out['saved'])
+    check(out['after_flag']==2, '🚩 takes a sentence out', out['after_flag'])
     check('ชีทนี้' in out['make_list'] and out['req_list']==('list',False) and out['game_list']>0, 'word sheet: example sentences, no picture', (out['make_list'], out['req_list']))
     check(not errs, 'no page errors', errs)
     print('PASS' if ok else 'FAIL'); assert ok

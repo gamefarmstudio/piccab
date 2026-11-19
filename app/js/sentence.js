@@ -32,10 +32,17 @@ function hasSentences(sc){ return S.lang==='en' && sentencesOf(sc).length>0; }
 // Your own scene or word sheet (3+ words) without sentences: the mode shows, to make them with AI.
 function canMakeSentences(sc){ return S.lang==='en' && !!sc && !sc.builtin && G.customs.includes(sc) && !!G.aiReady && ids().length>=3 && !sentencesOf(sc).length; }
 function sentModeShown(sc){ return hasSentences(sc) || canMakeSentences(sc); }
-// The scene's words used in a sentence (the word, an other name for it, or a plural); given = what the AI said it used.
+// How a word's last part can appear in a sentence: plurals (cups, boxes, knives) and verb forms
+// (brushes, running, riding, washed, cried), so action words count as well as things.
+function wordForms(x){
+  const c=x.slice(-1), stem=x.replace(/e$/,''), dbl=/[^aeiou][aeiou][bdgmnprt]$/.test(x) ? x+c : x;
+  return [...new Set([x, x+'s', x+'es', x.replace(/y$/,'ies'), x.replace(/(f|fe)$/,'ves'),
+    stem+'ing', x+'ing', dbl+'ing', stem+'ed', x+'d', x.replace(/y$/,'ied'), dbl+'ed'])];
+}
+// The scene's words used in a sentence (the word, an other name for it, a plural or a verb form); given = what the AI said it used.
 function sceneWordsIn(en, its, given){
   const t=' '+String(en||'').toLowerCase().replace(/[^a-z'-]+/g,' ').trim()+' ', out=new Set(), all=Object.values(its||{});
-  const has=f=>f && [f, f+'s', f+'es', f.replace(/y$/,'ies'), f.replace(/(f|fe)$/,'ves')].some(x=>t.includes(' '+x+' '));
+  const has=f=>{ if(!f) return false; const p=f.split(/\s+/), last=p.pop(), head=p.length ? p.join(' ')+' ' : ''; return wordForms(last).some(x=>t.includes(' '+head+x+' ')); };
   for(const it of all){ const w=String(it.word||'').toLowerCase().trim(); if(w && [w, ...(it.alts||[]).map(a=>String(a).toLowerCase().trim())].some(has)) out.add(w); }
   const mine=new Set(all.map(it=>String(it.word||'').toLowerCase().trim()));
   (Array.isArray(given)?given:[]).forEach(w=>{ w=String(w||'').toLowerCase().trim(); if(mine.has(w)) out.add(w); });   // e.g. knife → knives
@@ -67,7 +74,7 @@ function sentSpots(s){
   for(const id of ids()){
     const it=its[id], w=String(it.word||'').toLowerCase(); if(!w || !want.has(w) || out.some(o=>its[o.id].word.toLowerCase()===w)) continue;
     for(const f of [w, ...(it.alts||[]).map(a=>String(a).toLowerCase())].map(f=>f.split(/\s+/).filter(Boolean))){
-      const end=f.length-1, forms=x=>[x, x+'s', x+'es', x.replace(/y$/,'ies'), x.replace(/(f|fe)$/,'ves')];
+      const end=f.length-1, forms=wordForms;
       const i=toks.findIndex((_,i)=>i+f.length<=toks.length && f.every((x,j)=>j<end ? bare(toks[i+j])===x : forms(x).includes(bare(toks[i+j]))));
       if(i>=0){ out.push({ id, i, n:f.length }); break; }
     }
