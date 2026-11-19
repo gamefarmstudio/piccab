@@ -12,6 +12,7 @@ import { galEditBar } from './gallery.js';
 import { CEFR_NAME, cefrKey } from './path.js';
 import { lvPill } from './journey.js';
 import { fxReset } from './fx.js';
+import { goldPill } from './rewards.js';
 import { openShare } from './share.js';
 import { exitFs, fitWrap, isFs } from './layout.js';
 
@@ -462,6 +463,7 @@ function renderSub(){
         el('button',{class:'toggle'+(G.find.showWord?' on':''),text:G.find.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ G.find.showWord=!G.find.showWord; renderSub(); }}),
         el('button',{text:'📍 เผยตำแหน่ง',title:'บอกว่าคำนี้อยู่ตรงไหนในภาพ (ข้อนี้จะไม่นับเป็นถูกตั้งแต่ครั้งแรก)',onclick:()=>findReveal()}),
         el('button',{text:'ข้าม ⏭',onclick:()=>{ G.find.missed=true; fxReset(); doFlash(G.find.target,'good',1300); speak(sayOf(G.find.target)); lockNext(1300); }}),
+        G.find.target===G.find.gold ? goldPill() : null,
         el('span',{class:'pill',text:`ถูก ${G.find.score} • เหลือ ${G.find.queue.length+1}/${G.find.total}`})
       );
     } else {

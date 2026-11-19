@@ -8,6 +8,7 @@ import { goHome, progOf } from './scene.js';
 import { days } from './home.js';
 import { galAdded } from './gallery.js';
 import { cefrRows } from './path.js';
+import { bonusXp, ownedCount, questCheck, stickerBook } from './rewards.js';
 
 // (var + function declarations: other parts may ask for these before this part of the script has run)
 var ACH_PLACES=[
@@ -35,6 +36,7 @@ var ACH_BADGES=[
   ['r50','🔁','ทบทวนไม่ลืม','ตอบในการทบทวนชุดคำ 50 ครั้ง','review',50],
   ['c1','🖼️','ฉากแรกครบ','ผ่านทุกคำในฉากหนึ่ง','scenes',1], ['c5','🏞️','นักสำรวจ','ผ่านทุกคำครบ 5 ฉาก','scenes',5], ['c20','🗺️','นักผจญภัย','ผ่านทุกคำครบ 20 ฉาก','scenes',20],
   ['m1','📷','นักสร้างฉาก','สร้างฉากจากรูปของตัวเอง','made',1], ['m5','🎨','ศิลปินคำศัพท์','สร้างฉากของตัวเอง 5 ฉาก','made',5],
+  ['st10','📒','นักสะสมสติกเกอร์','สะสมสติกเกอร์ 10 แบบ','stickers',10], ['st30','🗂️','นักสะสมตัวยง','สะสมสติกเกอร์ 30 แบบ','stickers',30], ['st48','🌟','ครบทั้งเล่ม','สะสมสติกเกอร์ครบ 48 แบบ','stickers',48],
   ['lpreA1','🏅','ผ่าน Pre-A1','รู้คำระดับ Pre-A1 ในคลังภาพ 80%','preA1',80], ['lA1','🥉','ผ่าน A1','รู้คำระดับ A1 ในคลังภาพ 80%','A1',80], ['lA2','🥈','ผ่าน A2','รู้คำระดับ A2 ในคลังภาพ 80%','A2',80]];
 var ACH={ t:null, queue:[], showing:false };
 
@@ -49,7 +51,7 @@ function bestStreak(){
   return best;
 }
 function achStats(){
-  const s={ passed:0, stars:0, answers:0, active:0, quiz:0, find:0, speak:0, sent:0, review:0, scenes:0, made:0, best:bestStreak() };
+  const s={ passed:0, stars:0, answers:0, active:0, quiz:0, find:0, speak:0, sent:0, review:0, scenes:0, made:0, best:bestStreak(), stickers:ownedCount() };
   for(const d of Object.values(days)){ if(!d) continue; s.active++; s.answers+=d.n||0; const m=d.m||{}; ['quiz','find','speak','sent','review'].forEach(k=>s[k]+=m[k]||0); }
   for(const p of Object.values(progress)){ if(!p) continue; s.passed+=Object.keys(p.done||{}).length; s.stars+=Object.values(p.star||{}).filter(Boolean).length; }
   for(const sc of scenes()){ const r=progOf(sc); if(r.n && r.d===r.n) s.scenes++; }
@@ -64,13 +66,14 @@ function journey(){
   const s=achStats(), st=achState()||{ earned:{} }, earned={...st.earned}, today=dayNo();
   ACH_BADGES.forEach(([id,,,,k,goal])=>{ if(!earned[id] && (s[k]||0)>=goal) earned[id]=today; });
   const nb=Object.keys(earned).filter(id=>ACH_BADGES.some(b=>b[0]===id)).length;
-  const xp=s.passed*10 + s.stars*5 + s.answers*2 + s.sent*15 + s.active*20 + nb*50;
+  const xp=s.passed*10 + s.stars*5 + s.answers*2 + s.sent*15 + s.active*20 + nb*50 + bonusXp();   // bonus: quests, ✨ golden words, repeated stickers
   const lv=levelOf(xp);
   return { s, xp, lv, place:placeOf(lv), earned, nb, next:lvXp(lv+1), cur:lvXp(lv) };
 }
 // After practising: remember new badges / level and celebrate them (the first time quietly, so old progress doesn't pop up all at once)
 function achCheckSoon(){ clearTimeout(ACH.t); ACH.t=setTimeout(achCheck, 1200); }
 function achCheck(){
+  try{ questCheck(); }catch(e){}
   let J; try{ J=journey(); }catch(e){ return; }
   const old=achState();
   store.set('pv-ach',{ earned:J.earned, lv:J.lv });
@@ -86,10 +89,10 @@ function showAchPop(){
   if(ACH.showing || !ACH.queue.length) return;
   const x=ACH.queue.shift(); ACH.showing=true;
   const pop=el('button',{type:'button',class:'achpop',onclick:()=>{ done(); goHome('journey'); }},
-    el('span',{class:'achbig','aria-hidden':'true',text: x.kind==='lv' ? (x.place ? x.place.e : '🎉') : x.b[1]}),
+    el('span',{class:'achbig','aria-hidden':'true',text: x.kind==='note' ? x.e : x.kind==='lv' ? (x.place ? x.place.e : '🎉') : x.b[1]}),
     el('span',{class:'achtxt'},
-      el('small',{text: x.kind==='lv' ? 'ขึ้นเลเวลแล้ว!' : 'ได้ตราใหม่!'}),
-      el('b',{text: x.kind==='lv' ? `Lv.${x.lv}`+(x.place ? ` · มาถึง${placeName(x.place)}` : '') : x.b[2]}),
+      el('small',{text: x.kind==='note' ? x.s : x.kind==='lv' ? 'ขึ้นเลเวลแล้ว!' : 'ได้ตราใหม่!'}),
+      el('b',{text: x.kind==='note' ? x.b : x.kind==='lv' ? `Lv.${x.lv}`+(x.place ? ` · มาถึง${placeName(x.place)}` : '') : x.b[2]}),
       x.kind==='badge' ? el('span',{class:'achd',text:x.b[3]}) : null));
   document.body.append(pop);
   requestAnimationFrame(()=>pop.classList.add('show'));
@@ -151,8 +154,9 @@ function renderJourney(){
       got ? el('em',{text:'ได้เมื่อ '+fmt(got)}) : el('span',{class:'jprog'}, el('span',{class:'pbar'}, el('i',{style:`width:${Math.round(have/goal*100)}%`})), el('small',{text:`${have.toLocaleString()}/${goal.toLocaleString()}`}))));
   });
   v.append(grid);
+  v.append(stickerBook());
   v.append(el('details',{class:'jhow'}, el('summary',{text:'ได้ XP จากอะไรบ้าง'}),
-    el('ul',{}, ...['ผ่านคำใหม่ +10 XP','ได้ ★ (ตอบถูกเองโดยไม่ใช้ตัวช่วย) +5 XP','ตอบในเกมต่าง ๆ +2 XP','แต่งประโยคถูก +15 XP','วันที่มาฝึก +20 XP','ได้ตราใหม่ +50 XP'].map(t=>el('li',{text:t})))));
+    el('ul',{}, ...['ผ่านคำใหม่ +10 XP','ได้ ★ (ตอบถูกเองโดยไม่ใช้ตัวช่วย) +5 XP','ตอบในเกมต่าง ๆ +2 XP','แต่งประโยคถูก +15 XP','วันที่มาฝึก +20 XP','ได้ตราใหม่ +50 XP','ทำภารกิจวันนี้สำเร็จ +50 XP','✨ คำทอง: XP สองเท่า','ได้สติกเกอร์ซ้ำ +20 XP'].map(t=>el('li',{text:t})))));
 }
 // Short summary for the learning report (teacher / parent)
 function achSummary(){
@@ -165,4 +169,4 @@ const badgeById=id=>ACH_BADGES.find(b=>b[0]===id)||null;
 
 setTimeout(()=>{ try{ achCheck(); }catch(e){} }, 1500);      // first time on this device: remember what is already earned, quietly
 
-export { ACH_BADGES, ACH_PLACES, achCheckSoon, achSummary, badgeById, journey, journeyTile, lvPill, placeName, renderJourney };
+export { ACH, ACH_BADGES, ACH_PLACES, achCheckSoon, achSummary, badgeById, journey, journeyTile, lvPill, placeName, renderJourney, showAchPop };

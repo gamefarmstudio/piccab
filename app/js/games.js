@@ -7,6 +7,7 @@ import { deckList, savedHas, toggleWord, wkey } from './decks.js';
 import { listStyle } from './sheets.js';
 import { answerXp, fxBad, fxGood, fxReset, fxSoft } from './fx.js';
 import { RD, roundEnd, roundKey, roundMiss, roundStart } from './rounds.js';
+import { addBonusXp, goldPill, pickGold } from './rewards.js';
 
 // ---------- quiz ----------
 function openQuiz(id){
@@ -96,7 +97,7 @@ function resetQuiz(){
 // ---------- find (listen & tap) ----------
 function startFind(only){
   const q=(Array.isArray(only) ? only : ids()).filter(i=>items()[i]);
-  G.find={queue:shuffle(q),target:null,score:0,total:q.length,missed:false,showWord:G.find.showWord,lock:false};
+  G.find={queue:shuffle(q),target:null,score:0,total:q.length,missed:false,showWord:G.find.showWord,lock:false,gold:Array.isArray(only)?null:pickGold(q)};
   roundStart('find', null, Array.isArray(only));
   nextFind();
 }
@@ -116,7 +117,7 @@ function findReveal(){
 }
 function findTap(id){
   if(!G.find.target || G.find.lock) return;
-  if(id===G.find.target){ if(!G.find.missed){ G.find.score++; fxGood(id, 2); } else fxSoft(2); markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
+  if(id===G.find.target){ if(!G.find.missed){ G.find.score++; if(id===G.find.gold){ addBonusXp(2); fxGood(id, 4, true); } else fxGood(id, 2); } else fxSoft(2); markActive(1); doFlash(id,'good',1000); renderSub(); lockNext(1000); }
   else { G.find.missed=true; doFlash(id,'bad',1500); fxBad(id); }
 }
 
@@ -128,7 +129,7 @@ function spkTarget(){ return spk && S.mode==='speak' && !S.editing ? spk.target 
 function startSpeak(only){
   spkStop();
   const q=(Array.isArray(only) ? only : ids()).filter(i=>items()[i]);
-  spk={...spk,queue:shuffle(q),target:null,score:0,total:q.length,tries:0,heard:'',state:'idle',result:''};
+  spk={...spk,queue:shuffle(q),target:null,score:0,total:q.length,tries:0,heard:'',state:'idle',result:'',gold:Array.isArray(only)?null:pickGold(q)};
   roundStart('speak', null, Array.isArray(only));
   spkNext();
 }
@@ -214,7 +215,7 @@ function spkJudge(alts){
     if(spk.tries===1) spk.score++;
     const rp0=progRaw(), k0=pk(id), was=!!rp0.done[k0], wasS=!!rp0.star[k0];
     const clean=spkSave(id, it, r);
-    if(spk.tries===1) fxGood(id, answerXp(!was && !!progRaw().done[k0], clean && !wasS)); else fxSoft(2);
+    if(spk.tries===1){ const xp=answerXp(!was && !!progRaw().done[k0], clean && !wasS); if(id===spk.gold){ addBonusXp(xp); fxGood(id, xp*2, true); } else fxGood(id, xp); } else fxSoft(2);
     spk.result = r.art==='wrong' ? 'okart' : !clean ? 'ok' : (S.lang==='de' && it.art) ? 'okstar' : 'okclean';
     spk.state='done'; markActive(1); doFlash(id,'good',1400); updateOverlay(); renderChips(); renderSub();
     setTimeout(()=>{ if(spk.target===id && S.mode==='speak') spkNext(); }, r.art==='wrong' ? 2600 : 1500);
@@ -273,7 +274,8 @@ function renderSpeakSub(put){
     word, msg, el('span',{class:'grow'}),
     el('button',{class:'toggle'+(spk.showWord?' on':''),text:spk.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ spk.showWord=!spk.showWord; renderSub(); }}),
     el('button',{text:'ข้าม ⏭',onclick:()=>{ spkStop(); spkNext(); }}),
+    spk.target===spk.gold ? goldPill() : null,
     el('span',{class:'pill',text:`ถูก ${spk.score} • เหลือ ${spk.queue.length+1}/${spk.total}`}));
 }
 
-export { closeQuiz, findReveal, findTap, lockNext, openQuiz, pattern, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, startFind, startSpeak };
+export { closeQuiz, findReveal, findTap, lockNext, openQuiz, pattern, positionQ, renderSpeakSub, resetQuiz, spk, spkPick, spkStop, spkTarget, SR, startFind, startSpeak };
