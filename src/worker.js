@@ -244,6 +244,21 @@ async function sentences(request, env) {
     return res;
   });
 }
+export function buildCefrPrompt(words) {
+  return `For each English word or phrase below, give its CEFR level for learners of English, as in learner's dictionaries:
+"preA1" for the very first words young children learn (colours, numbers, family, toys, pets, everyday food, body parts, simple actions like run and jump), otherwise "A1", "A2", "B1", "B2", "C1" or "C2". For a phrase, give the level of the whole phrase.
+Reply with only a JSON object from each word exactly as given to its level, like {"cat":"preA1","library":"A1","get dressed":"A1"}.
+Words: ${words.join(', ')}`;
+}
+export function parseCefr(text) {
+  const s = String(text || ''), a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  let o;
+  try { o = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  const out = {};
+  for (const [k, v] of Object.entries(o && typeof o === 'object' ? o : {})) { const c = cleanCefr(v); if (c) out[String(k).trim().toLowerCase()] = c; }
+  return Object.keys(out).length ? out : null;
+}
 export function buildSentencesPrompt(words, picture) {
   const list = words.map(x => x.w + (x.th ? ` (${x.th})` : '')).join(', ');
   const rules = `For Thai children learning English (A1-A2 level): present simple or present continuous, 4 to 10 words each, correct and natural.
@@ -703,6 +718,7 @@ For each thing give:
 - "word": the usual English name a learner's dictionary would use (British spelling, singular, lowercase), 1-4 words
 - "th": a short Thai meaning (a few words)
 - "alts": up to 3 other acceptable English answers (US spelling, close synonyms), or []
+- "cefr": the word's CEFR level for learners of English: "preA1" for the very first words young children learn (colours, numbers, family, toys, pets, food, body), otherwise "A1", "A2", "B1", "B2", "C1" or "C2"
 ${langs.map(lang => `- "${lang}": the usual ${AI_LANGS[lang]} word for it — singular, WITHOUT the article, normal ${AI_LANGS[lang]} spelling and capitalisation
 - "${lang}_art": its definite article: "der", "die" or "das" ("" if not a noun)
 - "${lang}_alts": up to 3 other acceptable ${AI_LANGS[lang]} answers without article, or []
@@ -742,6 +758,7 @@ export function parseItems(text) {
         alts: Array.isArray(r.alts) ? r.alts.filter(x => typeof x === 'string').slice(0, 4) : [],
         box,
       };
+      if (cleanCefr(r.cefr)) out.cefr = cleanCefr(r.cefr);
       for (const lg of Object.keys(AI_LANGS)) {
         if (typeof r[lg] === 'string' && r[lg].trim()) {
           const v = cleanLangWord({ w: r[lg], a: r[lg + '_art'], alts: r[lg + '_alts'] });
@@ -1234,6 +1251,7 @@ export function cleanGalleryItems(items, w, h) {
     bw = Math.max(4, Math.min(w - x, bw)); bh = Math.max(4, Math.min(h - y, bh));
     const o = { word, th: String(it.th || '').trim().slice(0, 120),
       alts: (Array.isArray(it.alts) ? it.alts : []).filter(a => typeof a === 'string' && a.trim()).slice(0, 4).map(a => a.trim().slice(0, 60)), x, y, w: bw, h: bh };
+    if (cleanCefr(it.cefr)) o.cefr = cleanCefr(it.cefr);
     if (it.l && typeof it.l === 'object') {
       const l = {};
       for (const lg of Object.keys(AI_LANGS)) { const v = it.l[lg]; if (v && typeof v === 'object') { const c = cleanLangWord({ w: v.w, a: v.a, alts: v.alts }); if (c.w) l[lg] = c; } }
@@ -1257,6 +1275,12 @@ export function cleanGallerySentences(list) {
   return out;
 }
 export const GALLERY_STAGES = ['p12', 'p34', 'p56', 'm13', 'm46', 'adult'];
+// A word's CEFR level for learners of English ("pre-A1", "PreA1", "a1" … → preA1, A1 … C2), or '' when unknown.
+export function cleanCefr(v) {
+  const t = String(v == null ? '' : v).replace(/[\s_-]+/g, '').toLowerCase();
+  if (t === 'prea1') return 'preA1';
+  return /^[abc][12]$/.test(t) ? t.toUpperCase() : '';
+}
 export const GALLERY_CEFR = ['preA1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const GALLERY_STAGE_OF = { beginner: 'p12', intermediate: 'p56', advanced: 'm13' };
 const GALLERY_CEFR_OF = { p12: 'preA1', p34: 'A1', p56: 'A1', m13: 'A2', m46: 'B1', adult: 'B2' };
@@ -1309,8 +1333,10 @@ async function galleryPublic(request, env, url) {
     const [categories, scenes] = await Promise.all([
       q(env, 'gallery_categories?select=id,name_th,name_en,emoji,sort&order=sort.asc'),
       // how many sentences each has (for the 💬 badge), and its school years / CEFR level
-      galSelect(env, c => `gallery_scenes?select=${GAL_LIST}${c}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`, ['sentences', 'stage', 'cefr'])
-        .then(({ rows }) => (rows || []).map(({ sentences, ...g }) => ({ ...g, sentence_count: Array.isArray(sentences) ? sentences.length : 0 }))),
+      // and its words with their CEFR levels (wl: [[word, cefr]]), for counting words by level; not the boxes
+      galSelect(env, c => `gallery_scenes?select=${GAL_LIST},items${c}&published=is.true&img_ver=gt.0&order=sort.asc,created_at.asc&limit=1000`, ['sentences', 'stage', 'cefr'])
+        .then(({ rows }) => (rows || []).map(({ sentences, items, ...g }) => ({ ...g, sentence_count: Array.isArray(sentences) ? sentences.length : 0,
+          wl: Object.values(items || {}).filter(it => it && it.word).map(it => [it.word, cleanCefr(it.cefr)]) }))),
     ]);
     const res = json({ categories: categories || [], scenes: scenes || [] });
     res.headers.set('cache-control', 'public, max-age=60');
@@ -1370,6 +1396,28 @@ async function galleryAdmin(request, env, m, id, act, body) {
     return json({ id: nid, ...r });
   }
   if (!GAL_ID.test(id || '')) return error('bad_id', 400);
+  // CEFR levels for a scene's words from AI (the words only, no picture): the words without one, or all with ?all=1
+  if (act === 'cefr' && m === 'POST') {
+    const r = await q(env, `gallery_scenes?select=items&id=eq.${id}`);
+    if (!r || !r[0]) return error('not_found', 404);
+    const items = r[0].items || {}, all = new URL(request.url).searchParams.get('all') === '1';
+    const want = [...new Set(Object.values(items).filter(it => it && it.word && (all || !cleanCefr(it.cefr))).map(it => it.word))];
+    if (!want.length) return json({ ok: true, set: 0 });
+    const providers = pickProviders(env);
+    if (!providers.length) return error('not_configured', 503);
+    const log = [];
+    const res = await runAI(env, providers, null, null, () => buildCefrPrompt(want), parseCefr, log);
+    await saveUsage(env, 'translate', log);
+    if (!res.ok) return res;
+    const got = (await res.json()).items || {};
+    let set = 0;
+    for (const it of Object.values(items)) {
+      const c = it && cleanCefr(got[String(it.word).toLowerCase()]);
+      if (c && (all || !cleanCefr(it.cefr))) { it.cefr = c; set++; }
+    }
+    if (set) await q(env, `gallery_scenes?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ items, updated_at: new Date().toISOString() }) });
+    return json({ ok: true, set });
+  }
   if (act === 'img' && m === 'PUT') {
     const thumb = new URL(request.url).searchParams.get('thumb') === '1';
     const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();

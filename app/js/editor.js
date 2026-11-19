@@ -6,6 +6,7 @@ import { markActive, recent, renderGallery } from './home.js';
 import { startFind } from './games.js';
 import { askLoginForAI, loadCredits, openLogin, sb, user } from './account.js';
 import { isStudent } from './classes.js';
+import { cefrKey } from './path.js';
 import { accessToken } from './sync.js';
 
 // ---------- editor ----------
@@ -265,7 +266,7 @@ async function runAI({count=20, level='mid', replace=true}={}){
         alts:Array.isArray(r.alts)?r.alts.filter(a=>typeof a==='string'&&a.trim()).slice(0,4).map(a=>a.trim().slice(0,60)):[],
         x:Math.round(x0/1000*sc.w), y:Math.round(y0/1000*sc.h), w:Math.round((x1-x0)/1000*sc.w), h:Math.round((y1-y0)/1000*sc.h)
       };
-      { const lw=cleanLang(r.l), keys=Object.keys(sc.items); if(lw) sc.items[keys[keys.length-1]].l=lw; }
+      { const lw=cleanLang(r.l), keys=Object.keys(sc.items), last=sc.items[keys[keys.length-1]]; if(lw) last.l=lw; if(cefrKey(r.cefr)) last.cefr=cefrKey(r.cefr); }
       added++;
     }
     saveScenes(); G.help={}; G.used={}; if(replace){ progress[sc.id]={done:{},star:{}}; saveProg(); }

@@ -884,6 +884,15 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.deepEqual(cleanGalleryScene({ stage:'p9', cefr:'Z1' }, true), { stage:'p12', cefr:'preA1' });
   assert.deepEqual(cleanGalleryScene({ cefr:'B1' }, true), { cefr:'B1' });
   { const o = cleanGalleryScene({ category:'home', title:'T', level:'intermediate', w:100, h:100, items:{} }, false); assert.deepEqual([o.stage, o.cefr], ['p56', 'A1']); }
+  // a word's CEFR level
+  const { cleanCefr, parseCefr, buildCefrPrompt, parseItems: pItems, cleanGalleryItems } = await import('../src/worker.js');
+  assert.deepEqual(['pre-A1', 'PreA1', 'a1', ' B2 ', 'C3', 'x', null].map(cleanCefr), ['preA1', 'preA1', 'A1', 'B2', '', '', '']);
+  assert.deepEqual(parseCefr('ok {"Cat":"pre-A1","get dressed":"a1","x":"Z9"}'), { cat:'preA1', 'get dressed':'A1' });
+  assert.equal(parseCefr('nothing'), null);
+  assert.match(buildCefrPrompt(['cat', 'get dressed']), /Words: cat, get dressed$/);
+  assert.equal(pItems('[{"word":"cat","box":[1,2,30,40],"cefr":"A1"}]')[0].cefr, 'A1');
+  assert.equal(cleanGalleryItems({ a1:{ word:'cat', x:1, y:1, w:9, h:9, cefr:'pre-a1' }, a2:{ word:'dog', x:1, y:1, w:9, h:9, cefr:'Q' } }, 100, 100).a1.cefr, 'preA1');
+  assert.equal('cefr' in cleanGalleryItems({ a2:{ word:'dog', x:1, y:1, w:9, h:9, cefr:'Q' } }, 100, 100).a2, false);
   const { cleanGallerySentences } = await import('../src/worker.js');
   assert.deepEqual(cleanGallerySentences([{ en:'  The girl is   sleeping. ', th:' เด็กหลับ ', words:['Bed','bed',' ',7] }, { en:'the girl is sleeping.' }, { en:'' }, null, 'x']),
     [{ en:'The girl is sleeping.', th:'เด็กหลับ', words:['bed','7'] }]);

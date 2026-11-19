@@ -1,9 +1,10 @@
 // Piccab — 🧭 เส้นทางคำศัพท์: the picture library by school years (ป.1–ม.6, then university and work), each with
 // its CEFR level (OBEC targets: A1 by the end of ป.6, A2 by ม.3, B1 by ม.6), how much of the level you know, and
 // its topics. Your level is kept on this device (pv-stage).
-import { $, el, ic, S, scenes, store, tally, UI } from './core.js';
+import { $, el, ic, S, scenes, store, tally, toast, UI } from './core.js';
 import { goHome, progOf } from './scene.js';
-import { renderHome } from './home.js';
+import { allWords, renderHome } from './home.js';
+import { startReview } from './decks.js';
 import { catName, GAL, galCard, galMine, loadGallery } from './gallery.js';
 
 // (var + function declarations: the home screen may ask for the path card before this part of the script has run)
@@ -17,6 +18,9 @@ var STAGES=[
 var CEFR_NAME={ preA1:'Pre-A1', A1:'A1', A2:'A2', B1:'B1', B2:'B2', C1:'C1', C2:'C2' };
 var PATH={ cat:'all' };
 
+// A word's CEFR level ("pre-A1", "a1" … → preA1, A1 … C2), or '' when unknown; a school year's level as a key.
+function cefrKey(v){ const t=String(v==null?'':v).replace(/[\s_-]+/g,'').toLowerCase(); return t==='prea1' ? 'preA1' : /^[abc][12]$/.test(t) ? t.toUpperCase() : ''; }
+function stageCefr(st){ return st ? cefrKey(String(st.cefr).replace('+','')) : ''; }
 function stageOf(g){ return (g && g.stage) || { beginner:'p12', intermediate:'p56', advanced:'m13' }[g && g.level] || 'p12'; }
 function stageById(id){ return (STAGES||[]).find(x=>x.id===id) || null; }
 function cefrOf(g){ return CEFR_NAME[g && g.cefr] || (stageById(stageOf(g))||{}).cefr || ''; }
@@ -50,7 +54,8 @@ function renderPath(){
     el('div',{class:'plevel'},
       el('div',{class:'prow'}, el('b',{'data-noi18n':'',text:`${st.e} ${stageName(st)}`}), el('span',{class:'cefr','data-noi18n':'',text:'CEFR '+st.cefr})),
       el('p',{class:'note',text: list.length ? `รู้แล้ว ${known} / ${words} คำ · ${list.length} ฉาก` : 'ระดับนี้ยังไม่มีฉาก กำลังเพิ่ม'}),
-      el('div',{class:'pbar',role:'progressbar','aria-valuemin':'0','aria-valuemax':'100','aria-valuenow':String(pct)}, el('i',{style:`width:${pct}%`}))));
+      el('div',{class:'pbar',role:'progressbar','aria-valuemin':'0','aria-valuemax':'100','aria-valuenow':String(pct)}, el('i',{style:`width:${pct}%`}))),
+    cefrBlock(stageCefr(st)));
   if(list.length){
     const cats=(GAL.data.categories||[]).filter(c=>list.some(g=>g.category===c.id));
     if(PATH.cat!=='all' && !cats.some(c=>c.id===PATH.cat)) PATH.cat='all';
@@ -89,4 +94,31 @@ function pathTile(){
     ic('chevron_right'));
 }
 
-export { CEFR_NAME, cefrOf, pathTile, renderPath, stageById, stageLabel, stageName, stageOf, STAGES };
+
+// Words by CEFR level: how many of each level you know, out of the level's words in the picture library and your
+// own scenes, with a review of that level's words in your scenes (not yet known first).
+function cefrRows(){
+  const all={}, mine={}, known={};
+  const add=(o,c,k)=>{ (o[c]=o[c]||new Set()).add(k); };
+  for(const g of (GAL && GAL.data && GAL.data.scenes)||[]) for(const [w,c] of g.wl||[]){ const k=cefrKey(c); if(k) add(all, k, String(w).toLowerCase()); }
+  for(const w of allWords()){
+    const src=(w.sc.items||{})[w.id], c=src && cefrKey(src.cefr); if(!c) continue;
+    const k=String(src.word).toLowerCase(); add(all, c, k);
+    (mine[c]=mine[c]||[]).push(w); if(w.st!=='todo') add(known, c, k);
+  }
+  return Object.keys(CEFR_NAME).filter(c=>all[c] && all[c].size).map(c=>({ c, total:all[c].size, known:known[c] ? known[c].size : 0, words:mine[c]||[] }));
+}
+function cefrBlock(cur){
+  const rows=cefrRows(); if(!rows.length) return null;
+  return el('div',{class:'pcefr'}, el('h3',{class:'psub',text:'คำศัพท์ตามระดับ CEFR'}),
+    ...rows.map(r=>{ const pct=Math.round(r.known/r.total*100);
+      return el('div',{class:'pcrow'+(r.c===cur?' cur':'')},
+        el('b',{class:'pcl','data-noi18n':'',text:CEFR_NAME[r.c]}),
+        el('div',{class:'pbar'}, el('i',{style:`width:${pct}%`})),
+        el('span',{class:'pcn',text:`${r.known}/${r.total}`}),
+        el('button',{type:'button',class:'pcgo',text:'ทบทวน',title:`ทบทวนคำระดับ ${CEFR_NAME[r.c]} ในคลังของคุณ`,
+          onclick:()=>{ if(!r.words.length){ toast('เก็บฉากระดับนี้เข้าคลังก่อน แล้วค่อยทบทวน'); return; } startReview(r.words); }})); }),
+    el('p',{class:'note small',text:'นับคำในคลังภาพ Piccab และฉากของคุณที่มีระดับ CEFR · รู้แล้ว = ผ่านแล้วอย่างน้อยครั้งหนึ่ง'}));
+}
+
+export { CEFR_NAME, cefrKey, cefrOf, pathTile, renderPath, stageById, stageLabel, stageName, stageOf, STAGES };

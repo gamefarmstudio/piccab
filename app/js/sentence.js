@@ -9,6 +9,7 @@ import { ask, doFlash, refresh, renderSub, setHL } from './scene.js';
 import { aiErr, aiNotice, aiWait } from './editor.js';
 import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
+import { cefrKey } from './path.js';
 
 // (var: the scene screen may ask about sentences before this part of the script has run)
 var SENT={ cache:store.get('pv-gsent',{})||{}, busy:{} };   // library scene id → { at, list:[{en, th, words}] }
@@ -55,6 +56,7 @@ async function loadSentences(sc){
   const r=await fetch('/api/gallery/'+g).then(x=>x.ok ? x.json() : x.status===404 ? {} : null).catch(()=>null);
   SENT.busy[g]=false;
   if(!r) return;                                   // offline: keep what we had
+  sentTakeCefr(sc, r.items);
   const before=JSON.stringify((c && c.list) || []);
   SENT.cache[g]={ at:Date.now(), list:Array.isArray(r.sentences) ? r.sentences : [] };
   store.set('pv-gsent', SENT.cache);
@@ -351,6 +353,15 @@ async function sentDrop(){
 // where the sentences come from: always said, since they are written by AI
 function sentSource(){
   return el('p',{class:'note small saisrc',text: ownSentences() ? '🤖 ประโยคเขียนโดยระบบ AI ไม่ใช่คน อาจผิดได้ · กด 🚩 เพื่อเอาประโยคที่แปลกออก' : '🤖 ประโยคเขียนโดยระบบ AI และตรวจโดยทีม Piccab'});
+}
+
+
+// A copy of a library scene takes the words' CEFR levels from the library (copies made before they were set).
+function sentTakeCefr(sc, its){
+  if(!sc || !its || !G.customs.includes(sc)) return;
+  const by={}; Object.values(its).forEach(it=>{ const c=it && cefrKey(it.cefr); if(c) by[String(it.word).toLowerCase()]=c; });
+  let n=0; Object.values(sc.items||{}).forEach(it=>{ const c=it && by[String(it.word).toLowerCase()]; if(c && it.cefr!==c){ it.cefr=c; n++; } });
+  if(n) saveScenes();
 }
 
 export { loadSentences, renderSentSub, sceneWordsIn, sentIds, sentModeShown, sentReset, sentTap };

@@ -9,7 +9,7 @@ import { user } from './account.js';
 import { ago2, CHEER_TEXT } from './friends.js';
 import { ADM, adminApi } from './admin.js';
 import { catName, GAL, galCopy, galEdits, galImg, galPushEdit } from './gallery.js';
-import { CEFR_NAME, cefrOf, stageById, stageName, stageOf, STAGES } from './path.js';
+import { CEFR_NAME, cefrKey, cefrOf, stageById, stageName, stageOf, STAGES } from './path.js';
 import { accessToken } from './sync.js';
 
 async function loadAdmin(){ const r=await adminApi('GET','/reports'+(ADM.all?'?all=1':'')).catch(()=>({ok:false})); ADM.data = r.ok ? r.j : { error: r.status===404 ? 'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น' : 'โหลดไม่สำเร็จ' }; }
@@ -154,6 +154,23 @@ function renderGalleryAdmin(v){
     el('label',{class:'galcatrow'}, el('span',{text:'ใส่ในหมวด'}), cat),
     el('label',{class:'chk'}, crop, el('span',{text:'ตัดขอบขวาและล่าง 4% (ลบลายน้ำ Gemini ที่มุมขวาล่าง)'})),
     el('div',{class:'row'}, el('button',{class:'primary',text:'เลือกไฟล์…',onclick:()=>inp.click()})), inp));
+  // ✨ CEFR levels for the words that have none, scene by scene (AI, the words only)
+  const noCefr=D.scenes.filter(g=>Object.values(g.items||{}).some(it=>it && it.word && !cefrKey(it.cefr)));
+  if(noCefr.length){
+    const btn=el('button',{class:'primary',text:`✨ ใส่ระดับ CEFR ให้คำ (${noCefr.length} ฉาก)`});
+    btn.addEventListener('click',async()=>{
+      btn.disabled=true; let set=0, fail=0;
+      for(const [i,g] of noCefr.entries()){
+        btn.textContent=`กำลังใส่ระดับ… ${i+1}/${noCefr.length}`;
+        const r=await adminApi('POST','/gallery/'+g.id+'/cefr').catch(()=>({ok:false,j:{}}));
+        if(r.ok) set+=r.j.set||0; else fail++;
+      }
+      toast(`ใส่ระดับ CEFR แล้ว ${set} คำ`+(fail?` · ไม่สำเร็จ ${fail} ฉาก ลองกดอีกครั้ง`:''), 5000);
+      ADM.gal=null; GAL.data=null; renderAdmin();
+    });
+    v.append(el('div',{class:'admcard'}, el('p',{}, el('b',{text:`คำที่ยังไม่มีระดับ CEFR อยู่ใน ${noCefr.length} ฉาก`})),
+      el('p',{class:'note',text:'ให้ AI ใส่ระดับ CEFR ให้ทีละฉาก (ส่งเฉพาะคำ ไม่ส่งรูป ไม่ใช้เครดิต) ใช้นับคำตามระดับในหน้าเส้นทางคำศัพท์'}), el('div',{class:'row'}, btn)));
+  }
   // scenes by category
   D.categories.forEach(c=>{
     const list=D.scenes.filter(g=>g.category===c.id); if(!list.length) return;
@@ -180,7 +197,7 @@ function galAdminRow(g, D){
     el('div',{class:'galinfo'},
       el('div',{class:'admtop'}, el('b',{'data-noi18n':'',text:g.title+(g.title_th?' · '+g.title_th:'')}),
         el('span',{class:'pill'+(live?' ok':''),text: live ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})),
-      el('p',{class:'note small',text:`${items.length} คำ · ประโยค ${sents.length} · ${g.w}×${g.h}`}),
+      el('p',{class:'note small',text:`${items.length} คำ · CEFR ${items.filter(it=>cefrKey(it.cefr)).length}/${items.length} · ประโยค ${sents.length} · ${g.w}×${g.h}`}),
       el('p',{class:'note small galwl','data-noi18n':'',text:items.map(it=>it.word+(it.th?'':' (?)')).join(', ')}),
       el('div',{class:'row galsels'}, el('label',{class:'galcatrow'}, el('span',{text:'หมวด'}), sel),
         el('label',{class:'galcatrow'}, el('span',{text:'ระดับชั้น'}), stSel), el('label',{class:'galcatrow'}, el('span',{text:'CEFR'}), cfSel)),
@@ -236,6 +253,7 @@ function galItems(list, W0, H0, W1, H1, k){
       x:Math.round(x0*k), y:Math.round(y0*k), w:Math.round((x1-x0)*k), h:Math.round((y1-y0)*k) };
     const l=typeof r.de==='string' && r.de.trim() ? cleanLang({ de:{ w:r.de, a:r.de_art, alts:r.de_alts } }) : null;
     if(l) it.l=l;
+    if(cefrKey(r.cefr)) it.cefr=cefrKey(r.cefr);
     items['g'+Object.keys(items).length.toString(36)+Math.random().toString(36).slice(2,6)]=it;
   }
   return items;
