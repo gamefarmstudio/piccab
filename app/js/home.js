@@ -11,6 +11,7 @@ import { renderAdmin } from './admin.js';
 import { renderPicLib } from './gallery.js';
 import { pathTile, renderPath } from './path.js';
 import { achCheckSoon, journeyTile, renderJourney } from './journey.js';
+import { sceneStars, starsEl } from './rounds.js';
 import { sendReportSoon } from './report.js';
 import { installApp, installAvailable } from './pwa.js';
 import { accessToken } from './sync.js';
@@ -102,6 +103,7 @@ function sceneCard(sc, lib){   // lib: {hit} in the library — adds who made it
   return el('button',{class:'card'+(lib?' lcard':''),onclick:()=>openPreview(sc.id),'aria-label':'ดูตัวอย่างฉาก '+sc.name},
     el('div',{class:'thumb'}, el('img',{alt:'',loading:'lazy',src:sceneImg(sc)}),
       lib ? el('span',{class:'own '+(sc.builtin?'smp':'mine'),title:own}, ic(sc.builtin?'auto_stories':'person')) : null,
+      starsEl(sceneStars(sc.id)),
       n?el('span',{class:'cnt'+(full?' full':''),title:`${n} คำ`}, ic(full?'check_circle-fill':'sell-fill'), String(n)):null),
     el('div',{class:'cbody'},
       el('b',{text:sc.name}),
@@ -212,7 +214,7 @@ function renderHome(){
     cimg.append(labeledImg(cur, window.innerWidth>=900 ? 1.7 : 3/2));
     h.append(el('div',{class:'cont'}, cimg,
       el('div',{class:'cb'},
-        el('div',{class:'row1'}, el('h4',{text:cur.name}),
+        el('div',{class:'row1'}, el('h4',{text:cur.name}), starsEl(sceneStars(cur.id),'inl'),
           n ? el('span',{class:'pct'+(full?' full':''),title:`ทบทวนแล้ว ${d}/${n} คำ`}, ic('check_circle'), Math.round(d/n*100)+'%') : el('span',{text:'ยังไม่มีคำศัพท์'})),
         progBar(n,d,'cbar'),
         el('div',{class:'acts'},

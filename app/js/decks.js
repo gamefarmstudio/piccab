@@ -10,6 +10,7 @@ import { user } from './account.js';
 import { ADM } from './admin.js';
 import { galEditOf, galPushEdit } from './gallery.js';
 import { answerXp, fxBad, fxGood } from './fx.js';
+import { roundMini, roundStart } from './rounds.js';
 import { openShare } from './share.js';
 import { saveSyncMem, SYNC, syncSoon } from './sync.js';
 
@@ -217,7 +218,7 @@ function startReview(list, all){
   const by=st=>shuffle(list.filter(w=>w.st===st));
   const pick=all ? shuffle(list.slice()) : shuffle(by('todo').concat(by('done'),by('star')).slice(0,10));
   if(!pick.length){ toast('ไม่มีคำให้ทบทวน'); return; }
-  RV={list:pick, src:list.map(w=>w.sc.id+'\u0000'+w.id), i:0, ok:0, star:0, mock:!!all};
+  RV={list:pick, src:list.map(w=>w.sc.id+'\u0000'+w.id), i:0, ok:0, star:0, mock:!!all}; roundStart('review','rv',true);
   markActive(0);
   rvQuestion();
 }
@@ -226,7 +227,7 @@ function startDueReview(){
   const due=dueWords();
   if(!due.length){ toast('วันนี้ทบทวนครบแล้ว 🎉'); return; }
   const pick=due.map(w=>({w, r:srsOf(w.sc.id,w.pid)})).sort((a,b)=>a.r.d-b.r.d || a.r.b-b.r.b).slice(0,10).map(x=>x.w);
-  RV={list:shuffle(pick), src:[], i:0, ok:0, star:0, due:true};
+  RV={list:shuffle(pick), src:[], i:0, ok:0, star:0, due:true}; roundStart('review','rv',true);
   markActive(0);
   rvQuestion();
 }
@@ -310,7 +311,7 @@ function rvDone(){
       m.classList.add('rvbox');
       m.append(el('div',{class:'rv-end'},
         el('div',{class:'big',text: left ? (r.ok===n?'🎉':'👍') : '🏆'}),
-        el('h3',{text: left ? 'ทบทวนชุดนี้เสร็จแล้ว' : 'ทบทวนครบสำหรับวันนี้แล้ว!'}),
+        el('h3',{text: left ? 'ทบทวนชุดนี้เสร็จแล้ว' : 'ทบทวนครบสำหรับวันนี้แล้ว!'}), roundMini(r.star, n),
         el('p',{text:`ตอบถูก ${r.ok}/${n} คำ`+(r.star?` · ★ ${r.star} คำไม่ใช้ตัวช่วย`:'')}),
         el('p',{class:'rv-next',text: left ? `ยังเหลือคำที่ถึงรอบวันนี้อีก ${left} คำ` : (tmr ? `พรุ่งนี้มีคำให้ทบทวน ${tmr} คำ — มาต่อ 🔥 กันนะ` : 'คำที่ตอบถูกจะกลับมาให้ทบทวนในอีกไม่กี่วัน')}),
         el('div',{class:'row'},
@@ -324,7 +325,7 @@ function rvDone(){
     m.classList.add('rvbox');
     m.append(el('div',{class:'rv-end'},
       el('div',{class:'big',text: r.ok===n ? '🎉' : r.ok ? '👍' : '💪'}),
-      el('h3',{text:'ทบทวนเสร็จแล้ว'}),
+      el('h3',{text:'ทบทวนเสร็จแล้ว'}), roundMini(r.star, n),
       el('p',{text:`ตอบถูก ${r.ok}/${n} คำ`+(r.star?` · ★ ${r.star} คำไม่ใช้ตัวช่วย`:'')}),
       el('div',{class:'row'},
         el('button',{text:'ปิด',onclick:closeModal}),

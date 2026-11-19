@@ -1179,3 +1179,28 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .fxcombo span{font-size:18px;font-weight:700;color:#7a3b00}
 .fxnote{position:absolute;left:50%;top:24%;transform:translateX(-50%);background:rgba(45,42,90,.88);color:#fff;border-radius:99px;padding:6px 16px;font-size:14px;white-space:nowrap}
 .fxshake{animation:shake .35s}
+
+/* ⭐ end of a round */
+.mbox.rdbox{max-width:440px}
+.rdend{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}
+.rdend h3{margin:2px 0 0;font-size:22px}
+.rdstars{display:flex;gap:6px;margin:6px 0 2px}
+.rdstar{font-size:58px;line-height:1;color:#e8dfd2;transform:scale(.4);opacity:0;animation:rdpop .45s cubic-bezier(.2,1.6,.4,1) forwards}
+.rdstar.on{color:#ffc928;text-shadow:0 3px 0 #e09a00,0 0 18px rgba(255,201,40,.55)}
+.rdstar:nth-child(2){font-size:70px;margin-top:-10px}
+.rdstars.sm .rdstar{font-size:38px}.rdstars.sm .rdstar:nth-child(2){font-size:44px;margin-top:-6px}
+@keyframes rdpop{to{transform:scale(1);opacity:1}}
+.rdline{margin:0;font-weight:600}
+.rdbest{background:#fff4cc;color:#8a5a00;font-weight:700;border-radius:99px;padding:4px 14px;animation:rdpop .5s 1.3s cubic-bezier(.2,1.6,.4,1) both}
+.rdstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;margin:8px 0 4px}
+.rdstats>div{background:#faf6ef;border-radius:14px;padding:8px 4px;display:flex;flex-direction:column;gap:2px}
+.rdstats small{font-size:11.5px;color:var(--muted);line-height:1.2}
+.rdstats b{font-size:17px;font-family:'Fredoka','Sarabun',sans-serif}
+.rdstats .xp b{color:#e08a00}
+.rdend .row{flex-wrap:wrap;justify-content:center;gap:8px;margin-top:6px}
+.rdmini{display:flex;flex-direction:column;align-items:center}
+.cstars{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.94);border-radius:99px;padding:1px 8px;font-size:14px;color:#f2a200;letter-spacing:1px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.cstars i{font-style:normal;color:#d9cfc1}
+.cstars.inl{position:static;box-shadow:none;background:#fff8e1;margin-left:6px;vertical-align:middle}
+@media (max-width:480px){ .rdstats{grid-template-columns:repeat(2,1fr)} }
+@media (prefers-reduced-motion:reduce){ .rdstar,.rdbest{animation:none;opacity:1;transform:none} }

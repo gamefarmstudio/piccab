@@ -11,7 +11,8 @@ import { aiErr, aiNotice, aiWait } from './editor.js';
 import { aiAuth, isList } from './sheets.js';
 import { galAdded } from './gallery.js';
 import { cefrKey } from './path.js';
-import { fxBad, fxGood, fxReset, sfx } from './fx.js';
+import { fxBad, fxGood, fxSoft } from './fx.js';
+import { roundEnd, roundStart } from './rounds.js';
 
 // (var: the scene screen may ask about sentences before this part of the script has run)
 var SENT={ cache:store.get('pv-gsent',{})||{}, busy:{} };   // library scene id → { at, list:[{en, th, words}] }
@@ -89,6 +90,7 @@ function sentInit(){
   const sc=scene(), all=sentencesOf(sc);
   const list=sentLv===2 ? all.filter(s=>sentSpots(s).length) : all;
   sg={ sid:sc.id, lv:sentLv, list, order:shuffle(list.map((_,i)=>i)), i:0, stars:0, cur:null };
+  roundStart('sent'+sentLv, sc.id);
   if(list.length) sentNew();
 }
 function sentNew(){
@@ -126,7 +128,7 @@ function sentCheck(){
   const c=sg.cur;
   if(c.line.map(x=>x.t).join(' ')===c.words.join(' ')){
     c.state='good'; if(!c.tries) sg.stars++;
-    renderSub(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(document.querySelector('#sub .sline'), 15); else { fxReset(); sfx('good',1); }
+    renderSub(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(document.querySelector('#sub .sline'), 15); else fxSoft(15);
     setTimeout(()=>{ if(sg && sg.cur===c) sentNext(); }, 2200);
     return;
   }
@@ -144,6 +146,7 @@ function sentNext(){
   else {
     sg.cur=null; tally('sent_round');                // each right sentence counts (markActive 'sent') for 🗺️ and the report
     const k=sg.sid+(sg.lv===2?':2':''), b=sentBest[k]; if(!b || sg.stars>b.stars){ sentBest[k]={ stars:sg.stars, n:sg.order.length }; store.set('pv-sentbest', sentBest); }
+    if(sg.order.length) roundEnd({ game:'sent'+sg.lv, right:sg.stars, total:sg.order.length, title: sg.lv===2 ? '🎉 เติมประโยคครบแล้ว!' : '🎉 เรียงประโยคครบแล้ว!', again:()=>{ sentInit(); renderSub(); setHL(); } });
   }
   renderSub(); setHL();
 }
@@ -153,7 +156,7 @@ function sentAnswer(w, id){
   const c=sg && sg.cur; if(!c || c.lv!==2 || c.state) return false;
   if(String(w).toLowerCase()===c.word.toLowerCase()){
     c.state='good'; if(!c.tries) sg.stars++;
-    renderSub(); setHL(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(id || document.querySelector('#sub .sblank'), 15); else { fxReset(); sfx('good',1); }
+    renderSub(); setHL(); speak(c.s.en); markActive(0,'sent'); if(!c.tries) fxGood(id || document.querySelector('#sub .sblank'), 15); else fxSoft(15);
     setTimeout(()=>{ if(sg && sg.cur===c) sentNext(); }, 2400);
   } else {
     c.tries++; if(!c.wrong.includes(w)) c.wrong.push(w); fxBad(id || null);

@@ -5,7 +5,7 @@
 import { el, store, tally } from './core.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
-var FX={ ctx:null, combo:0, best:0, on:store.get('pv-sfx', true)!==false };
+var FX={ ctx:null, combo:0, best:0, rx:0, rbest:0, on:store.get('pv-sfx', true)!==false };   // rx / rbest: XP and best combo this round
 const COMBO_AT=[3,5,10,15,20,30,40,50];
 const fxCalm=()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
 
@@ -69,7 +69,8 @@ function comboPop(n){
 }
 // A right answer: where (word id / element), how much XP it was worth
 function fxGood(target, xp){
-  FX.combo++; if(FX.combo>FX.best) FX.best=FX.combo;
+  FX.combo++; if(FX.combo>FX.best) FX.best=FX.combo; if(FX.combo>FX.rbest) FX.rbest=FX.combo;
+  FX.rx+=xp||2;
   const p=fxPoint(target), big=COMBO_AT.includes(FX.combo) || (FX.combo>50 && FX.combo%10===0);
   sfx(big ? 'combo' : 'good', FX.combo);
   if(!fxCalm()) confetti(p, big ? 40 : 16);
@@ -85,10 +86,12 @@ function fxBad(target){
   if(e && !fxCalm()){ e.classList.remove('fxshake'); void e.offsetWidth; e.classList.add('fxshake'); }
 }
 function fxNote(text){ const L=fxLayer(), n=el('div',{class:'fxnote',text}); L.append(n); n.animate([{opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.8},{opacity:0}],{duration:1600}).onfinish=()=>n.remove(); }
+// right, but not the first time: XP, a plain chime, no combo
+function fxSoft(xp){ FX.combo=0; FX.rx+=xp||2; sfx('good',1); }
 // a new game / scene / word shown without answering: the combo starts again (quietly)
 function fxReset(){ FX.combo=0; }
 // XP for a right answer (as 🗺️ การเดินทาง counts it): +2, +10 for a new word, +5 for a new ★
 const answerXp=(isNew, newStar)=>2+(isNew?10:0)+(newStar?5:0);
 { const c=document.getElementById('sfx'); if(c){ c.checked=FX.on; c.addEventListener('change',()=>{ FX.on=c.checked; store.set('pv-sfx', FX.on); if(FX.on) sfx('good',1); }); } }
 
-export { answerXp, fxBad, fxGood, fxReset, sfx };
+export { answerXp, confetti, FX, fxBad, fxCalm, fxGood, fxReset, fxSoft, sfx };
