@@ -1167,3 +1167,15 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .rjourney .rwords{width:100%}
 @media (max-width:640px){ .jnode{width:120px} .jdot{width:48px;height:48px;font-size:26px} .jnode.here .jdot{width:58px;height:58px;font-size:30px} .lvpill{padding:5px 8px} }
 @media (prefers-reduced-motion:reduce){ .jnode.here .jdot,.jme,.achpop .achbig{animation:none} }
+
+/* 🎉 game effects */
+#fxLayer{position:fixed;inset:0;pointer-events:none;z-index:180;overflow:hidden}
+.fxbit{position:absolute;width:9px;height:12px;border-radius:2px}
+.fxxp{position:absolute;display:flex;flex-direction:column;align-items:center;white-space:nowrap;font-family:'Fredoka','Sarabun',sans-serif;text-shadow:0 2px 0 #fff,0 0 8px #fff}
+.fxxp b{font-size:24px;color:#e08a00;-webkit-text-stroke:.5px #fff}
+.fxxp span{font-size:15px;font-weight:700;color:#d1501f}
+.fxcombo{position:absolute;left:50%;top:38%;display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,#fff8e1,#ffe7b8);border:3px solid #ffb627;border-radius:24px;padding:12px 28px;box-shadow:0 12px 30px rgba(209,80,31,.25);font-family:'Fredoka','Sarabun',sans-serif}
+.fxcombo b{font-size:44px;line-height:1.05;color:#d1501f}
+.fxcombo span{font-size:18px;font-weight:700;color:#7a3b00}
+.fxnote{position:absolute;left:50%;top:24%;transform:translateX(-50%);background:rgba(45,42,90,.88);color:#fff;border-radius:99px;padding:6px 16px;font-size:14px;white-space:nowrap}
+.fxshake{animation:shake .35s}

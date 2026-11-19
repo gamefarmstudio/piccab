@@ -11,6 +11,7 @@ import { openLogin } from './account.js';
 import { galEditBar } from './gallery.js';
 import { CEFR_NAME, cefrKey } from './path.js';
 import { lvPill } from './journey.js';
+import { fxReset } from './fx.js';
 import { openShare } from './share.js';
 import { exitFs, fitWrap, isFs } from './layout.js';
 
@@ -143,7 +144,7 @@ function goHome(view){
   apReset();
   if(S.editing){ S.editing=false; G.selId=null; saveScenes(); }
   if(aiCtl) aiCtl.abort();
-  closeQuiz(true); spkStop(); G.pinnedId=G.hoverId=null; G.flash=null;
+  closeQuiz(true); spkStop(); G.pinnedId=G.hoverId=null; G.flash=null; fxReset();
   try{ speechSynthesis.cancel(); }catch(e){}
   if(view==='path' || view==='journey') tally(view);
   S.view=(view==='library'||view==='words'||view==='class'||view==='admin'||view==='path'||view==='journey')?view:'home'; refresh(); renderGallery(); window.scrollTo(0,0);
@@ -460,7 +461,7 @@ function renderSub(){
         findKeepBtn(),
         el('button',{class:'toggle'+(G.find.showWord?' on':''),text:G.find.showWord?'🙈 ซ่อนคำ':'👁 แสดงคำ',onclick:()=>{ G.find.showWord=!G.find.showWord; renderSub(); }}),
         el('button',{text:'📍 เผยตำแหน่ง',title:'บอกว่าคำนี้อยู่ตรงไหนในภาพ (ข้อนี้จะไม่นับเป็นถูกตั้งแต่ครั้งแรก)',onclick:()=>findReveal()}),
-        el('button',{text:'ข้าม ⏭',onclick:()=>{ G.find.missed=true; doFlash(G.find.target,'good',1300); speak(sayOf(G.find.target)); lockNext(1300); }}),
+        el('button',{text:'ข้าม ⏭',onclick:()=>{ G.find.missed=true; fxReset(); doFlash(G.find.target,'good',1300); speak(sayOf(G.find.target)); lockNext(1300); }}),
         el('span',{class:'pill',text:`ถูก ${G.find.score} • เหลือ ${G.find.queue.length+1}/${G.find.total}`})
       );
     } else {
@@ -579,7 +580,7 @@ svg.addEventListener('click', e=>{
 
 // ---------- modes / buttons ----------
 document.querySelectorAll('#modes button[data-mode]').forEach(b=>b.addEventListener('click',()=>{
-  apReset(); spkStop(); S.mode=b.dataset.mode; G.pinnedId=G.hoverId=null; G.flash=null; closeQuiz(true); tally('mode:'+S.mode); if(S.mode==='learn') markActive(0,'learn');
+  apReset(); spkStop(); S.mode=b.dataset.mode; G.pinnedId=G.hoverId=null; G.flash=null; fxReset(); closeQuiz(true); tally('mode:'+S.mode); if(S.mode==='learn') markActive(0,'learn');
   try{ speechSynthesis.cancel(); }catch(e){}
   if(isList(scene())) renderScene();   // a word sheet shows the English words only while learning
   if(S.mode==='sent') sentReset();

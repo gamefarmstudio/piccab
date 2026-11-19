@@ -9,6 +9,7 @@ import { deleteScene, examIn, examLabel, isList, listStyle, openSheetMaker } fro
 import { user } from './account.js';
 import { ADM } from './admin.js';
 import { galEditOf, galPushEdit } from './gallery.js';
+import { answerXp, fxBad, fxGood } from './fx.js';
 import { openShare } from './share.js';
 import { saveSyncMem, SYNC, syncSoon } from './sync.js';
 
@@ -284,15 +285,15 @@ function rvCheck(v){
     RV.answered=true;
     if(!progress[w.sc.id]) progress[w.sc.id]={done:{},star:{}};
     const p=progress[w.sc.id]; p.done=p.done||{}; p.star=p.star||{};
-    const clean=!RV.used && !RV.miss && res.art!=='missing';
-    srsAnswer(p, w.sc.id, w.pid, clean); if(clean) p.star[w.pid]=true; saveProg(); markActive(1,'review');
+    const clean=!RV.used && !RV.miss && res.art!=='missing', xp=answerXp(!p.done[w.pid], clean && !p.star[w.pid]);
+    srsAnswer(p, w.sc.id, w.pid, clean); if(clean) p.star[w.pid]=true; saveProg(); markActive(1,'review'); fxGood(document.getElementById('rvIn'), xp);
     RV.ok++; if(clean) RV.star++;
     rvMsg('ok',(clean?'ถูกต้อง! เก่งมาก ★ ':'ถูกต้อง! ✓ ')+w.it.word+artNote(res));
     speak(sayWord(w.it));
     const at=RV.i, run=RV; setTimeout(()=>{ if(RV===run && RV.i===at) rvNext(); }, 1300);
     return;
   }
-  RV.miss=true;
+  RV.miss=true; fxBad(null);
   if(res.art==='wrong') rvMsg('bad',`คำถูกแล้ว แต่ไม่ใช่ “${res.said}” — ลองเปลี่ยน der/die/das หรือพิมพ์แค่คำนาม`);
   else {
     const goal=w.it.base||w.it.word, d=lev(normFor(String(v).replace(/^(der|die|das)\s+/i,''),w.it), normFor(goal,w.it));

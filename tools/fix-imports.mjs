@@ -12,7 +12,7 @@ const acorn = require('acorn'), es = require('eslint-scope'), globals = require(
 const APP = new URL('../app/', import.meta.url).pathname;
 // load order of the parts (main.js imports them in this order; core imports nothing)
 export const ORDER = ['core', 'progress', 'scene', 'home', 'decks', 'cards', 'games', 'sentence', 'editor', 'sheets', 'account', 'classes',
-  'friends', 'admin', 'gallery', 'path', 'journey', 'report', 'share', 'pwa', 'sync', 'layout'];
+  'friends', 'admin', 'gallery', 'path', 'journey', 'fx', 'report', 'share', 'pwa', 'sync', 'layout'];
 const LAZY_EXPORTS = { 'admin-page': ['renderAdmin'] };   // loaded with import() when needed → what the loader calls
 const LAZY = Object.keys(LAZY_EXPORTS);
 const known = new Set([...Object.keys(globals.browser), ...Object.keys(globals.builtin)]);
