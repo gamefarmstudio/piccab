@@ -9,6 +9,7 @@ import { aiCtl, autoLangState, autoTranslate, drag, dragMove, drawing, drewAt, m
 import { deleteScene, isList, openImport, openSheetMaker } from './sheets.js';
 import { openLogin } from './account.js';
 import { galEditBar } from './gallery.js';
+import { CEFR_NAME, cefrKey } from './path.js';
 import { openShare } from './share.js';
 import { exitFs, fitWrap, isFs } from './layout.js';
 
@@ -277,7 +278,8 @@ function updateTag(){
   tag.innerHTML='';
   const txt=el('div');
   if(kind==='bad') txt.append(el('small',{class:'why',text:'ยังไม่ใช่ — อันนี้คือ'}));
-  txt.append(wordEl(it));
+  const wb=wordEl(it); txt.append(wb);
+  { const c=S.lang==='en' && cefrKey(it.cefr); if(c) wb.append(el('span',{class:'cefrb','data-noi18n':'',text:CEFR_NAME[c],title:'ระดับคำศัพท์ CEFR'})); }
   if(mean(it)) txt.append(el('small',{text:mean(it)}));
   const kept=isKept(scene().id,id);
   tag.append(txt, el('button',{class:'say','aria-label':'ฟังเสียง',text:'🔊',onclick:e=>{e.stopPropagation(); speak(sayOf(id));}}),

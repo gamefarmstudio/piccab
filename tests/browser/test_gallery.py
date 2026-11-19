@@ -28,8 +28,8 @@ def files():
     d=tempfile.mkdtemp()
     png(os.path.join(d,'Kitchen.png'), 1200, 900, [(100,100,400,400,(192,57,43)),(600,150,800,350,(241,196,15)),(300,550,900,800,(44,123,229))], (244,234,216))
     gem={"piccab":1,"category":"home","title":"Kitchen","title_th":"ห้องครัว","level":"beginner","items":[
-        {"word":"red box","th":"กล่องสีแดง","alts":[],"de":"Kiste","de_art":"die","de_alts":[],"box_2d":[111,83,444,333]},
-        {"word":"sun","th":"ดวงอาทิตย์","alts":[],"box_2d":[167,500,389,667]},
+        {"word":"red box","th":"กล่องสีแดง","alts":[],"de":"Kiste","de_art":"die","de_alts":[],"cefr":"A1","box_2d":[111,83,444,333]},
+        {"word":"sun","th":"ดวงอาทิตย์","alts":[],"cefr":"pre-A1","box_2d":[167,500,389,667]},
         {"word":"Table","th":"","alts":["desk"],"box_2d":[611,250,889,750]},
         {"word":"sun","th":"ซ้ำ","box_2d":[0,0,100,100]}],
         "sentences":[{"en":"The red box is on the table.","th":"กล่องสีแดงอยู่บนโต๊ะ","words":["red box"]},
@@ -55,6 +55,7 @@ async def main():
         out['cards']=await A.inner_text('#adminView .aicards')
         out['table']=await A.inner_text('#adminView table')
         out['row']=await A.inner_text('#adminView .galrow')
+        out['cefr_btn']=await A.locator('#adminView button:has-text("ใส่ระดับ CEFR")').count()
         await A.screenshot(path=shot('gal1_admin.png'), full_page=True)
         g=fake('/rest/v1/gallery_scenes')[0]
         out['db']=(g['category'], g['title'], g['title_th'], g['w'], g['h'], g['word_count'], g['img_ver'], g['published'])
@@ -182,6 +183,7 @@ async def main():
         await V.locator('#pathView .ppickgrid button', has_text='ป.1–2').click(); await V.wait_for_timeout(600)
         out['plevel']=await V.inner_text('#pathView .plevel')
         out['ptopics']=await V.locator('#pathView .ptopic').all_inner_texts()
+        out['pcefr']=await V.locator('#pathView .pcrow').all_inner_texts()
         out['pcards']=await V.locator('#pathView .galcard').count()
         await V.screenshot(path=shot('gal9_path.png'), full_page=True)
         await V.locator('#pathView .pstages button', has_text='ม.1–3').click(); await V.wait_for_timeout(300)
@@ -223,6 +225,8 @@ async def main():
     check(len(f)==2 and '?' in f[0][0] and f[0][1]==0 and f[0][2][0]==1 and 'ยังไม่ใช่' in f[0][2][1] and f[0][3]=='✓ ถูกต้อง' and f[0][4]!='?' and f[0][5]==1
           and f[1][2]=='✓ ถูกต้อง ได้ ★' and f[1][3].endswith('★ 1'), 'level 2: a wrong choice is crossed out, tapping the thing in the picture answers; no picture hint before', f)
     check('เติมครบ 2 ประโยคแล้ว' in out['fill_done'] and '★☆' in out['fill_done'], 'level 2 summary', out['fill_done'])
+    check('CEFR 2/3' in out['row'] and out['cefr_btn']==1, 'admin: CEFR levels imported (2 of 3 words), a button to fill the rest', (out['row'], out['cefr_btn']))
+    check(len(out['pcefr'])==2 and out['pcefr'][0].startswith('Pre-A1') and '/1' in out['pcefr'][0] and out['pcefr'][1].startswith('A1'), 'path: words by CEFR level', out['pcefr'])
     check('เลือกระดับชั้น' in out['ptile'] and 'เรียนอยู่ชั้นไหน' in out['ppick'], 'home card opens the path; first it asks the school year', (out['ptile'], out['ppick']))
     check('ป.1–2' in out['plevel'] and 'CEFR Pre-A1' in out['plevel'] and '/ 3 คำ · 1 ฉาก' in out['plevel'] and len(out['ptopics'])==1 and '1 ฉาก · 3 คำ' in out['ptopics'][0] and out['pcards']==1,
           'level card (CEFR, words known), its topics and scenes', (out['plevel'], out['ptopics'], out['pcards']))

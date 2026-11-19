@@ -1027,3 +1027,13 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .galhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .pathlink{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-weight:600}
 .galsels{flex-wrap:wrap;gap:8px}
+/* CEFR per word */
+.cefrb{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#efedff;color:#534ab7;font:600 11px/1.4 'Sarabun',system-ui,sans-serif;vertical-align:middle}
+.pcefr{margin-top:6px}
+.pcrow{display:grid;grid-template-columns:56px 1fr auto auto;align-items:center;gap:10px;padding:6px 4px;border-radius:10px}
+.pcrow.cur{background:#efedff}
+.pcrow .pcl{font-size:14px}
+.pcrow .pbar{height:8px}
+.pcrow .pcn{font-size:13px;color:var(--muted);min-width:52px;text-align:right}
+.pcrow .pcgo{padding:4px 10px;font-size:13px}
+.pcefr .note{margin:6px 4px 0;font-size:12.5px;line-height:1.4}
