@@ -167,6 +167,7 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   assert.equal(r.status, 200); assert.equal((await r.json()).key, `u/${UID}/s1`);
   r = await req('GET', 's1', 'good');
   assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'image/jpeg');
+  assert.equal(r.headers.get('cache-control'), 'private, no-store');           // a redrawn sheet must not come from an old copy
   assert.deepEqual(new Uint8Array(await r.arrayBuffer()), jpg);
   assert.equal((await req('GET', 's1', 'other')).status, 404);                 // another user can't see it
   const big = new Uint8Array(3 * 1024 * 1024 + 1);

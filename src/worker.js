@@ -860,7 +860,9 @@ async function image(request, env, url) {
     if (!obj) return error('not_found', 404);
     return new Response(obj.body, { headers: {
       'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg',
-      'cache-control': 'private, max-age=31536000, immutable',
+      // A scene's picture can change under the same address (a word sheet redrawn with pictures or new words),
+      // so the browser must not keep an old copy.
+      'cache-control': 'private, no-store',
     } });
   }
   if (request.method === 'PUT') {
