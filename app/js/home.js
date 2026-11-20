@@ -21,6 +21,7 @@ import { accessToken } from './sync.js';
 let recent=store.get('pv-recent',{}); if(typeof recent!=='object'||!recent) recent={};
 let lastMode=store.get('pv-lastmode',{}); if(typeof lastMode!=='object'||!lastMode) lastMode={};
 let days=store.get('pv-days',{}); if(typeof days!=='object'||!days) days={};
+function reloadDays(){ days=store.get('pv-days',{}); if(typeof days!=='object'||!days) days={}; }   // after 🎮 game sync
 const MODE_NAMES={learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา', speak:'ฝึกพูด'};
 const dkey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 // A day you practised: n = words answered; for the learning report also m = answers per game (or rounds / opens),
@@ -386,4 +387,4 @@ function wordEl(it, tag, prefix){
   return b;
 }
 
-export { allWords, days, dkey, homeCredit, lastMode, LIB, markActive, openFeedback, recent, renderGallery, renderHome, renderLibrary, sayWord, statChip, streak, streakPill, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb };
+export { allWords, days, dkey, homeCredit, lastMode, LIB, markActive, openFeedback, recent, reloadDays, renderGallery, renderHome, renderLibrary, sayWord, statChip, streak, streakPill, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb };

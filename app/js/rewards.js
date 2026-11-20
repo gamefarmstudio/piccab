@@ -25,12 +25,27 @@ var RARITY={ c:'ธรรมดา', r:'หายาก ✨', l:'ตำนาน
 // chance of a rare / legendary sticker by chest: wood (1★), silver (2★), gold (3★ or all quests done)
 var CHESTS={ wood:{ e:'🎁', name:'หีบไม้', r:.13, l:.02 }, silver:{ e:'🎁', name:'หีบเงิน', r:.25, l:.05 }, gold:{ e:'🎁', name:'หีบทอง', r:.38, l:.12 } };
 var RW={ stk:store.get('pv-stk',{})||{}, chests:store.get('pv-chests',[])||[] };
+// Chests as counts per kind — got and opened (pv-chestc) — so two devices can add them up without opening one twice;
+// the waiting chests (pv-chests) are got − opened.
+var CHC=(()=>{ let c=store.get('pv-chestc',null);
+  if(!c || typeof c!=='object'){ c={ got:{}, open:{} }; for(const ch of RW.chests){ const t=CHESTS[ch && ch.t] ? ch.t : 'wood'; c.got[t]=(c.got[t]||0)+1; } store.set('pv-chestc', c); }
+  c.got=c.got||{}; c.open=c.open||{}; return c; })();
+function chestsFromCounts(){
+  const L=[]; for(const t of ['wood','silver','gold']) for(let i=Math.max(0,(+CHC.got[t]||0)-(+CHC.open[t]||0)); i>0; i--) L.push({ t, d:0 });
+  return L;
+}
+function reloadRewards(){                                     // after 🎮 game sync
+  RW.stk=store.get('pv-stk',{})||{};
+  const c=store.get('pv-chestc',null); if(c && typeof c==='object'){ CHC.got=c.got||{}; CHC.open=c.open||{}; }
+  RW.chests=chestsFromCounts(); store.set('pv-chests', RW.chests);
+}
 
 const stickerName=s=>s[2];
 const ownedCount=()=>STICKERS.filter(s=>RW.stk[s[0]]).length;
 function bonusXp(){ return Math.max(0, +store.get('pv-bonusxp',0)||0); }
 function addBonusXp(n){ store.set('pv-bonusxp', bonusXp()+n); }
-function addChest(tier){ RW.chests.push({ t:CHESTS[tier]?tier:'wood', d:dayNo() }); store.set('pv-chests', RW.chests); }
+function addChest(tier){ const t=CHESTS[tier]?tier:'wood'; RW.chests.push({ t, d:dayNo() }); store.set('pv-chests', RW.chests);
+  CHC.got[t]=(+CHC.got[t]||0)+1; store.set('pv-chestc', CHC); }
 const tierFor=stars=>stars>=3 ? 'gold' : stars===2 ? 'silver' : 'wood';
 function drawSticker(tier){
   const c=CHESTS[tier]||CHESTS.wood, x=Math.random(), rar= x<c.l ? 'l' : x<c.l+c.r ? 'r' : 'c';
@@ -49,6 +64,7 @@ function chestEl(onDone){
     if(btn.disabled) return; btn.disabled=true; btn.classList.add('opening'); sfx('good',3);
     setTimeout(()=>{
       RW.chests.pop(); store.set('pv-chests', RW.chests);
+      CHC.open[ch.t]=(+CHC.open[ch.t]||0)+1; store.set('pv-chestc', CHC);
       const s=drawSticker(ch.t), had=RW.stk[s[0]]||0; RW.stk[s[0]]=had+1; store.set('pv-stk', RW.stk);
       if(had) addBonusXp(20);
       dqAdd('chests',1); tally('chest_'+s[3]);
@@ -155,4 +171,4 @@ function stickerBook(){
   return box;
 }
 
-export { addBonusXp, addChest, bonusXp, chestEl, dqAdd, dqMax, goldPill, ownedCount, pickGold, questCheck, questTile, stickerBook, tierFor };
+export { addBonusXp, addChest, bonusXp, chestEl, dqAdd, dqMax, goldPill, ownedCount, pickGold, questCheck, questTile, reloadRewards, stickerBook, tierFor };

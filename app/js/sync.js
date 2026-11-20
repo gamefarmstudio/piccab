@@ -6,6 +6,7 @@ import { renderGallery } from './home.js';
 import { deckSig, dsig, getDeck, SAVED_DECK } from './decks.js';
 import { isList } from './sheets.js';
 import { sb, user } from './account.js';
+import { gsSync } from './gamesync.js';
 
 // ---------- sync: scenes + progress in Supabase, pictures in R2 (via /api/img) ----------
 // Each device remembers what it last synced ('pv-sync'), so only changes are sent.
@@ -42,6 +43,7 @@ async function syncNow(pull){
     if(pull) await syncPull();
     await syncPush();
     SYNC.state='ok'; SYNC.at=Date.now();
+    if(typeof gsSync==='function') gsSync();                 // 🎮 XP, streak, badges, stickers … (never holds up the rest)
   }catch(e){
     console.warn('sync failed', e); SYNC.state='error';
     clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(true), 30000);

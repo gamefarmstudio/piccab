@@ -583,6 +583,8 @@ const D={
   "👁 แสดงกรอบทั้งหมด: ปิด": "👁 Show all boxes: off",
   "ฉากนี้ยังไม่มีประโยค": "This scene has no sentences yet",
   "ด่าน": "Level",
+  "✨ มี Piccab เวอร์ชันใหม่": "✨ A new version of Piccab is out",
+  "อัปเดต": "Update",
   "AI ใช้เวลานานเกินจนหมดเวลา (Google ตัดเอง)": "The AI took too long and Google stopped it (timed out)",
   "ติดต่อ Google ไม่ได้": "Couldn't reach Google",
   "สแกนไม่สำเร็จ ({0}{1})": "Scan failed ({0}{1})",

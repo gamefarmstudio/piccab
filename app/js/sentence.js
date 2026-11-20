@@ -18,7 +18,8 @@ import { roundEnd, roundStart } from './rounds.js';
 var SENT={ cache:store.get('pv-gsent',{})||{}, busy:{} };   // library scene id → { at, list:[{en, th, words}] }
 var sg=null;                                                  // the round being played
 var sentBest=store.get('pv-sentbest',{})||{};                 // my scene id (+ ':2' for level 2) → most ★ in a round
-var sentLv=store.get('pv-sentlv',1)===2 ? 2 : 1;              // the level last played
+var sentLv=store.get('pv-sentlv',1)===2 ? 2 : 1;
+function reloadSentBest(){ sentBest=store.get('pv-sentbest',{})||{}; }   // after 🎮 game sync              // the level last played
 
 function galIdOf(sc){
   if(!sc || sc.builtin) return null;
@@ -369,4 +370,4 @@ function sentTakeCefr(sc, its){
   if(n) saveScenes();
 }
 
-export { loadSentences, renderSentSub, sceneWordsIn, sentIds, sentModeShown, sentReset, sentTap };
+export { loadSentences, reloadSentBest, renderSentSub, sceneWordsIn, sentIds, sentModeShown, sentReset, sentTap };

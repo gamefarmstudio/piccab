@@ -104,6 +104,22 @@ create policy "decks: own rows" on public.decks
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- ─────────────────────────────────────────────────────────────
+-- 🎮 Game progress across devices (XP, streak days, badges, stickers, chests, quests, best stars, word stats):
+-- one row per account; the app merges it with each device (numbers take the larger side, badges are joined).
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.game_state (
+  user_id     uuid primary key default auth.uid() references auth.users on delete cascade,
+  data        jsonb not null default '{}'::jsonb check (pg_column_size(data) <= 400000),
+  updated_at  timestamptz not null default now()
+);
+alter table public.game_state enable row level security;
+
+drop policy if exists "game_state: own row" on public.game_state;
+create policy "game_state: own row" on public.game_state
+  for all to authenticated
+  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+-- ─────────────────────────────────────────────────────────────
 -- Share links (piccab.com/s/<id>): a snapshot of a scene or a word deck.
 -- No policies on purpose: browsers cannot read or list this table; only the Worker
 -- (secret key) reads a share by its id, so links cannot be discovered.

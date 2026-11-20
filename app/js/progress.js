@@ -25,6 +25,7 @@ function srsOf(scId,id){
 const srsDue=(scId,id)=>{ const r=srsOf(scId,id); return !!r && r.d<=dayNo(); };
 // For the learning report: per word [times it needed help or a wrong try, day first passed] (pv-wstat).
 var WST=null;
+function reloadWordStats(){ WST=null; }                        // after 🎮 game sync
 function wordStats(){ if(!WST){ WST=store.get('pv-wstat',{}); if(!WST || typeof WST!=='object') WST={}; } return WST; }
 function noteAnswer(scId, id, clean, first){
   if(clean && !first) return;                               // nothing new to note
@@ -113,4 +114,4 @@ async function boot(){
   G.customs.forEach(sc=>Object.defineProperty(sc,'_sig',{value:sigOf(sc),writable:true,configurable:true,enumerable:false}));
 }
 
-export { boot, dayNo, dueOn, dueWords, forgetSceneLocal, imgSaved, nextReviewText, persistScenesQuiet, prog, progRaw, saveProg, saveScenes, sigOf, srsAnswer, srsDue, srsOf, wordStats };
+export { boot, dayNo, dueOn, dueWords, forgetSceneLocal, imgSaved, nextReviewText, persistScenesQuiet, prog, progRaw, reloadWordStats, saveProg, saveScenes, sigOf, srsAnswer, srsDue, srsOf, wordStats };
