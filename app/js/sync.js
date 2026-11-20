@@ -2,7 +2,7 @@
 import { G, $, LOC, progress, S, scenes, store } from './core.js';
 import { forgetSceneLocal, imgSaved, persistScenesQuiet, sigOf } from './progress.js';
 import { refresh, renderScene } from './scene.js';
-import { renderGallery } from './home.js';
+import { renderGallery, sceneTime } from './home.js';
 import { deckSig, dsig, getDeck, SAVED_DECK } from './decks.js';
 import { isList } from './sheets.js';
 import { sb, user } from './account.js';
@@ -170,22 +170,37 @@ async function pushDecks(uid, mem){
     store.set('pv-decks', G.decks);
   }
 }
+// Pictures of scenes that came from the account: the scene on screen first, then the most recent ones (the "เรียนต่อ"
+// card), 4 at a time; each shows as soon as it arrives. A failed download is tried again (after 1 s, then 2 s); one that
+// still fails stays in pv-imgneed and the next sync (in 30 s) fetches it.
 async function downloadPictures(list){
   const tok=await accessToken(); if(!tok) return;
-  let got=0;
-  for(const sc of list){
-    try{
-      const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { headers:{ authorization:'Bearer '+tok }, cache:'no-store' });   // never an old copy from the browser cache
-      if(r.status===404) store.set('pv-imgneed', store.get('pv-imgneed',[]).filter(id=>id!==sc.id));   // nothing to fetch
-      if(!r.ok) continue;
-      const blob=await r.blob();
-      imgSaved.delete(sc.id);
-      sc.img=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
-      got++; persistScenesQuiet();                          // the picture is kept first, then it is no longer pending
-      store.set('pv-imgneed', store.get('pv-imgneed',[]).filter(id=>id!==sc.id));
-    }catch(e){}
-  }
-  if(got) afterSyncChange();
+  const queue=list.slice().sort((a,b)=>(b.id===S.sceneId)-(a.id===S.sceneId) || sceneTime(b)-sceneTime(a));
+  let got=0, failed=0, drawT=null, redraw=false;
+  // redraw what's on screen (while playing: only when it's this scene's picture, so a round isn't disturbed)
+  const show=sc=>{ if(S.view==='play' && sc.id!==S.sceneId) return; redraw=true;
+    if(!drawT) drawT=setTimeout(()=>{ drawT=null; redraw=false; afterSyncChange(); }, 250); };
+  const drop=id=>store.set('pv-imgneed', store.get('pv-imgneed',[]).filter(x=>x!==id));
+  const one=async sc=>{
+    for(let k=0;k<3;k++){
+      if(k) await new Promise(r=>setTimeout(r, 1000*k));
+      try{
+        const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { headers:{ authorization:'Bearer '+tok }, cache:'no-store' });   // never an old copy from the browser cache
+        if(r.status===404){ drop(sc.id); return; }                 // nothing to fetch
+        if(r.status===401 || r.status===403) return;               // signed out meanwhile
+        if(!r.ok) continue;                                        // busy / server error → again
+        const blob=await r.blob();
+        imgSaved.delete(sc.id);
+        sc.img=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
+        got++; persistScenesQuiet(); drop(sc.id);                  // the picture is kept first, then it is no longer pending
+        show(sc); return;
+      }catch(e){}                                                  // network hiccup → again
+    }
+    failed++;
+  };
+  await Promise.all(Array.from({ length:Math.min(4, queue.length) }, async()=>{ while(queue.length) await one(queue.shift()); }));
+  if(drawT){ clearTimeout(drawT); drawT=null; if(redraw) afterSyncChange(); }
+  if(failed){ clearTimeout(SYNC.imgRetry); SYNC.imgRetry=setTimeout(()=>{ if(user) syncNow(true); }, 30000); }
 }
 function dataUrlBlob(u){
   const i=u.indexOf(','), type=(u.slice(5,i).split(';')[0])||'image/jpeg', bin=atob(u.slice(i+1)), a=new Uint8Array(bin.length);
