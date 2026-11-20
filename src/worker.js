@@ -730,11 +730,13 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
       }),
     });
   } catch (e) {
-    return { code: 'upstream_unreachable', status: 502, next: true };
+    return { code: 'upstream_unreachable', status: 502, next: true, why: 'unreachable', finish: '', sample: String(e && e.message || e).slice(0, 300) };
   }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    // Google's own message (never the user's picture or words) goes to the 🧪 compare, for the admin
+    const info = { finish: 'HTTP ' + res.status, sample: detail.slice(0, 400) };
     console.log('Gemini API error', model, res.status, detail.slice(0, 500));
     if (res.status === 429) {
       // "limit: 0" = no free quota for this model; "per day" = daily quota used up; otherwise per-minute.
@@ -742,12 +744,14 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
       return { code: none ? 'not_configured' : 'rate_limited', status: none ? 503 : 429, next: true,
                skipMs: none || daily ? 60 * 60 * 1000 : 60 * 1000, why: none ? 'no_quota' : daily ? 'quota_day' : 'quota_minute' };
     }
-    if (res.status === 503 || res.status === 500) return { code: 'busy', status: 503, next: true, skipMs: 30 * 1000 };
+    if (res.status === 503 || res.status === 500) return { code: 'busy', status: 503, next: true, skipMs: 30 * 1000, ...info };
+    // 504 / 408: the model took too long (DEADLINE_EXCEEDED) — another model may answer in time
+    if (res.status === 504 || res.status === 408) return { code: 'busy', status: 503, next: true, skipMs: 5 * 60 * 1000, why: 'timeout', ...info };
     if (res.status === 404) return { code: 'not_configured', status: 503, next: true, skipMs: 60 * 60 * 1000 };
     if (res.status === 400 && /api key/i.test(detail)) return { code: 'not_configured', status: 503 };
     if (res.status === 401 || res.status === 403) return { code: 'not_configured', status: 503 };
     if (res.status === 400 && /image|inline_data|mime/i.test(detail)) return { code: 'image_rejected', status: 400 };
-    return { code: 'upstream_error', status: 502 };
+    return { code: 'upstream_error', status: 502, why: 'http_' + res.status, ...info };
   }
 
   const data = await res.json();

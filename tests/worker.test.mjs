@@ -139,6 +139,13 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
     return new Response(okBody, { status: 200 }); };
   r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'z1,z2' });
   jj = await r.json(); assert.equal(r.status, 200); assert.equal(jj.model, 'z2'); assert.deepEqual(seen, ['z1', 'z2']);
+  // Google took too long (504 DEADLINE_EXCEEDED) → the next model, and that one is skipped for a while
+  seen.length = 0;
+  globalThis.fetch = async (url) => { const m = url.match(/models\/([^:]+):/)[1]; seen.push(m);
+    return m === 't1' ? new Response('{"error":{"code":504,"status":"DEADLINE_EXCEEDED"}}', { status: 504 }) : new Response(okBody, { status: 200 }); };
+  r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 't1,t2' });
+  jj = await r.json(); assert.equal(jj.model, 't2'); assert.deepEqual(seen, ['t1', 't2']);
+  seen.length = 0; await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 't1,t2' }); assert.deepEqual(seen, ['t2']);
   // an answer cut off part-way (ran out of room) → the things that came complete are kept
   const cut = '[{"word":"cup","th":"ถ้วย","alts":[],"cefr":"preA1","box_2d":[1,2,3,4]},{"word":"spoon","th":"ช้อน","alts":["teaspoon"],"box_2d":[5,6,7,8]},{"word":"cup","box_2d":[9,9,9,9]},{"word":"pla';
   assert.deepEqual(parseItems(cut).map(x => x.word), ['cup', 'spoon']);           // complete ones, no repeats
@@ -1092,6 +1099,13 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   const [lite] = (await (await cmp({ image: img, models: ['gemini-3.5-flash-lite'] })).json()).results;
   assert.equal(lite.ok, false); assert.equal(lite.why, 'cut_off'); assert.equal(lite.finish, 'MAX_TOKENS'); assert.equal(lite.tok_out, 8192);
   assert.ok(lite.sample.startsWith('Sure! xxx') && lite.sample.endsWith('the end') && lite.sample.length < 420, lite.sample);
+  // any other error from Google: the column shows the HTTP status and Google's message
+  globalThis.fetch = async (url, init) => url.includes('gemini-3.8-flash')
+    ? new Response('{"error":{"code":400,"message":"Request contains an invalid argument.","status":"INVALID_ARGUMENT"}}', { status: 400 })
+    : keep(url, init);
+  const [e38] = (await (await cmp({ image: img, models: ['gemini-3.8-flash'] })).json()).results;
+  assert.equal(e38.ok, false); assert.equal(e38.error, 'upstream_error'); assert.equal(e38.why, 'http_400'); assert.equal(e38.finish, 'HTTP 400');
+  assert.match(e38.sample, /INVALID_ARGUMENT/);
   globalThis.fetch = keep;
   assert.equal((await cmp({ image: 'data:text/html;base64,AAAA' })).status, 400);
   assert.equal((await cmp({ image: img }, 'cmp-kid')).status, 404);              // admins only
