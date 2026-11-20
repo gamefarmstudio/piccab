@@ -338,6 +338,8 @@ html[lang=en] .qtop .en,html[lang=en] .rv-q .en{display:none}   /* the Thai prom
 .aicard.wide{margin-top:12px}
 .cmpctl{flex-wrap:wrap;gap:8px;align-items:center}
 .cmpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px}
+.cmpraw summary{cursor:pointer;font-size:.85rem;color:#6b6585}
+.cmpraw pre{white-space:pre-wrap;word-break:break-all;font-size:.75rem;max-height:220px;overflow:auto;background:#f6f2ea;border-radius:8px;padding:8px;line-height:1.35}
 .cmpms{flex-wrap:wrap;gap:6px;margin:8px 0}
 .cmpm{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid #e6dccd;border-radius:999px;background:#fff;font-size:.88rem;cursor:pointer}
 .cmpm:has(input:checked){border-color:#5b4fc4;background:#f1eefc}
