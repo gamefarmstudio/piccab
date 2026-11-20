@@ -72,7 +72,7 @@ function proBadge(plan){
 const proLocked=plan=>!!(plan && plan.required && !plan.pro);
 function openProInfo(){
   openModal(m=>m.append(el('h3',{text:'⭐ รายงานละเอียดเป็นฟีเจอร์ Pro'}),
-    el('p',{text:'ดูได้ว่าลูกหรือนักเรียนฝึกวันไหน กี่นาที เล่นเกมอะไร คำไหนจำได้แล้ว คำไหนยังพลาดบ่อย และไปถึงระดับ CEFR ไหน'}),
+    el('p',{text:'ดูว่าลูกหรือนักเรียนฝึกวันไหน กี่นาที คำไหนจำได้ คำไหนยังพลาด'}),
     el('p',{class:'note',text:'บัญชีนี้ยังไม่ได้เปิด Pro — ส่งความเห็นบอกทีม Piccab เพื่อขอเปิดใช้'}),
     el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal}),
       el('button',{class:'primary',text:'💬 ขอเปิด Pro',onclick:()=>{ closeModal(); openFeedback('other'); }}))));
@@ -161,12 +161,12 @@ function renderReport(v, d){
   const chips=(list, mk)=>el('div',{class:'rwords'}, ...list.map(mk));
   if((D.weak||[]).length) v.append(el('h3',{class:'psub',text:'คำที่ยังพลาดบ่อย'}),
     chips(D.weak, ([a,b,n])=>el('span',{class:'rw weak'}, el('b',{'data-noi18n':'',text:a}), b?el('small',{'data-noi18n':'',text:b}):null, el('em',{text:'×'+n}))),
-    el('p',{class:'note small',text:'คำที่ต้องใช้ตัวช่วย ดูเฉลย หรือพิมพ์ผิดหลายครั้ง — ลองฝึกด้วยกัน หรือพิมพ์เป็นแฟลชการ์ด'}));
+    el('p',{class:'note small',text:'คำที่ใช้ตัวช่วยหรือพิมพ์ผิดบ่อย — ลองฝึกด้วยกัน'}));
   if((D.learned||[]).length) v.append(el('h3',{class:'psub',text:'คำที่เพิ่งจำได้'}),
     chips(D.learned, ([a,b,k])=>el('span',{class:'rw'}, el('b',{'data-noi18n':'',text:a}), b?el('small',{'data-noi18n':'',text:b}):null, el('em',{text:fmtDay(k)}))));
   if((D.scenes||[]).length){ v.append(el('h3',{class:'psub',text:'ฉากที่ฝึก'}),
     el('div',{class:'rbars'}, ...D.scenes.map(([n,dn,t])=>barRow(n, dn, t, `${dn}/${t}`)))); }
-  v.append(el('p',{class:'note small',text:'รายงานนี้คำนวณในเครื่องของผู้เรียน และส่งมาเมื่อผู้เรียนเปิดแอปขณะออนไลน์ ผู้เรียนเลิกแชร์ได้ทุกเมื่อ'}));
+  v.append(el('p',{class:'note small',text:'อัปเดตเมื่อผู้เรียนเปิดแอปขณะออนไลน์ · เลิกแชร์ได้ทุกเมื่อ'}));
 }
 
 export { openMemberReport, proBadge, proLocked, renderReport, reportLine, sendReportSoon, setReportOn };

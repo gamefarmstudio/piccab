@@ -216,7 +216,7 @@ function openLangPicker(){
       el('p',{class:'note',text:'เมนูและความหมายของคำจะแสดงเป็นภาษานี้'}),
       uiRow(k=>{ closeModal(); setUi(k); }),
       el('h3',{class:'h3b',text:'🌍 ภาษาที่ฝึก'}),
-      el('p',{class:'note',text:'ฉากเดิมใช้ได้ทุกภาษา — กรอบในรูปเหมือนเดิม เปลี่ยนแค่คำศัพท์ ความคืบหน้าและรอบทบทวนแยกกันในแต่ละภาษา'}));
+      el('p',{class:'note',text:'กรอบเดิม เปลี่ยนแค่คำศัพท์ · ความคืบหน้าแยกตามภาษา'}));
     const list=el('div',{class:'langlist'});
     Object.entries(LANGS).forEach(([k,L])=>{
       const n=allWords(k).length;
@@ -389,7 +389,7 @@ function renderSub(){
       el('button',{text:'🔗 แชร์ฉาก',title:'สร้างลิงก์ หรือส่งเป็นไฟล์ .piccab ให้เพื่อน',onclick:()=>openShare({kind:'scene',sc})}),
       el('button',{class:'danger',text:'🗑 ลบฉาก',onclick:deleteScene}),
       el('button',{class:'primary',text:'✓ เสร็จแล้ว',onclick:()=>{ commitName(); S.editing=false; G.selId=null; saveScenes(); if(S.mode==='find' && ids().length) startFind(); refresh(); if(!ids().length) toast('ยังไม่มีคำศัพท์ในฉากนี้'); }}),
-      el('div',{class:'hint',style:'flex-basis:100%',text:'➕ ตีกรอบคำใหม่: ลากรอบสิ่งของได้ทุกที่ แม้ทับกรอบเดิม • แตะกรอบเพื่อเลือก แล้วกด ✏️ แก้ไขคำ หรือ 🗑 ลบ • ลากกรอบเพื่อย้าย • ลาก □ เพื่อปรับขนาด • จุดที่กรอบซ้อนกัน แตะซ้ำเพื่อสลับกรอบ • ลากบนที่ว่างก็เพิ่มกรอบใหม่ได้ • แตะที่ว่างหรือกด Esc เพื่อกลับไปดูทุกกรอบ'})
+      el('div',{class:'hint',style:'flex-basis:100%',text:'➕ ลากกรอบรอบสิ่งของเพื่อเพิ่มคำ • แตะกรอบเพื่อแก้ไขหรือลบ • ลากเพื่อย้าย • ลาก □ เพื่อปรับขนาด'})
     );
     return;
   }
@@ -408,7 +408,7 @@ function renderSub(){
         el('button',{text:'🇬🇧 ฝึกภาษาอังกฤษแทน',onclick:()=>setLang('en')}));
       return;
     }
-    put(el('span',{class:'hint',text:'ฉากนี้ยังไม่มีคำศัพท์ — กด ✏️ แก้ไขฉาก แล้วลากกรอบรอบสิ่งของในรูป'}));
+    put(el('span',{class:'hint',text:'ยังไม่มีคำศัพท์ — กด ✏️ แล้วลากกรอบรอบสิ่งของ'}));
     return;
   }
   if(S.mode==='learn'){

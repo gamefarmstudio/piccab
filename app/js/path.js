@@ -43,7 +43,7 @@ function levelSum(id){
 function renderPath(){
   const v=$('#pathView'); if(!v) return; v.innerHTML='';
   v.append(el('div',{class:'ghead lh'}, el('div',{}, el('h2',{}, ic('auto_stories'), 'เส้นทางคำศัพท์'),
-    el('p',{text:'เลือกระดับชั้น แล้วเรียนคำศัพท์ทีละหัวข้อจากคลังภาพ Piccab'}))));
+    el('p',{text:'เรียนทีละหัวข้อตามระดับชั้น'}))));
   const me=myStage();
   if(!me){ v.append(pathPicker()); return; }
   if(!GAL.data){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadGallery(); return; }
@@ -77,7 +77,7 @@ function renderPath(){
 }
 function pathPicker(){
   return el('div',{class:'ppick'}, el('b',{text:'เรียนอยู่ชั้นไหน?'}),
-    el('p',{class:'note',text:'เลือกเพื่อดูคำศัพท์ที่เหมาะกับระดับ เปลี่ยนได้ทุกเมื่อ'}),
+    el('p',{class:'note',text:'เปลี่ยนได้ทุกเมื่อ'}),
     el('div',{class:'ppickgrid'}, ...STAGES.map(x=>el('button',{type:'button',onclick:()=>{ setMyStage(x.id); if(S.view==='path') renderPath(); else renderHome(); }},
       el('span',{class:'e','aria-hidden':'true',text:x.e}), el('b',{'data-noi18n':'',text:stageName(x)}), el('small',{'data-noi18n':'',text:'CEFR '+x.cefr})))));
 }
@@ -119,7 +119,7 @@ function cefrBlock(cur){
         el('span',{class:'pcn',text:`${r.known}/${r.total}`}),
         el('button',{type:'button',class:'pcgo',text:'ทบทวน',title:`ทบทวนคำระดับ ${CEFR_NAME[r.c]} ในคลังของคุณ`,
           onclick:()=>{ if(!r.words.length){ toast('เก็บฉากระดับนี้เข้าคลังก่อน แล้วค่อยทบทวน'); return; } startReview(r.words); }})); }),
-    el('p',{class:'note small',text:'นับคำในคลังภาพ Piccab และฉากของคุณที่มีระดับ CEFR · รู้แล้ว = ผ่านแล้วอย่างน้อยครั้งหนึ่ง'}));
+    el('p',{class:'note small',text:'รู้แล้ว = ผ่านอย่างน้อยหนึ่งครั้ง'}));
 }
 
 export { CEFR_NAME, cefrKey, cefrOf, cefrRows, myStage, pathTile, renderPath, stageById, stageCefr, stageLabel, stageName, stageOf, STAGES };

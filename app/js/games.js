@@ -244,8 +244,8 @@ function spkSave(id, it, r){
 function spkIntro(){
   openModal(m=>{
     m.append(el('h3',{text:'🎤 ฝึกพูด'}),
-      el('p',{text:'แตะ 🎤 แล้วพูดคำศัพท์ของสิ่งที่ไฮไลต์ไว้ แอปจะฟังแล้วบอกว่าตรงกับคำไหม'}),
-      el('p',{class:'note'}, 'เสียงของคุณจะถูกส่งไปให้ระบบฟังเสียงของเบราว์เซอร์แปลงเป็นข้อความ (เช่น Google ใน Chrome หรือ Apple ใน Safari) — Piccab ไม่ได้รับและไม่เก็บเสียงของคุณ · ไม่ใช้เครดิต AI', ' · ', el('a',{href:'/privacy#speak',target:'_blank',rel:'noopener',text:'อ่านเพิ่ม'})),
+      el('p',{text:'แตะ 🎤 แล้วพูดชื่อของสิ่งที่ไฮไลต์'}),
+      el('p',{class:'note'}, 'เสียงถูกแปลงเป็นข้อความโดยเบราว์เซอร์ (เช่น Google หรือ Apple) · Piccab ไม่เก็บเสียง', ' · ', el('a',{href:'/privacy#speak',target:'_blank',rel:'noopener',text:'อ่านเพิ่ม'})),
       el('p',{class:'note small',text:'ครั้งแรกเบราว์เซอร์จะถามสิทธิ์ใช้ไมโครโฟน ให้กด “อนุญาต”'}),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}),
         el('button',{class:'primary',text:'🎤 เริ่มพูด',onclick:()=>{ store.set('pv-mic-ok',true); closeModal(); spkListen(); }})));
@@ -253,7 +253,7 @@ function spkIntro(){
 }
 function renderSpeakSub(put){
   if(!SR){
-    put(el('span',{class:'hint',text:'🎤 เบราว์เซอร์นี้ยังฟังเสียงไม่ได้ — ลองเปิดด้วย Chrome (Android / คอมพิวเตอร์) หรือ Safari (iPhone / iPad)'}));
+    put(el('span',{class:'hint',text:'🎤 เบราว์เซอร์นี้ฟังเสียงไม่ได้ — ลองใช้ Chrome หรือ Safari'}));
     return;
   }
   if(!spk.target){

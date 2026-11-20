@@ -616,6 +616,10 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .mbox .row .sp{flex:1}
 .mbox p{margin:0 0 12px;line-height:1.5}
+.frshort{margin:0 0 4px;font-weight:600}
+.frmore summary{cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:6px}
+.frmore .frsafe{margin-top:4px}
+.ainote{font-size:12.5px;line-height:1.5}
 .mailcard{margin:10px 0 4px}
 .mailcard .cllb{flex-wrap:wrap}
 .mailcard .note{margin:6px 0 0}

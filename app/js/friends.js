@@ -46,10 +46,10 @@ async function loadFriends(){
 function ago2(ts){ const s=(Date.now()-Date.parse(ts))/1000; return s<3600?Math.max(1,Math.round(s/60))+' นาทีที่แล้ว':s<86400?Math.round(s/3600)+' ชม.ที่แล้ว':Math.round(s/86400)+' วันที่แล้ว'; }
 function renderFriends(){
   const v=$('#classView'); v.innerHTML=''; socialTabs(v);
-  v.append(el('div',{class:'ghead'}, el('h2',{text:'เพื่อน'}), el('p',{text:'แลกรหัสกับเพื่อนที่รู้จัก ดูว่าใครฝึกกี่คำ ส่งกำลังใจ และส่งฉากให้กัน'})));
+  v.append(el('div',{class:'ghead'}, el('h2',{text:'เพื่อน'}), el('p',{text:'แลกรหัสกับเพื่อนที่รู้จัก ส่งกำลังใจกัน'})));
   if(!user){
     v.append(el('div',{class:'frintro'},
-      el('p',{text:'ต้องมีบัญชีก่อน: ผู้ใหญ่เข้าสู่ระบบด้วยอีเมลหรือ Google ส่วนนักเรียนเข้าห้องเรียนด้วยรหัสจากครู (เป็นเพื่อนได้กับเพื่อนในห้องเดียวกัน)'}),
+      el('p',{text:'ต้องมีบัญชีก่อน: เข้าสู่ระบบ หรือเข้าห้องเรียนด้วยรหัสจากครู'}),
       el('div',{class:'row'}, el('button',{class:'primary',text:'👤 เข้าสู่ระบบ',onclick:()=>openLogin()}), el('button',{text:'🔑 เข้าห้องเรียน',onclick:()=>{ FR.tab='class'; openJoinClass(); }}))));
     return;
   }
@@ -62,12 +62,14 @@ function renderFriends(){
       const r=await friendsApi('POST','/me',{ nickname:ni.value, stats:friendStats() }); if(!r.ok){ go.disabled=false; toast(friendErr(r)); return; }
       store.set('pv-friends-on',true); FR.data=null; renderFriends(); });
     v.append(el('div',{class:'frintro'},
+      el('p',{class:'frshort',text:'🛡️ แลกรหัสเท่านั้น · ไม่มีแชต · เพื่อนเห็นแค่ชื่อเล่น'}),
+      el('details',{class:'frmore'}, el('summary',{text:'อ่านกติกาทั้งหมด'}),
       el('ul',{class:'frsafe'},
         el('li',{text:'เป็นเพื่อนกันได้ด้วยการแลกรหัสหรือสแกน QR เท่านั้น — ไม่มีใครค้นหาคุณได้'}),
         el('li',{text:'ไม่มีแชต ส่งได้แค่คำให้กำลังใจสำเร็จรูป และฉากหรือชุดคำ (ต้องกดรับก่อน)'}),
         el('li',{text:'เพื่อนเห็นแค่ชื่อเล่น 🔥 วันติดกัน และจำนวนคำที่ฝึก ไม่เห็นอีเมล'}),
         isStudent() ? el('li',{text:'บัญชีนักเรียนเป็นเพื่อนได้เฉพาะกับเพื่อนในห้องเรียนเดียวกัน'}) : null,
-        el('li',{text:'ลบเพื่อน บล็อก หรือรายงานได้ทุกเมื่อ'})),
+        el('li',{text:'ลบเพื่อน บล็อก หรือรายงานได้ทุกเมื่อ'}))),
       el('label',{class:'frlabel'},'ชื่อเล่นที่เพื่อนจะเห็น (ไม่ใช้ชื่อจริงก็ได้)', ni),
       el('div',{class:'row'}, go)));
     return;
@@ -79,7 +81,7 @@ function renderFriends(){
     qrBox,
     el('div',{class:'clinv-r'},
       el('small',{text:'รหัสเพื่อนของ '+d.me.nickname}), el('div',{class:'clcode',text:d.me.code}),
-      el('p',{text:'ให้เพื่อนสแกน QR หรือใส่รหัสนี้ — ให้เฉพาะเพื่อนที่รู้จักเท่านั้น'}),
+      el('p',{text:'ให้เพื่อนที่รู้จักสแกน QR หรือใส่รหัสนี้'}),
       el('div',{class:'row'},
         el('button',{class:'primary',text:'📋 คัดลอกลิงก์',onclick:()=>copyLink(link)}),
         el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,'มาเป็นเพื่อนฝึกคำศัพท์กันบน Piccab')}),

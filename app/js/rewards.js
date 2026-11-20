@@ -141,7 +141,7 @@ function openQuests(){
     const draw=()=>{
       const L=questList();
       m.replaceChildren(el('h3',{text:'📋 ภารกิจวันนี้'}),
-        el('p',{class:'note small',text:'ทำครบทั้ง 3 ภารกิจ ได้หีบทอง 🎁 · แต่ละภารกิจ +50 XP · พรุ่งนี้มีภารกิจใหม่'}),
+        el('p',{class:'note small',text:'ครบ 3 ภารกิจ ได้หีบทอง 🎁 · ภารกิจละ +50 XP'}),
         el('div',{class:'qlist'}, ...L.map(x=>el('div',{class:'dqrow'+(x.done?' done':'')},
           el('span',{class:'qck','aria-hidden':'true',text:x.done?'✅':'⬜'}),
           el('span',{class:'grow'}, el('b',{text:x.text}), el('span',{class:'pbar'}, el('i',{style:`width:${Math.round(x.have/x.goal*100)}%`}))),
@@ -159,7 +159,7 @@ function stickerBook(){
   const box=el('div',{id:'stkBook'});
   const n=ownedCount();
   box.append(el('h3',{class:'psub',text:`📒 สมุดสติกเกอร์ ${n}/${STICKERS.length}`}),
-    el('p',{class:'note small',text:'เล่นจบรอบแล้วได้หีบสมบัติ ยิ่งได้ดาวมากหีบยิ่งดี (หีบไม้ → หีบเงิน → หีบทอง) · ได้ซ้ำ +20 XP'}));
+    el('p',{class:'note small',text:'จบรอบได้หีบ · ดาวยิ่งมาก หีบยิ่งดี · ได้ซ้ำ +20 XP'}));
   if(RW.chests.length) box.append(el('div',{class:'qchest'}, el('p',{class:'note',text:`มีหีบรอเปิด ${RW.chests.length} ใบ`}), chestEl(()=>setTimeout(()=>{ if(S.view==='journey') renderJourney(); }, 1800))));
   ['l','r','c'].forEach(r=>{
     const list=STICKERS.filter(s=>s[3]===r);

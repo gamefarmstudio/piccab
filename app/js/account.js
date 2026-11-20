@@ -136,11 +136,11 @@ function openLogin(prefill){
     if(gbtn) m.append(el('h3',{text:'👤 เข้าสู่ระบบ / สมัครสมาชิก'}), gbtn, el('div',{class:'orline',text:'หรือใช้อีเมล'}));
     else m.append(el('h3',{text:'👤 เข้าสู่ระบบ / สมัครสมาชิก'}));
     m.append(
-      el('p',{text:'ใส่อีเมลของคุณ เราจะส่งรหัสตัวเลขไปให้ ไม่ต้องตั้งรหัสผ่าน (ครั้งแรกจะสมัครให้อัตโนมัติ)'}),
+      el('p',{text:'ใส่อีเมล เราจะส่งรหัสให้ ไม่ต้องตั้งรหัสผ่าน'}),
       inp, tsbox, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
       el('p',{class:'note consent'}, 'การเข้าสู่ระบบถือว่าคุณยอมรับ', el('a',{href:'/terms',target:'_blank',text:'ข้อตกลงการใช้งาน'}), 'และ', el('a',{href:'/privacy',target:'_blank',text:'นโยบายความเป็นส่วนตัว'}), ' · อายุต่ำกว่า 20 ปีควรขออนุญาตพ่อแม่หรือผู้ปกครองก่อน'),
-      el('p',{class:'note',text:'☁️ เมื่อเข้าสู่ระบบ ฉาก รูป และความคืบหน้าจะถูกเก็บในบัญชี ใช้ได้ทุกเครื่องที่เข้าสู่ระบบด้วยอีเมลเดียวกัน'}));
+      el('p',{class:'note',text:'☁️ ฉากและความคืบหน้าจะใช้ได้ทุกเครื่อง'}));
     hc=humanCheck(tsbox);
   });
 }
@@ -179,7 +179,7 @@ function openCode(email){
       err.textContent = error ? authErr(error) : ''; if(!error) toast('ส่งรหัสใหม่แล้ว');
     });
     m.append(el('h3',{text:'📩 ใส่รหัสจากอีเมล'}),
-      el('p',{}, 'ส่งรหัสไปที่ ', el('b',{text:email}), ' แล้ว (ถ้าไม่เห็น ลองดูในจดหมายขยะ/Spam) หรือกดลิงก์ในอีเมลก็ได้'),
+      el('p',{}, 'ส่งรหัสไปที่ ', el('b',{text:email}), ' แล้ว · ไม่เห็น? ดูในจดหมายขยะ'),
       inp, err,
       el('div',{class:'row'}, el('button',{text:'← เปลี่ยนอีเมล',onclick:()=>{ clearInterval(timer); if(hc) hc.remove(); openLogin(email); }}), el('span',{class:'sp'}), ok),
       again, tsbox);

@@ -166,7 +166,7 @@ function sheetCropper(file, onDone, onCancel){
   };
   const close=()=>{ URL.revokeObjectURL(url); panel.remove(); };
   const panel=el('div',{class:'croppanel'},
-    el('p',{class:'note',text:'ลากกรอบรอบคำที่ต้องการ AI จะอ่านเฉพาะในกรอบ (ลากในกรอบเพื่อย้าย ลากมุมเพื่อย่อขยาย)'}),
+    el('p',{class:'note',text:'ลากกรอบรอบคำที่ต้องการให้ AI อ่าน'}),
     el('div',{class:'cropwrap'}, stage),
     el('div',{class:'row'},
       el('button',{type:'button',text:'ยกเลิก',onclick:()=>{ close(); onCancel(); }}),
@@ -291,12 +291,12 @@ function openSheetMaker(sc){
     });
     m.append(
       el('div',{class:'shhead'}, el('h3',{}, ic('edit_note'), sc?'แก้ไขชีทคำศัพท์':'ชีทคำศัพท์จากครู'), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
-      el('p',{class:'note',text:'ถ่ายรูปชีทให้ AI อ่าน หรือพิมพ์/วางคำทีละบรรทัด ตามด้วยความหมาย'}),
+      el('p',{class:'note',text:'ถ่ายรูปชีท หรือพิมพ์คำทีละบรรทัด'}),
       G.aiReady ? photo : null, G.aiReady ? aiNotice('sheet') : null, busy, cam, file,
       ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
       el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
       el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),
-      el('label',{class:'chk wspics'}, pics, el('span',{}, el('b',{text:'🎨 ใส่รูปลายเส้นให้แต่ละคำ'}), el('small',{text:'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · คำที่ยังไม่มีรูปให้ AI วาด ใช้ 1 เครดิตต่อชีท'}))),
+      el('label',{class:'chk wspics'}, pics, el('span',{}, el('b',{text:'🎨 ใส่รูปลายเส้นให้แต่ละคำ'}), el('small',{text:'1 เครดิตต่อชีท · คำที่มีรูปแล้วฟรี'}))),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), ok));
     upd();
   });

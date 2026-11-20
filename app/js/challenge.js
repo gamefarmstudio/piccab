@@ -121,7 +121,7 @@ function bossFight(id){
     go.onclick=attack; inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); attack(); } });
     m.append(el('div',{class:'bossend'},
       el('h3',{text:'👾 บอสปรากฏตัว!'}),
-      el('p',{class:'note small',text:'คำที่คุณพลาดบ่อยที่สุดในฉากนี้ — พิมพ์ให้ถูกเพื่อปราบบอส (มี 3 หัวใจ)'}),
+      el('p',{class:'note small',text:'คำที่พลาดบ่อยที่สุด — พิมพ์ให้ถูก มี 3 หัวใจ'}),
       pic, hp, hl,
       el('div',{class:'bossact'}, el('div',{class:'row'}, el('button',{text:'🔊 ฟัง',onclick:say}), inp, go)), msg));
     setTimeout(()=>{ say(); inp.focus(); }, 300);
