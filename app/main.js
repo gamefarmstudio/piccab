@@ -25,6 +25,7 @@ import './js/report.js';
 import { openSharedLink, sharedLinkId } from './js/share.js';
 import { installUi, openInstallHelp } from './js/pwa.js';
 import { syncStart } from './js/sync.js';
+import './js/gamesync.js';
 import './js/layout.js';
 
 // ---------- start ----------

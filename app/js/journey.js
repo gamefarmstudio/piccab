@@ -170,4 +170,4 @@ const badgeById=id=>ACH_BADGES.find(b=>b[0]===id)||null;
 
 setTimeout(()=>{ try{ achCheck(); }catch(e){} }, 1500);      // first time on this device: remember what is already earned, quietly
 
-export { ACH, ACH_BADGES, ACH_PLACES, achCheckSoon, achSummary, badgeById, journey, journeyTile, lvPill, placeName, renderJourney, showAchPop };
+export { ACH, ACH_BADGES, ACH_PLACES, achCheck, achCheckSoon, achSummary, badgeById, journey, journeyTile, lvPill, placeName, renderJourney, showAchPop };

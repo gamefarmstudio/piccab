@@ -10,6 +10,7 @@ import { bossBtn } from './challenge.js';
 // (var + function declarations: other parts may call these before this part of the script has run)
 var RD={ key:'', t0:0, missed:new Set(), practice:false };
 var roundBest=store.get('pv-best',{})||{};
+function reloadBest(){ roundBest=store.get('pv-best',{})||{}; }   // after 🎮 game sync
 // 3 stars: 90%+ right the first time, 2: 60%+, 1: finished
 const starsFor=(right,total)=>{ const p=total ? right/total : 0; return p>=0.9 ? 3 : p>=0.6 ? 2 : 1; };
 function roundKey(game, sid){ return `${sid||scene().id}|${game}|${S.lang}`; }
@@ -69,4 +70,4 @@ function roundMini(right, total){
   return el('div',{class:'rdmini'}, row, el('p',{class:'note small',text:`+${FX.rx||0} XP`+((FX.rbest||0)>=2 ? ` · คอมโบสูงสุด 🔥 x${FX.rbest}` : '')}));
 }
 
-export { RD, roundEnd, roundKey, roundMini, roundMiss, roundStart, sceneStars, starsEl };
+export { RD, reloadBest, roundEnd, roundKey, roundMini, roundMiss, roundStart, sceneStars, starsEl };

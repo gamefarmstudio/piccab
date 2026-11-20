@@ -1,11 +1,11 @@
 # A tiny fake of Supabase (Auth + PostgREST + the RPCs Piccab uses) for the browser tests: python3 tests/fake_supabase.py 54321
 import http.server, json, sys, uuid, base64, time, urllib.parse, re, threading
 LOCK=threading.Lock()
-DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage','feedback','client_errors','usage_daily','gallery_categories','gallery_scenes','learner_reports','plans']}
+DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage','feedback','client_errors','usage_daily','gallery_categories','gallery_scenes','learner_reports','plans','game_state']}
 DB['gallery_categories']=[{'id':c,'name_th':th,'name_en':en,'emoji':e,'sort':n*10} for n,(c,th,en,e) in enumerate([('home','บ้าน','Home','🏠'),('school','โรงเรียน','School','🏫'),('food','อาหารและผลไม้','Food and fruit','🍎'),('animals','สัตว์','Animals','🐘')],1)]
 SEQ={'n':0}
 KEYS={'scenes':['user_id','id'],'progress':['user_id','scene_id'],'decks':['user_id','id'],'shares':['id'],'classes':['id'],
-      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email']}
+      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email'],'game_state':['user_id']}
 USERS={}   # uid -> user
 TOKENS={}  # token -> uid
 def tok_for(uid):

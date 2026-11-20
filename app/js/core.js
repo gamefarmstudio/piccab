@@ -78,7 +78,8 @@ const svg=$('#scene'), wrap=$('#wrap'), overlay=$('#overlay'), tag=$('#tag'), qc
 const MQ=matchMedia('(max-width:640px)'), isMobile=()=>MQ.matches;
 const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
-  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return false; } if(store.hook) try{ store.hook(k); }catch(e){} return true; },
+  hook:null                                                   // gamesync.js: game progress changed → sync it soon
 };
 // ---------- usage counts (totals per day only: no id, scene or words) → /api/usage when the page is hidden ----------
 const thaiToday=()=>new Date(Date.now()+7*3600e3).toISOString().slice(0,10);
