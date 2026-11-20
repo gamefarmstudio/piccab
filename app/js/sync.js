@@ -84,6 +84,11 @@ async function syncPull(){
   while(error && dropCol(error)) ({ data:rows, error } = await sb.from('scenes').select(sceneCols()));
   if(error) throw error;
   const need=[];
+  // Pictures still to download are remembered on the device: if the app closes (or the network drops) after the
+  // new words arrived but before their picture did, the next sync fetches it instead of keeping the old one.
+  const pend=new Set(store.get('pv-imgneed',[]));
+  // Once: word sheets may hold an old picture (browser cache, or a download cut short before this fix) → fetch again
+  const refetch=!store.get('pv-sheetimg-fix',false);
   for(const r of rows||[]){
     const t=Date.parse(r.updated_at)||0, loc=G.customs.find(sc=>sc.id===r.id);
     if(r.deleted){
@@ -105,9 +110,11 @@ async function syncPull(){
     } else {
       if(loc.owner!==uid){ loc.owner=uid; changed=true; }
       if(t===(loc.updatedAt||0)) mem.scenes[r.id]=sigOf(loc);
-      if(!loc.img) need.push(loc);
+      if(!loc.img || pend.has(loc.id) || (refetch && isList(loc))) need.push(loc);
     }
   }
+  if(refetch) store.set('pv-sheetimg-fix',true);
+  if(need.length || pend.size) store.set('pv-imgneed', [...new Set(need.map(sc=>sc.id))]);
   const { data:prows, error:e2 } = await sb.from('progress').select('scene_id,done,star,updated_at');
   if(e2) throw e2;
   for(const r of prows||[]){
@@ -166,12 +173,14 @@ async function downloadPictures(list){
   let got=0;
   for(const sc of list){
     try{
-      const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { headers:{ authorization:'Bearer '+tok } });
+      const r=await fetch('/api/img/'+encodeURIComponent(sc.id), { headers:{ authorization:'Bearer '+tok }, cache:'no-store' });   // never an old copy from the browser cache
+      if(r.status===404) store.set('pv-imgneed', store.get('pv-imgneed',[]).filter(id=>id!==sc.id));   // nothing to fetch
       if(!r.ok) continue;
       const blob=await r.blob();
       imgSaved.delete(sc.id);
       sc.img=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(blob); });
-      got++;
+      got++; persistScenesQuiet();                          // the picture is kept first, then it is no longer pending
+      store.set('pv-imgneed', store.get('pv-imgneed',[]).filter(id=>id!==sc.id));
     }catch(e){}
   }
   if(got) afterSyncChange();
