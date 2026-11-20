@@ -22,7 +22,7 @@
 //   ANTHROPIC_API_KEY  (secret)  key from console.anthropic.com
 //   AI_PROVIDER        (text, optional)  "gemini" or "claude"; needed only when both keys are set (default: claude)
 //   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
-//                      out of quota / busy; default gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite
+//                      out of quota / busy; default gemini-3.6-flash,gemini-3.5-flash-lite
 //   CLAUDE_MODEL       (text, optional)  defaults to claude-haiku-5-5 (cheapest); claude-sonnet-5-5 for harder pictures
 //   CLAUDE_EFFORT      (text, optional)  low | medium | high | xhigh | max; unset = the model's default (medium on Haiku 5.5)
 //   SCAN_CODE          (secret, optional) access code for using AI without signing in (testers)
@@ -44,8 +44,9 @@ const MAX_UPLOAD = 3 * 1024 * 1024;
 const DEFAULT_MONTHLY_CREDITS = 30;
 const monthlyCredits = env => clampInt(env.AI_MONTHLY_CREDITS, 0, 1000000, DEFAULT_MONTHLY_CREDITS);
 const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-// Tried in order: the most accurate first; each model has its own free daily quota (20, 20 and 500).
-const DEFAULT_GEMINI_MODELS = 'gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite';
+// Tried in order; each model has its own free daily quota (20 and 500). gemini-3.8-flash is left out: in the
+// November 2026 comparisons it took 90–110 s a picture (or timed out), too long for a child to wait.
+const DEFAULT_GEMINI_MODELS = 'gemini-3.6-flash,gemini-3.5-flash-lite';
 // Models that just ran out of quota are skipped for a while (per Worker instance; best effort).
 const skipUntil = new Map();
 
@@ -60,10 +61,11 @@ export function pickProviders(env) {
 export function pickProvider(env) { return pickProviders(env)[0] || null; }
 // One AI job on each provider in turn. The next one is tried only when this one is out of quota, busy or unavailable
 // (429 / 5xx) — not when it answered but refused, or couldn't take the picture.
-async function runAI(env, providers, mime, data64, promptFor, parse, log) {
+// schema: the shape of the answer, for Gemini's structured output (it then always answers in that shape).
+async function runAI(env, providers, mime, data64, promptFor, parse, log, schema = null) {
   let res = error('not_configured', 503);
   for (const p of providers) {
-    res = p === 'gemini' ? await scanGemini(env, mime, data64, promptFor(p), parse, log) : await scanClaude(env, mime, data64, promptFor(p), parse, log);
+    res = p === 'gemini' ? await scanGemini(env, mime, data64, promptFor(p), parse, log, schema) : await scanClaude(env, mime, data64, promptFor(p), parse, log);
     if (!(res.status === 429 || res.status >= 500)) return res;
   }
   return res;
@@ -194,7 +196,7 @@ async function scan(request, env) {
   // Take one credit now; give it back if the scan doesn't produce a result.
   const log = [];
   return withCredit(env, acc, async () => {
-    const res = await runAI(env, acc.providers, m[1], m[2], p => buildPrompt(count, level, existing, p, langs), parseItems, log);
+    const res = await runAI(env, acc.providers, m[1], m[2], p => buildPrompt(count, level, existing, p, langs), parseItems, log, itemsSchema(langs));
     await saveUsage(env, 'scan', log);
     return res;
   });
@@ -696,14 +698,14 @@ export function geminiModels(env) {
     .map(m => m.trim().replace(/[^a-z0-9.\-]/gi, '')).filter(Boolean).slice(0, 5);
 }
 
-async function scanGemini(env, mime, data64, prompt, parse = parseItems, log = null) {
+async function scanGemini(env, mime, data64, prompt, parse = parseItems, log = null, schema = null) {
   const models = geminiModels(env);
   const now = Date.now();
   const order = [...models.filter(m => !(skipUntil.get(m) > now)), ...models.filter(m => skipUntil.get(m) > now)];
   let last = error('not_configured', 503);
   for (const model of order) {
     const t0 = Date.now();
-    const r = await callGemini(env, model, mime, data64, prompt, parse);
+    const r = await callGemini(env, model, mime, data64, prompt, parse, schema);
     if (log) log.push({ provider: 'gemini', model, outcome: r.ok ? 'ok' : (r.why || r.code), ms: Date.now() - t0, tok_in: r.usage ? r.usage.in : null, tok_out: r.usage ? r.usage.out : null,
       ...(r.sample != null ? { finish: r.finish, sample: r.sample } : {}) });
     if (r.ok) return json({ items: r.items, provider: 'gemini', model, usage: r.usage });
@@ -715,7 +717,10 @@ async function scanGemini(env, mime, data64, prompt, parse = parseItems, log = n
   return last;
 }
 
-async function callGemini(env, model, mime, data64, prompt, parse = parseItems) {
+// Models that turned down structured output (a 400 about the schema): asked without it from then on.
+const noSchema = new Set();
+async function callGemini(env, model, mime, data64, prompt, parse = parseItems, schema = null) {
+  if (schema && noSchema.has(model)) schema = null;
   let res;
   try {
     res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -726,7 +731,7 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
           ...(mime ? [{ inline_data: { mime_type: mime, data: data64 } }] : []),
           { text: prompt },
         ] }],
-        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
+        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, ...(schema ? { responseSchema: schema } : {}) },
       }),
     });
   } catch (e) {
@@ -737,6 +742,11 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
     const detail = await res.text().catch(() => '');
     // Google's own message (never the user's picture or words) goes to the 🧪 compare, for the admin
     const info = { finish: 'HTTP ' + res.status, sample: detail.slice(0, 400) };
+    // this model doesn't take the schema → ask again without it (the prompt still asks for the same JSON)
+    if (schema && res.status === 400 && /schema|response_?schema|Unknown name/i.test(detail)) {
+      noSchema.add(model);
+      return callGemini(env, model, mime, data64, prompt, parse, null);
+    }
     console.log('Gemini API error', model, res.status, detail.slice(0, 500));
     if (res.status === 429) {
       // "limit: 0" = no free quota for this model; "per day" = daily quota used up; otherwise per-minute.
@@ -746,7 +756,8 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
     }
     if (res.status === 503 || res.status === 500) return { code: 'busy', status: 503, next: true, skipMs: 30 * 1000, ...info };
     // 504 / 408: the model took too long (DEADLINE_EXCEEDED) — another model may answer in time
-    if (res.status === 504 || res.status === 408) return { code: 'busy', status: 503, next: true, skipMs: 5 * 60 * 1000, why: 'timeout', ...info };
+    // (524: Cloudflare gave up waiting for Google after ~100 s)
+    if (res.status === 504 || res.status === 408 || res.status === 524) return { code: 'busy', status: 503, next: true, skipMs: 5 * 60 * 1000, why: 'timeout', ...info };
     if (res.status === 404) return { code: 'not_configured', status: 503, next: true, skipMs: 60 * 60 * 1000 };
     if (res.status === 400 && /api key/i.test(detail)) return { code: 'not_configured', status: 503 };
     if (res.status === 401 || res.status === 403) return { code: 'not_configured', status: 503 };
@@ -796,7 +807,7 @@ async function compareAI(env, body) {
     if (!(provider === 'gemini' ? env.GEMINI_API_KEY : env.ANTHROPIC_API_KEY)) return { provider, model, ok: false, error: 'not_configured', items: [] };
     const e = provider === 'gemini' ? { ...env, GEMINI_MODEL: model } : { ...env, CLAUDE_MODEL: model };
     const log = [], t0 = Date.now(), prompt = buildPrompt(count, level, [], provider, langs);
-    const res = provider === 'gemini' ? await scanGemini(e, m[1], m[2], prompt, parseItems, log) : await scanClaude(e, m[1], m[2], prompt, parseItems, log);
+    const res = provider === 'gemini' ? await scanGemini(e, m[1], m[2], prompt, parseItems, log, itemsSchema(langs)) : await scanClaude(e, m[1], m[2], prompt, parseItems, log);
     const b = await res.json().catch(() => ({}));
     const tin = log.reduce((t, x) => t + (x.tok_in || 0), 0), tout = log.reduce((t, x) => t + (x.tok_out || 0), 0);
     const price = PAID_PRICE[model];
@@ -939,6 +950,18 @@ Reply with only a JSON array, for example:
 ${gem
   ? '[{"word":"teapot","th":"กาน้ำชา","alts":["tea pot"],"box_2d":[380,512,560,690]}]'
   : '[{"word":"teapot","th":"กาน้ำชา","alts":["tea pot"],"box":[512,380,690,560]}]'}`;
+}
+
+// The shape of a picture scan's answer for Gemini's structured output (same fields as buildPrompt asks for),
+// so a small model like flash-lite can't answer in some other shape.
+export function itemsSchema(langs = []) {
+  const S = { type: 'STRING' }, list = { type: 'ARRAY', items: S };
+  const props = { word: S, th: S, alts: list, cefr: { type: 'STRING', enum: ['preA1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] } };
+  for (const l of [].concat(langs || []).filter(l => AI_LANGS[l])) {
+    props[l] = S; props[l + '_art'] = S; props[l + '_alts'] = list;
+  }
+  props.box_2d = { type: 'ARRAY', items: { type: 'INTEGER' }, minItems: 4, maxItems: 4 };
+  return { type: 'ARRAY', items: { type: 'OBJECT', properties: props, required: ['word', 'th', 'box_2d'], propertyOrdering: Object.keys(props) } };
 }
 
 // Pull the JSON array out of the model's reply (tolerates code fences or stray text).

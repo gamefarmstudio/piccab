@@ -79,13 +79,29 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal(j2.provider, 'gemini');
   assert.deepEqual(j2.items[0].box, [512, 380, 690, 560]);         // yxyx -> xyxy
   assert.deepEqual(j2.items[1].box, [1, 2, 3, 4]);                 // plain box still accepted
-  assert.match(g.url, /models\/gemini-3\.8-flash:generateContent$/);
+  assert.match(g.url, /models\/gemini-3\.6-flash:generateContent$/);
   assert.equal(g.headers['x-goog-api-key'], 'g-test');
   assert.equal(g.body.contents[0].parts[0].inline_data.mime_type, 'image/jpeg');
   assert.match(g.body.contents[0].parts[1].text, /box_2d.*ymin, xmin, ymax, xmax/);
   assert.equal(g.body.generationConfig.responseMimeType, 'application/json');
+  // structured output: Gemini is told the exact shape of the answer
+  const sch = g.body.generationConfig.responseSchema;
+  assert.equal(sch.type, 'ARRAY'); assert.deepEqual(sch.items.required, ['word', 'th', 'box_2d']);
+  assert.deepEqual(sch.items.propertyOrdering, ['word', 'th', 'alts', 'cefr', 'box_2d']);
+  assert.equal(sch.items.properties.box_2d.maxItems, 4);
+  await call('/api/scan', post({ image: img, langs: ['de'] }), G);
+  assert.deepEqual(g.body.generationConfig.responseSchema.items.propertyOrdering, ['word', 'th', 'alts', 'cefr', 'de', 'de_art', 'de_alts', 'box_2d']);
+
   await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'gemini-3.5-flash-lite' });
   assert.match(g.url, /gemini-3\.5-flash-lite:generateContent$/);
+  // a model that turns the schema down is asked again without it (and from then on)
+  { const bodies = [];
+    globalThis.fetch = async (url, init) => { const b = JSON.parse(init.body); bodies.push(!!b.generationConfig.responseSchema);
+      return b.generationConfig.responseSchema ? new Response('{"error":{"code":400,"message":"Invalid JSON payload received. Unknown name \\"responseSchema\\" at \'generation_config\'"}}', { status: 400 })
+        : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","box_2d":[1,2,3,4]}]' }] } }] }), { status: 200 }); };
+    r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'old-1' });
+    assert.equal(r.status, 200); assert.deepEqual(bodies, [true, false]);
+    await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'old-1' }); assert.deepEqual(bodies, [true, false, false]); }
   // Claude prompt keeps xyxy
   globalThis.fetch = async (url, init) => { g = { body: JSON.parse(init.body) }; return new Response(JSON.stringify({ stop_reason:'end_turn', content:[{type:'text',text:'[]'}] }), { status: 200 }); };
   await call('/api/scan', post({ image: img }), KEY);
@@ -105,7 +121,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   globalThis.fetch = async () => new Response(JSON.stringify({ candidates: [{ finishReason: 'SAFETY' }] }), { status: 200 });
   assert.equal((await (await call('/api/scan', post({ image: img }), G)).json()).error, 'refused');
   // ---- fallback chain ----
-  assert.deepEqual(geminiModels(G), ['gemini-3.8-flash','gemini-3.6-flash','gemini-3.5-flash-lite']);
+  assert.deepEqual(geminiModels(G), ['gemini-3.6-flash','gemini-3.5-flash-lite']);
   assert.deepEqual(geminiModels({ GEMINI_MODEL: ' a-1 , b.2 ' }), ['a-1','b.2']);
   const seen = [];
   const okBody = JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","box_2d":[1,2,3,4]}]' }] } }] });
@@ -142,10 +158,14 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   // Google took too long (504 DEADLINE_EXCEEDED) → the next model, and that one is skipped for a while
   seen.length = 0;
   globalThis.fetch = async (url) => { const m = url.match(/models\/([^:]+):/)[1]; seen.push(m);
-    return m === 't1' ? new Response('{"error":{"code":504,"status":"DEADLINE_EXCEEDED"}}', { status: 504 }) : new Response(okBody, { status: 200 }); };
+    return m === 't1' ? new Response('{"error":{"code":504,"status":"DEADLINE_EXCEEDED"}}', { status: 504 })
+      : m === 'u1' ? new Response('error code: 524', { status: 524 }) : new Response(okBody, { status: 200 }); };
   r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 't1,t2' });
   jj = await r.json(); assert.equal(jj.model, 't2'); assert.deepEqual(seen, ['t1', 't2']);
   seen.length = 0; await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 't1,t2' }); assert.deepEqual(seen, ['t2']);
+  seen.length = 0;   // 524: Cloudflare stopped waiting (~100 s) → the same
+  r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'u1,u2' });
+  assert.equal((await r.json()).model, 'u2'); assert.deepEqual(seen, ['u1', 'u2']);
   // an answer cut off part-way (ran out of room) → the things that came complete are kept
   const cut = '[{"word":"cup","th":"ถ้วย","alts":[],"cefr":"preA1","box_2d":[1,2,3,4]},{"word":"spoon","th":"ช้อน","alts":["teaspoon"],"box_2d":[5,6,7,8]},{"word":"cup","box_2d":[9,9,9,9]},{"word":"pla';
   assert.deepEqual(parseItems(cut).map(x => x.word), ['cup', 'spoon']);           // complete ones, no repeats
@@ -1044,12 +1064,12 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
 
 // ---------- 🧪 admin: the same picture through Gemini and Claude ----------
 {
-  const saved = globalThis.fetch; const seen = []; let cmpOut = '';
+  const saved = globalThis.fetch; const seen = []; let cmpOut = '', cmpSchema = false;
   globalThis.fetch = async (url, init = {}) => {
     url = String(url);
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: '33333333-3333-3333-3333-333333333333', email: init.headers.authorization === 'Bearer cmp-boss' ? 'boss@piccab.th' : 'kid@x.th' }));
     if (url.includes('/rest/v1/')) throw new Error('compare must not touch the database: ' + url);   // no credits, no ai_usage rows
-    if (url.includes('generativelanguage')) { seen.push(url.split('/models/')[1]);
+    if (url.includes('generativelanguage')) { seen.push(url.split('/models/')[1]); cmpSchema = !!JSON.parse(init.body).generationConfig.responseSchema;
       if (cmpOut && url.includes(cmpOut)) return new Response('{"error":{"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 20 per day"}}', { status: 429 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","th":"ถ้วย","box_2d":[100,200,300,400]}]' }] } }], usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 200, thoughtsTokenCount: 800 } })); }
     if (url.includes('api.anthropic.com')) { const b = JSON.parse(init.body); seen.push(b.model);
@@ -1066,6 +1086,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.deepEqual(seen.sort(), ['claude-haiku-5-5', 'gemini-3.8-flash:generateContent']);   // only the chosen models
   assert.deepEqual(g.items[0].box, [200, 100, 400, 300]); assert.deepEqual(c.items[0].box, [200, 100, 400, 300]);   // same box format for both
   assert.equal(g.tok_out, 1000);                                                   // thinking counted
+  assert.equal(cmpSchema, true);                                                   // compared the same way the app asks (structured output)
   assert.ok(Math.abs(g.cost_usd - (1000 * 0.75 + 1000 * 3.75) / 1e6) < 1e-12);
   assert.ok(Math.abs(c.cost_usd - (2000 * 0.1 + 1000 * 0.5) / 1e6) < 1e-12);
   // unknown models fall back to the cheapest of each; a missing key is reported, not fatal
