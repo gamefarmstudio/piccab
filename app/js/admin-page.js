@@ -588,7 +588,7 @@ function adminResolve(r){
 
 
 // ---------- 🧪 เทียบ AI: one picture through several models at once (no credits, nothing saved on the server) ----------
-const CMP_MODELS={ gemini:['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash'], claude:['claude-haiku-5-5','claude-sonnet-5-5'] };
+const CMP_MODELS={ gemini:['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash'], claude:['claude-haiku-5-5'] };
 const CMP_ALL=[...CMP_MODELS.gemini, ...CMP_MODELS.claude];
 const CMP_DEFAULT=['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash','claude-haiku-5-5'];   // the three free Gemini models + Claude
 const CMP_COLORS=['#fe5e7a','#2563b8','#23915a','#f2683a','#7b4bd1','#0f8a9d'];
@@ -654,7 +654,7 @@ function cmpSummary(log){
   return el('div',{class:'aicard wide'}, el('h4',{text:'ค่าเฉลี่ยจากที่เทียบมาแล้ว (เก็บในเครื่องนี้)'}),
     el('table',{class:'cmptab'},
       el('tr',{}, ...['รุ่น','รูป','คำ/รูป','วินาที','บาท/รูป'].map(t=>el('th',{text:t}))),
-      ...Object.entries(by).sort((a,b)=>CMP_ALL.indexOf(a[0])-CMP_ALL.indexOf(b[0])).map(([m,b])=>el('tr',{}, el('td',{text:m+(CMP_MODELS.gemini.includes(m)?' (ฟรี)':'')}), el('td',{text:String(b.n)}), el('td',{text:(b.w/b.n).toFixed(1)}),
+      ...Object.entries(by).filter(([m])=>CMP_ALL.includes(m)).sort((a,b)=>CMP_ALL.indexOf(a[0])-CMP_ALL.indexOf(b[0])).map(([m,b])=>el('tr',{}, el('td',{text:m+(CMP_MODELS.gemini.includes(m)?' (ฟรี)':'')}), el('td',{text:String(b.n)}), el('td',{text:(b.w/b.n).toFixed(1)}),
         el('td',{text:(b.ms/b.n/1000).toFixed(1)}), el('td',{text:b.priced?(b.usd/b.priced*THB).toFixed(2):'–'})))),
     el('p',{class:'note small',text:'บาท/รูป = ราคาถ้าจ่ายเงิน · รุ่นที่เขียนว่า (ฟรี) ไม่เสียเงินจนกว่าโควตาฟรีรายวันจะหมด'}),
     el('button',{class:'linkbtn small',text:'ล้างค่าเฉลี่ย',onclick:()=>{ ADM.cmp.log=[]; store.set('pv-cmp-log',[]); renderAdmin(); }}));

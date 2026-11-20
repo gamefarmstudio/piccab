@@ -50,8 +50,7 @@ async def main():
                 res={'gemini-3.5-flash-lite':one('gemini-3.5-flash-lite','gemini',2,9100,1800,2600,0.00704,500),
                      'gemini-3.8-flash':one('gemini-3.8-flash','gemini',3,7000,1800,2000,0.0089,20),
                      'gemini-3.6-flash':one('gemini-3.6-flash','gemini',0,800,0,0,None,20,ok=False),
-                     'claude-haiku-5-5':one('claude-haiku-5-5','claude',3,6200,2100,1300,0.00086,None),
-                     'claude-sonnet-5-5':one('claude-sonnet-5-5','claude',3,8000,2100,1300,0.017,None)}
+                     'claude-haiku-5-5':one('claude-haiku-5-5','claude',3,6200,2100,1300,0.00086,None)}
                 await r.fulfill(status=200, content_type='application/json', body=json.dumps({'results':[res[m] for m in body['models']]}))
             await A.route('**/api/admin/compare', fake_compare)
             await A.click('.admtabs button:has-text("เทียบ AI")'); await A.wait_for_timeout(300)
@@ -66,12 +65,11 @@ async def main():
             out[name+'_cmp_cost']=await A.locator('.cmpcost').all_inner_texts()
             out[name+'_cmp_err']=await A.locator('.cmpcol .err').all_inner_texts()
             out[name+'_cmp_sum']=await A.inner_text('.cmptab')
-            # untick one, tick Sonnet → the next comparison sends those (and it is remembered)
+            # untick one → the next comparison sends those (and it is remembered)
             await A.locator('.cmpm', has_text='gemini-3.6-flash').locator('input').uncheck(); await A.wait_for_timeout(200)
-            await A.locator('.cmpm', has_text='claude-sonnet-5-5').locator('input').check(); await A.wait_for_timeout(200)
             await A.click('.cmpctl button.primary'); await A.wait_for_timeout(800)
             out[name+'_cmp_sent2']=sent[-1]['models']; out[name+'_cmp_kept']=await A.evaluate("JSON.parse(localStorage.getItem('pv-cmp-models'))")
-            await A.locator('.cmpm', has_text='gemini-3.6-flash').locator('input').check(); await A.locator('.cmpm', has_text='claude-sonnet-5-5').locator('input').uncheck()
+            await A.locator('.cmpm', has_text='gemini-3.6-flash').locator('input').check()
             await A.click('.cmpctl button.primary'); await A.wait_for_timeout(800)
             await A.screenshot(path=shot(f'aiu_cmp_{name}.png'), full_page=True)
             await ctx.close()
@@ -84,12 +82,12 @@ async def main():
         q=re.search(r'gemini-3.8-flash\n(\d+) / 20', out[n+'_quota'])
         check(q and int(q.group(1))>=20 and '/ 500' in out[n+'_quota'], f'{n}: free quota bars', out[n+'_quota'])
         check(out[n+'_cols']==30, f'{n}: 30-day chart', out[n+'_cols'])
-        check([c for c,on in out[n+'_cmp_chips'] if on]==['gemini-3.5-flash-lite\nฟรี','gemini-3.8-flash\nฟรี','gemini-3.6-flash\nฟรี','claude-haiku-5-5'] and len(out[n+'_cmp_chips'])==5, f'{n}: the three free Gemini models and Claude ticked', out[n+'_cmp_chips'])
+        check([c for c,on in out[n+'_cmp_chips'] if on]==['gemini-3.5-flash-lite\nฟรี','gemini-3.8-flash\nฟรี','gemini-3.6-flash\nฟรี','claude-haiku-5-5'] and len(out[n+'_cmp_chips'])==4 and not any('sonnet' in c for c,_ in out[n+'_cmp_chips']), f'{n}: the three free Gemini models and Claude Haiku (no Sonnet)', out[n+'_cmp_chips'])
         check(out[n+'_cmp_disabled'] and out[n+'_cmp_sent'] and 'เทียบ 4 รุ่น' in out[n+'_cmp_btn'], f'{n}: compare sends the picture with the ticked models', (out[n+'_cmp_disabled'], out[n+'_cmp_sent'], out[n+'_cmp_btn']))
         check(out[n+'_cmp_cols']==4 and out[n+'_cmp_boxes']==[2,3,0,3], f'{n}: four columns with their boxes', (out[n+'_cmp_cols'], out[n+'_cmp_boxes']))
         check(out[n+'_cmp_cost']==['ฟรี (วันละ 500 ครั้ง) · ถ้าจ่าย ~0.24 บาท/รูป ($0.0070)','ฟรี (วันละ 20 ครั้ง) · ถ้าจ่าย ~0.30 บาท/รูป ($0.0089)','~0.03 บาท/รูป ($0.0009)'], f'{n}: free quota and cost per picture in baht', out[n+'_cmp_cost'])
         check(out[n+'_cmp_err']==['โควตาฟรีวันนี้ของรุ่นนี้หมดแล้ว (เริ่มใหม่ราวบ่ายสามโมง)'], f'{n}: a model out of quota says so', out[n+'_cmp_err'])
         check('gemini-3.8-flash (ฟรี)' in out[n+'_cmp_sum'] and 'claude-haiku-5-5' in out[n+'_cmp_sum'] and 'gemini-3.5-flash-lite (ฟรี)' in out[n+'_cmp_sum'], f'{n}: averages table', out[n+'_cmp_sum'])
-        check(out[n+'_cmp_sent2']==['gemini-3.5-flash-lite','gemini-3.8-flash','claude-haiku-5-5','claude-sonnet-5-5'] and out[n+'_cmp_kept']==out[n+'_cmp_sent2'], f'{n}: ticks change what is compared, and are remembered', (out[n+'_cmp_sent2'], out[n+'_cmp_kept']))
+        check(out[n+'_cmp_sent2']==['gemini-3.5-flash-lite','gemini-3.8-flash','claude-haiku-5-5'] and out[n+'_cmp_kept']==out[n+'_cmp_sent2'], f'{n}: ticks change what is compared, and are remembered', (out[n+'_cmp_sent2'], out[n+'_cmp_kept']))
     finish('AI usage', out, errs)
 asyncio.run(main())
