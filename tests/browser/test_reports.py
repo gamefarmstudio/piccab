@@ -64,7 +64,7 @@ async def main():
         await P.click('#classView .ghead button.ghost'); await P.wait_for_timeout(1500)
         out['p_row']=await P.inner_text('.rmembers .lrow')
         await P.screenshot(path=shot('rp3_family.png'), full_page=True)
-        await P.click('.rmembers button:has-text("ดูรายงาน")'); await P.wait_for_selector('.rtiles', timeout=10000); await P.wait_for_timeout(400)
+        await P.click('.rmembers button:has-text("ดูรายงาน")'); await P.wait_for_selector('.rtiles', timeout=30000); await P.wait_for_timeout(400)
         out['tiles_txt']=await P.locator('.rtile').all_inner_texts()
         out['cols']=await P.locator('.rchart .rcol').count(); out['cols_on']=await P.locator('.rchart .rcol.on').count()
         out['games']=await P.locator('.rbars').first.inner_text()

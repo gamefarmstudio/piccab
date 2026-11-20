@@ -53,7 +53,11 @@ async def main():
         await pg.click('.tile.qtile'); await pg.wait_for_timeout(300)
         out['quests']=await pg.locator('.dqrow').all_inner_texts()
         await pg.screenshot(path=shot('rd4_quests.png'))
-        await pg.click('.qbox .chest'); await pg.wait_for_timeout(1300)
+        await pg.click('.qbox .chest'); await pg.wait_for_timeout(2400)
+        out['quest_text']=await pg.inner_text('.qbox')                     # redrawn without a chest
+        await pg.click('.qbox .row button:text-is("ปิด")'); await pg.wait_for_timeout(300)
+        await pg.click('.tile.qtile'); await pg.wait_for_timeout(300)
+        out['quest_text2']=await pg.inner_text('.qbox')                    # opened with no chest waiting
         out['stk2']=sum(json.loads(await pg.evaluate("localStorage.getItem('pv-stk')")).values())
         await pg.click('.qbox button:has-text("สมุดสติกเกอร์")'); await pg.wait_for_timeout(600)
         out['book']=await pg.inner_text('#stkBook h3'); out['got']=await pg.locator('#stkBook .stk.got').count()
@@ -72,6 +76,7 @@ async def main():
     check(out['r2'][2]==0 and 'หีบทอง' in out['r3'][3], 'no chest for a practice round; 3 stars → gold chest', (out['r2'], out['r3'][3]))
     check(sum(out['golds'])>=1 and int(out['bonus'] or 0)>=2, '✨ golden word shown and gave bonus XP', (out['golds'], out['bonus']))
     check(len(out['quests'])==3 and 'ภารกิจวันนี้' in out['qtile'], "today's 3 quests", (out['qtile'], out['quests']))
+    check('null' not in out['quest_text'] and 'null' not in out['quest_text2'], 'no stray "null" in the quests panel', (out['quest_text'], out['quest_text2']))
     check(out['stk2']==2 and out['got']>=1 and '/48' in out['book'], 'chest from the quests panel; sticker book', (out['stk2'], out['book'], out['got']))
     finish('round stars', out, errs)
 asyncio.run(main())
