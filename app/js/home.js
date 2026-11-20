@@ -387,4 +387,4 @@ function wordEl(it, tag, prefix){
   return b;
 }
 
-export { allWords, days, dkey, homeCredit, lastMode, LIB, markActive, openFeedback, recent, reloadDays, renderGallery, renderHome, renderLibrary, sayWord, statChip, streak, streakPill, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb };
+export { allWords, days, dkey, homeCredit, lastMode, LIB, markActive, openFeedback, recent, reloadDays, renderGallery, renderHome, renderLibrary, sayWord, sceneTime, statChip, streak, streakPill, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb };

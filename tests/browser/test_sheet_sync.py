@@ -16,7 +16,7 @@ async def login(pg, em):
     await pg.type('.mbox input.code','123456'); await pg.press('.mbox input.code','Enter'); await pg.wait_for_timeout(2500)
 # the sheet: words, picture height, and the picture kept on the device (IndexedDB) with its real height
 SHEET="""(async()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]').filter(s=>s.meta&&s.meta.kind==='list');
-  const db=await new Promise(r=>{ const q=indexedDB.open('piccab',1); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); });
+  const db=await new Promise(r=>{ const q=indexedDB.open('piccab',1); q.onupgradeneeded=()=>q.result.createObjectStore('img'); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); });
   const get=id=>new Promise(r=>{ try{ const q=db.transaction('img').objectStore('img').get(id); q.onsuccess=()=>r(q.result||''); q.onerror=()=>r(''); }catch(e){ r(''); } });
   const size=u=>new Promise(r=>{ if(!u) return r(0); const i=new Image(); i.onload=()=>r(i.naturalHeight); i.onerror=()=>r(0); i.src=u; });
   const out=[]; for(const s of a){ const im=db ? await get(s.id) : ''; out.push({n:Object.keys(s.items).length, h:s.h, img:await size(im)}); }
