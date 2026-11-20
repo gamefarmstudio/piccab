@@ -140,12 +140,18 @@
   </div>
 
   <footer class="settings">
-    <label>สำเนียง
-      <select id="accent"><option value="en-GB">🇬🇧 British</option><option value="en-US">🇺🇸 American</option></select>
-    </label>
-    <label><input type="checkbox" id="slow"> 🐢 พูดช้า</label>
-    <label><input type="checkbox" id="sfx" checked> 🔔 เสียงเอฟเฟกต์</label>
-    <span class="note">เสียงอ่านใช้เสียงที่มีในเครื่อง/เบราว์เซอร์ของคุณ</span>
+    <!-- voice settings folded away: one line at the bottom, open when needed -->
+    <details class="voiceset" id="voiceSet">
+      <summary>🔊 ตั้งค่าเสียง</summary>
+      <div class="vsbody">
+        <label>สำเนียง
+          <select id="accent"><option value="en-GB">🇬🇧 British</option><option value="en-US">🇺🇸 American</option></select>
+        </label>
+        <label><input type="checkbox" id="slow"> 🐢 พูดช้า</label>
+        <label><input type="checkbox" id="sfx" checked> 🔔 เสียงเอฟเฟกต์</label>
+        <span class="note">เสียงอ่านใช้เสียงที่มีในเครื่อง/เบราว์เซอร์ของคุณ</span>
+      </div>
+    </details>
     <nav class="legal"><button type="button" class="linkbtn small" id="installLink" hidden>📲 ติดตั้งแอป</button> <button type="button" class="linkbtn small" id="fbLink">💬 ส่งความเห็น</button> · <a href="/?home">เกี่ยวกับ Piccab</a> · <a href="/privacy">นโยบายความเป็นส่วนตัว</a> · <a href="/terms">ข้อตกลงการใช้งาน</a> · <a href="mailto:contact@piccab.com">ติดต่อเรา</a></nav>
   </footer>
 </div>

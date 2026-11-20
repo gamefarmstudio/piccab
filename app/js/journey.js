@@ -112,7 +112,7 @@ function journeyTile(){
   return el('button',{type:'button',class:'tile jtile',onclick:()=>goHome('journey')},
     el('span',{class:'ic jic','aria-hidden':'true',text:P.e}),
     el('span',{class:'grow'}, el('b',{text:'การเดินทางของฉัน'}),
-      el('small',{text:`Lv.${J.lv} · ${placeName(P)} · ตรา ${J.nb}/${ACH_BADGES.length}`}),
+      el('small',{text:`Lv.${J.lv} · ตรา ${J.nb}/${ACH_BADGES.length}`,title:placeName(P)}),
       el('span',{class:'pbar jbar'}, el('i',{style:`width:${pct}%`}))),
     ic('chevron_right'));
 }

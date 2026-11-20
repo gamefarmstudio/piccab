@@ -131,7 +131,7 @@ function questTile(){
   return el('button',{type:'button',class:'tile qtile'+(n===L.length?' done':''),onclick:openQuests},
     el('span',{class:'ic qic','aria-hidden':'true',text: waiting ? '🎁' : '📋'}),
     el('span',{class:'grow'}, el('b',{text:'ภารกิจวันนี้'}),
-      el('small',{text: waiting ? `ทำแล้ว ${n}/${L.length} · มีหีบรอเปิด ${waiting} ใบ` : n===L.length ? 'ครบทั้ง 3 ภารกิจแล้ว! พรุ่งนี้มีใหม่' : `ทำแล้ว ${n}/${L.length} · ครบ 3 ได้หีบทอง`}),
+      el('small',{text: waiting ? `🎁 หีบรอเปิด ${waiting} ใบ` : n===L.length ? 'ครบแล้ว! พรุ่งนี้มีใหม่' : `ทำแล้ว ${n}/${L.length}`}),
       el('span',{class:'qdots'}, ...L.map(x=>el('i',{class:x.done?'on':''})))),
     ic('chevron_right'));
 }

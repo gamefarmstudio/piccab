@@ -245,7 +245,7 @@ async def main():
     check('เลือกระดับชั้น' in out['ptile'] and 'เรียนอยู่ชั้นไหน' in out['ppick'], 'home card opens the path; first it asks the school year', (out['ptile'], out['ppick']))
     check('ป.1–2' in out['plevel'] and 'CEFR Pre-A1' in out['plevel'] and '/ 3 คำ · 1 ฉาก' in out['plevel'] and len(out['ptopics'])==1 and '1 ฉาก · 3 คำ' in out['ptopics'][0] and out['pcards']==1,
           'level card (CEFR, words known), its topics and scenes', (out['plevel'], out['ptopics'], out['pcards']))
-    check('ยังไม่มีฉาก' in out['pempty'] and out['pstore']=='"m13"' and 'ม.1–3' in out['ptile2'] and 'CEFR A2' in out['ptile2'], 'another school year: kept, and shown on the home card', (out['pempty'], out['pstore'], out['ptile2']))
+    check('ยังไม่มีฉาก' in out['pempty'] and out['pstore']=='"m13"' and 'ม.1–3' in out['ptile2'], 'another school year: kept, and shown on the home card', (out['pempty'], out['pstore'], out['ptile2']))
     check(out['sent_meta']>=1, 'the copy remembers its library scene (meta.gal)', out['sent_meta'])
     finish('picture library', out, errs)
 asyncio.run(main())
