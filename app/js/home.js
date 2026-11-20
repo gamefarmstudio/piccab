@@ -154,21 +154,16 @@ function modeSheet(sc){
 const homeCredit=()=> !G.aiReady ? 'อัปโหลดแล้วตีกรอบใส่คำศัพท์เอง'
   : (aiCredits && user && typeof G.aiLeft==='number') ? `✨ AI เหลือ ${G.aiLeft}/${aiMonthly} ครั้งเดือนนี้` : '✨ AI หาคำศัพท์ให้อัตโนมัติ';
 function welcomeCard(){
-  const step=(icon,text)=>el('li',{}, el('span',{class:'si'},ic(icon)), el('span',{text}));
   return el('div',{class:'welcome'},
     el('button',{class:'x','aria-label':'ไว้ทีหลัง',title:'ไว้ทีหลัง',text:'✕',onclick:()=>{ store.set('pv-welcome-hide',true); renderHome(); }}),
     el('span',{class:'wl-art','aria-hidden':'true'}, ic('photo_camera-fill')),
     el('h3',{text:'สร้างฉากแรกของคุณ'}),
     el('p',{text:'ถ่ายรูปของรอบตัว แล้วฝึกคำศัพท์จากของจริง'}),
-    el('ol',{class:'wl-steps'},
-      step('photo_camera','ถ่ายรูป'),
-      step('sell-fill', G.aiReady?'AI ใส่ป้ายคำ':'ตีกรอบใส่คำ'),
-      step('mic','ดู ฟัง พูด')),
     el('div',{class:'wl-acts'},
       el('button',{class:'primary big',onclick:()=>$('#fileCam').click()}, ic('photo_camera'), 'ถ่ายรูป'),
       el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()}, ic('imagesmode'), 'เลือกรูป')),
     el('p',{class:'capt',id:'homeCredit',text:homeCredit()}),
-    el('button',{class:'linkbtn wslink',onclick:()=>openSheetMaker()}, ic('edit_note'), 'มีชีทคำศัพท์จากครู? ทำชุดคำไว้ฝึกก่อนสอบ'));
+    el('button',{class:'linkbtn wslink',onclick:()=>openSheetMaker()}, ic('edit_note'), 'มีชีทคำศัพท์จากครู?'));
 }
 // "Dictation in 3 days": practise the sheet's words (the ones not passed yet first)
 function examTile(sc){
@@ -201,7 +196,7 @@ function renderHome(){
       el('button',{class:'primary',text:'ติดตั้ง',onclick:installApp}),
       el('button',{class:'x','aria-label':'ไม่ต้องแสดงอีก',title:'ไม่ต้องแสดงอีก',text:'✕',onclick:()=>{ store.set('pv-install-hide',true); renderHome(); }})));
   }
-  h.append(pathTile(), journeyTile(), questTile());
+  h.append(el('div',{class:'hubs'}, pathTile(), journeyTile(), questTile()));   // path · journey · quests, side by side
   // first visit: nothing of their own yet → invite them to make a scene from a photo
   const firstRun=!all.some(sc=>!sc.builtin) && !store.get('pv-welcome-hide',false);
   if(firstRun) h.append(welcomeCard());
@@ -253,8 +248,7 @@ function renderHome(){
   h.append(feedbackStrip());
 }
 function feedbackStrip(){
-  return el('button',{type:'button',class:'fbstrip',onclick:()=>openFeedback()}, el('span',{class:'ic'},ic('chat')),
-    el('span',{class:'tt'}, el('b',{text:'ใช้แล้วเป็นอย่างไรบ้าง?'}), el('small',{text:'แจ้งปัญหา หรือบอกไอเดียให้เราได้เลย'})), el('span',{class:'arrow'},ic('arrow_forward')));
+  return el('button',{type:'button',class:'fbstrip',onclick:()=>openFeedback()}, ic('chat'), el('span',{text:'ใช้แล้วเป็นอย่างไรบ้าง? บอกเราได้เลย'}));
 }
 // 💬 Feedback: a few lines, optionally an e-mail to reply to. Sent with where in the app it came from (and the browser, by the server).
 function openFeedback(kind){

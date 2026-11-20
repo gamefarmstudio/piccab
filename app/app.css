@@ -313,7 +313,7 @@ html[lang=en] .qtop .en,html[lang=en] .rv-q .en{display:none}   /* the Thai prom
 .mbox input.code{font-size:26px;letter-spacing:5px;text-align:center;font-family:'Fredoka',monospace}
 .mbox input.code::placeholder{letter-spacing:0;font-size:17px;font-family:'Sarabun',sans-serif}
 .linkbtn.small{font-size:13.5px;padding:4px 0}
-.settings .legal{flex-basis:100%;font-size:13px;color:var(--muted)}
+.settings .legal{font-size:13px;color:var(--muted)}
 .settings .legal a{color:var(--muted)}
 .mbox .consent{font-size:13px}
 .admcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:10px 0}
@@ -574,6 +574,28 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .settings{display:flex;gap:8px 18px;align-items:center;flex-wrap:wrap;margin:12px 0 28px;font-size:15px;color:var(--muted)}
 .settings label{display:flex;align-items:center;gap:6px}
 .settings .note{font-size:13px}
+.voiceset{font-size:14px}
+.voiceset summary{cursor:pointer;color:var(--muted);list-style:none;padding:4px 0;font-size:13px}
+.voiceset summary::-webkit-details-marker{display:none}
+.voiceset[open] summary{color:var(--ink);font-weight:600}
+.voiceset .vsbody{display:flex;gap:8px 18px;align-items:center;flex-wrap:wrap;padding:8px 0 4px}
+.voiceset[open]{flex-basis:100%}
+/* home: path · journey · quests side by side */
+.hubs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 6px}
+.hubs .tile{margin:0;min-width:0}
+.hubs .tile .grow{min-width:0;flex:1}
+.hubs .tile small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hubs .tile .pbar,.hubs .tile .qdots{margin-top:6px}
+@media (max-width:640px){
+ .hubs{gap:8px}
+ .hubs .tile{flex-direction:column;align-items:flex-start;gap:8px;padding:12px 10px}
+ .hubs .tile .ic{width:36px;height:36px;font-size:18px}
+ .hubs .tile .ic .ico{width:19px;height:19px}
+ .hubs .tile>svg.ico{display:none}
+ .hubs .tile b{font-size:14px;line-height:1.25}
+ .hubs .tile small{font-size:12px}
+ .hubs .tile .grow{width:100%}
+}
 .empty{padding:40px 16px;text-align:center;color:var(--muted)}
 .modal{position:fixed;inset:0;z-index:20;background:rgba(30,25,60,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal[hidden]{display:none}
@@ -871,9 +893,10 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 }
 
 /* ---------- first visit: make your first scene ---------- */
-.welcome{position:relative;text-align:center;margin:14px 0 4px;padding:22px 18px 16px;border-radius:24px;background:linear-gradient(160deg,#ffe4ea 0%,#efeaf7 70%);border:1px solid #f3d6e0;box-shadow:0 8px 24px rgba(254,94,122,.12)}
-.welcome .wl-art{display:inline-grid;place-items:center;width:72px;height:72px;border-radius:50%;background:var(--pink);color:#fff;box-shadow:0 8px 18px rgba(254,94,122,.35);margin-bottom:8px}
-.welcome .wl-art .ico{width:36px;height:36px}
+.welcome{position:relative;text-align:center;margin:14px 0 4px;padding:18px 18px 14px;border-radius:24px;background:linear-gradient(160deg,#ffe4ea 0%,#efeaf7 70%);border:1px solid #f3d6e0;box-shadow:0 8px 24px rgba(254,94,122,.12)}
+.welcome .wl-art{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:50%;background:var(--pink);color:#fff;box-shadow:0 8px 18px rgba(254,94,122,.35);margin-bottom:8px}
+.welcome .wl-art .ico{width:30px;height:30px}
+.welcome .wl-acts{margin-top:14px}
 .welcome h3{margin:4px 0 4px;font-size:21px}
 .welcome>p{margin:0 auto;color:#5d5874;max-width:30em}
 .wl-steps{list-style:none;display:flex;justify-content:center;gap:6px;padding:0;margin:14px 0 14px;counter-reset:s}
@@ -920,13 +943,9 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .galimp .chk{display:flex;gap:8px;align-items:center;margin:8px 0;font-size:14px}
 .aitable tr.tot td{font-weight:700}
 @media (max-width:620px){ .galrow{flex-direction:column} .galrow .galthumb{width:100%} }
-.fbstrip{display:flex;align-items:center;gap:12px;width:100%;margin:22px 0 4px;padding:12px 14px;border:1px dashed #cfc6e6;border-radius:16px;background:#fbf9ff;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
-.fbstrip:hover{background:#f3effc}
-.fbstrip .ic{width:38px;height:38px;border-radius:12px;background:#efeaf7;color:#5b4fc4;display:grid;place-items:center;flex:none}
-.fbstrip .ic .ico{width:22px;height:22px}
-.fbstrip .tt{flex:1;display:flex;flex-direction:column;gap:2px}
-.fbstrip .tt small{color:var(--muted);font-size:13px}
-.fbstrip .arrow .ico{width:20px;height:20px;color:var(--muted)}
+.fbstrip{display:flex;align-items:center;justify-content:center;gap:7px;margin:22px auto 0;padding:8px 14px;border:none;border-radius:999px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+.fbstrip:hover{background:#f3effc;color:var(--ink)}
+.fbstrip .ico{width:18px;height:18px}
 .fbkind{flex-wrap:wrap;margin:6px 0 10px}
 .fbbox textarea{width:100%;box-sizing:border-box;border:1px solid #e4dacd;border-radius:14px;padding:10px 12px;font-size:16px;line-height:1.5;resize:vertical;background:#fff;font-family:'Sarabun',system-ui,sans-serif;margin-bottom:8px}
 .fbbox input[type=email]{width:100%;box-sizing:border-box}

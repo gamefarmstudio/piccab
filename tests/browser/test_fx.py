@@ -27,6 +27,7 @@ async def main():
         out['lost']=await pg.locator('#fxLayer .fxnote').all_inner_texts()
         await pg.wait_for_timeout(1800); out['left']=await pg.locator('#fxLayer > *').count()
         await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
+        await pg.click('#voiceSet summary'); await pg.wait_for_timeout(150)          # the voice settings are folded at the bottom
         out['sfx0']=await pg.is_checked('#sfx'); await pg.uncheck('#sfx'); out['sfx_store']=await pg.evaluate("localStorage.getItem('pv-sfx')")
         await b.close()
     s=out['seen']

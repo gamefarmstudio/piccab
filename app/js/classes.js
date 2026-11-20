@@ -48,11 +48,11 @@ function renderClass(){
   socialTabs(v);
   v.append(el('div',{class:'tiles cltiles'},
     el('button',{class:'tile cljoin',onclick:()=>openJoinClass()}, el('span',{class:'ic'},ic('key')),
-      el('span',{class:'tt'}, el('b',{text:'เข้าห้องด้วยรหัส'}), el('small',{text:'นักเรียน / ลูก · ใช้รหัสจากครูหรือผู้ปกครอง ไม่ต้องมีอีเมล'})), el('span',{class:'arrow'},ic('arrow_forward'))),
+      el('span',{class:'tt'}, el('b',{text:'เข้าห้องด้วยรหัส'}), el('small',{text:'ใช้รหัสจากครูหรือผู้ปกครอง'})), el('span',{class:'arrow'},ic('arrow_forward'))),
     el('button',{class:'tile clnew',onclick:()=>createClassDialog('class')}, el('span',{class:'ic'},ic('add')),
-      el('span',{class:'tt'}, el('b',{text:'สร้างห้องเรียน'}), el('small',{text:'ครู · มอบหมายฉากและชุดคำ ดูรายงานนักเรียน'})), el('span',{class:'arrow'},ic('arrow_forward'))),
+      el('span',{class:'tt'}, el('b',{text:'สร้างห้องเรียน'}), el('small',{text:'สำหรับครู'})), el('span',{class:'arrow'},ic('arrow_forward'))),
     el('button',{class:'tile clfam',onclick:()=>createClassDialog('family')}, el('span',{class:'ic'},ic('home')),
-      el('span',{class:'tt'}, el('b',{text:'สร้างกลุ่มครอบครัว'}), el('small',{text:'ผู้ปกครอง · ดูความคืบหน้าของลูก'})), el('span',{class:'arrow'},ic('arrow_forward')))));
+      el('span',{class:'tt'}, el('b',{text:'สร้างกลุ่มครอบครัว'}), el('small',{text:'สำหรับผู้ปกครอง'})), el('span',{class:'arrow'},ic('arrow_forward')))));
   if(!user) return;
   if(!CL.list){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClasses().then(()=>{ if(S.view==='class' && !CL.openId) renderClass(); }); return; }
   if(CL.err) v.append(el('p',{class:'err',text:CL.err}));

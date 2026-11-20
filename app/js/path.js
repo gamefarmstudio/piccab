@@ -90,7 +90,8 @@ function pathTile(){
   return el('button',{type:'button',class:'tile ptile',onclick:()=>goHome('path')},
     el('span',{class:'ic'}, ic('auto_stories')),
     el('span',{class:'grow'}, el('b',{text:'เส้นทางคำศัพท์'}),
-      el('small',{text: !st ? 'เลือกระดับชั้น ป.1–ม.6 แล้วเรียนทีละหัวข้อ' : sum && sum.words ? `${st.e} ${stageName(st)} · CEFR ${st.cefr} · รู้แล้ว ${sum.known}/${sum.words} คำ` : `${st.e} ${stageName(st)} · CEFR ${st.cefr}`})),
+      el('small',{text: !st ? 'เลือกระดับชั้น' : sum && sum.words ? `${st.e} ${stageName(st)} · ${sum.known}/${sum.words}` : `${st.e} ${stageName(st)}`}),
+      sum && sum.words ? el('span',{class:'pbar jbar'}, el('i',{style:`width:${Math.round(sum.known/sum.words*100)}%`})) : null),
     ic('chevron_right'));
 }
 
