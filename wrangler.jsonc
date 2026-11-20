@@ -35,6 +35,10 @@
     ]
   },
 
+  // 📧 Weekly summary to parents: Sundays, every 30 minutes from 18:00 to 21:30 Thai time (11:00–14:30 UTC);
+  // each run sends up to 20 e-mails and each parent gets one a week.
+  "triggers": { "crons": ["0,30 11-14 * * 0"] },
+
   // Keep variables set in the Cloudflare dashboard when deploying.
   "keep_vars": true,
 

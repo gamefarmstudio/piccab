@@ -81,6 +81,10 @@ const LEVELS = {
 };
 
 export default {
+  // 📧 the weekly summary to parents (cron in wrangler.jsonc)
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(weeklyDigest(env).then(r => console.log('weekly digest', JSON.stringify(r))).catch(e => console.log('weekly digest failed', e && e.message)));
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/api/auth-email') return authEmail(request, env);
@@ -114,6 +118,7 @@ export default {
     if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url, ctx);
     if (url.pathname === '/api/report/share') return reportShare(request, env, ctx);
     if (url.pathname === '/api/feedback') return feedback(request, env, ctx);
+    if (url.pathname.startsWith('/api/email/')) return emailRoutes(request, env, url, ctx);
     if (url.pathname === '/api/gallery' || url.pathname.startsWith('/api/gallery/')) return galleryPublic(request, env, url);
     if (url.pathname.startsWith('/g/')) return galleryImage(request, env, url);
     if (url.pathname === '/api/log') return clientError(request, env);
@@ -1569,7 +1574,7 @@ async function clientError(request, env) {
   return new Response(null, { status: 204 });
 }
 // Usage counts: only names from this list, small numbers, no ids.
-export const USAGE_EVENTS = ['open', 'open_signed', 'update_reload', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
+export const USAGE_EVENTS = ['open', 'open_signed', 'update_reload', 'mail_on', 'mail_off', 'mail_preview', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
   'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pics_retry', 'sheet_pic_redraw'];
 export function cleanUsage(b) {
@@ -1991,6 +1996,177 @@ async function appPageWith(request, env, url, title, desc) {
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab"><meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(url.origin + '/og-image.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">`);
   return new Response(html, { status: 200, headers: await pageHeaders(html, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' }) });
+}
+
+// ---------- 📧 weekly summary e-mail to parents (family groups) ----------
+//   GET  /api/email/prefs                   -> { weekly, lang, last_sent, email }
+//   POST /api/email/prefs {weekly, lang}
+//   POST /api/email/preview                 (this week's summary to my own address, now)
+//   GET  /api/email/unsub?u=<uid>&t=<sig>   (the link at the bottom of each e-mail: turns it off, no sign-in needed)
+// Cron (wrangler.jsonc "triggers"): Sundays, every 30 minutes from 18:00 Thai time; each run sends to up to DIGEST_BATCH
+// owners of a family group with at least one child in it. One a week per owner (last_sent). On unless switched off
+// (email_prefs.weekly = false). With PRO_REQUIRED=1, only for Pro accounts. Built from the reports the children's
+// devices already send (learner_reports) — nothing new is collected.
+const DIGEST_BATCH = 20;
+const dayTH = ms => new Date(ms + 7 * 3600e3).toISOString().slice(0, 10);   // a Thai date from a time in ms
+async function unsubSig(env, uid) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('piccab-unsub:' + (env.SUPABASE_SECRET_KEY || env.SCAN_CODE || 'dev')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(String(uid)));
+  return [...new Uint8Array(mac)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export async function unsubLink(env, origin, uid) { return `${origin}/api/email/unsub?u=${uid}&t=${await unsubSig(env, uid)}`; }
+
+// One child's week from their report: practice days, minutes, answers, new words, words still hard, streak, level.
+export function weekSummary(rep, now = Date.now()) {
+  const week = new Set(Array.from({ length: 7 }, (_, i) => dayTH(now - i * 86400000)));
+  const d = (rep && Array.isArray(rep.days) ? rep.days : []).filter(x => week.has(x[0]));
+  const s = (rep && rep.s) || {}, ach = rep && rep.ach;
+  const recent = s.last && (s.last === dayTH(now) || s.last === dayTH(now - 86400000));
+  return {
+    days: d.length, mins: d.reduce((a, x) => a + (x[2] || 0), 0), answers: d.reduce((a, x) => a + (x[1] || 0), 0),
+    learned: ((rep && rep.learned) || []).filter(x => week.has(x[2])).slice(0, 8).map(x => [x[0], x[1]]),
+    weak: ((rep && rep.weak) || []).slice(0, 5).map(x => [x[0], x[1]]),
+    streak: recent ? (s.streak || 0) : 0, total: (rep && rep.words && rep.words.done) || 0,
+    lv: ach && ach.lv ? ach.lv : 0, badges: ach ? [ach.n || 0, ach.total || 0] : null,
+  };
+}
+const DIGEST_TEXT = {
+  th: { subject: n => n ? `สรุปการเรียนสัปดาห์นี้ของ ${n} — Piccab` : 'สรุปการเรียนสัปดาห์นี้ — Piccab', hi: 'สรุปการฝึกคำศัพท์ 7 วันที่ผ่านมา',
+    days: (n) => `ฝึก ${n} จาก 7 วัน`, mins: n => `ประมาณ ${n} นาที`, ans: n => `ตอบ ${n} คำ`, streak: n => `🔥 ฝึกติดกัน ${n} วัน`, lv: n => `⭐ Lv.${n}`,
+    badges: (a, b) => `🏅 ตรา ${a}/${b}`, total: n => `รู้แล้วทั้งหมด ${n} คำ`, learned: 'คำที่จำได้ใหม่', weak: 'คำที่ยังพลาดบ่อย — ลองฝึกด้วยกัน',
+    none: 'สัปดาห์นี้ยังไม่ได้ฝึก ลองชวนฝึกสัก 5 นาทีด้วยกันนะ 🙂', noreport: 'ยังไม่มีข้อมูลการฝึก (ลูกต้องเปิด Piccab ในเครื่องของตัวเองก่อน)',
+    open: 'ดูรายงานเต็มใน Piccab', why: 'คุณได้รับอีเมลนี้เพราะเป็นผู้ปกครองในกลุ่มครอบครัวบน Piccab', off: 'เลิกรับอีเมลนี้', group: 'กลุ่ม' },
+  en: { subject: n => n ? `${n}'s week of practice — Piccab` : 'This week of practice — Piccab', hi: 'Vocabulary practice over the last 7 days',
+    days: (n) => `practised ${n} of 7 days`, mins: n => `about ${n} min`, ans: n => `${n} answers`, streak: n => `🔥 ${n}-day streak`, lv: n => `⭐ Lv.${n}`,
+    badges: (a, b) => `🏅 badges ${a}/${b}`, total: n => `${n} words known in all`, learned: 'New words learned', weak: 'Words still tricky — practise them together',
+    none: 'No practice this week yet — how about 5 minutes together? 🙂', noreport: 'No practice data yet (your child needs to open Piccab on their own device first)',
+    open: 'See the full report in Piccab', why: "You're getting this because you're a parent in a family group on Piccab", off: 'Stop these e-mails', group: 'Group' },
+};
+// kids: [{ nick, group, rep|null }]
+export function digestMail({ lang = 'th', kids, origin, unsub, now = Date.now() }) {
+  const T = DIGEST_TEXT[lang === 'en' ? 'en' : 'th'];
+  const one = kids.length === 1 ? kids[0].nick : '';
+  const chip = t => `<span style="display:inline-block;margin:2px 6px 2px 0;padding:3px 10px;border-radius:999px;background:#f1eefc;color:#2d2a5a;font-size:13px">${esc(t)}</span>`;
+  const words = list => list.map(([w, th]) => `<b>${esc(w)}</b>${th ? ` <span style="color:#6b6585">${esc(th)}</span>` : ''}`).join(' · ');
+  const text = [T.hi, ''];
+  const cards = kids.map(k => {
+    const w = k.rep ? weekSummary(k.rep, now) : null;
+    text.push(`${k.nick}${kids.some(o => o.group !== k.group) ? ` (${T.group} ${k.group})` : ''}`);
+    if (!w) { text.push('  ' + T.noreport, ''); return `<div style="border:1px solid #ece4d8;border-radius:14px;padding:14px 16px;margin:12px 0"><h3 style="margin:0 0 6px;font-size:17px;color:#2d2a5a">${esc(k.nick)}</h3><p style="margin:0;color:#6b6585">${esc(T.noreport)}</p></div>`; }
+    const chips = [T.days(w.days), w.mins ? T.mins(w.mins) : '', w.answers ? T.ans(w.answers) : '', w.streak ? T.streak(w.streak) : '', w.lv ? T.lv(w.lv) : '', w.badges ? T.badges(...w.badges) : '', T.total(w.total)].filter(Boolean);
+    text.push('  ' + chips.join(' · '));
+    if (!w.days) text.push('  ' + T.none);
+    if (w.learned.length) text.push(`  ${T.learned}: ${w.learned.map(x => x[0]).join(', ')}`);
+    if (w.weak.length) text.push(`  ${T.weak}: ${w.weak.map(x => x[0]).join(', ')}`);
+    text.push('');
+    return `<div style="border:1px solid #ece4d8;border-radius:14px;padding:14px 16px;margin:12px 0">
+<h3 style="margin:0 0 8px;font-size:17px;color:#2d2a5a">${esc(k.nick)}</h3>
+<div>${chips.map(chip).join('')}</div>
+${w.days ? '' : `<p style="margin:8px 0 0;color:#b4532a">${esc(T.none)}</p>`}
+${w.learned.length ? `<p style="margin:10px 0 2px;font-size:13px;color:#1d7a4c;font-weight:600">✅ ${esc(T.learned)}</p><p style="margin:0">${words(w.learned)}</p>` : ''}
+${w.weak.length ? `<p style="margin:10px 0 2px;font-size:13px;color:#b4532a;font-weight:600">💪 ${esc(T.weak)}</p><p style="margin:0">${words(w.weak)}</p>` : ''}
+</div>`;
+  }).join('');
+  const app = `${origin}/app${lang === 'en' ? '?hl=en' : ''}`;
+  text.push(`${T.open}: ${app}`, '', `${T.why}. ${T.off}: ${unsub}`);
+  const html = `<div style="font-family:Sarabun,Arial,sans-serif;max-width:560px;margin:0 auto;padding:8px 4px;color:#2d2a5a;font-size:15px;line-height:1.55">
+<p style="margin:0 0 4px;font-size:20px;font-weight:700">Piccab</p>
+<p style="margin:0 0 6px;color:#6b6585">${esc(T.hi)}</p>
+${cards}
+<p style="margin:16px 0"><a href="${esc(app)}" style="display:inline-block;background:#2d2a5a;color:#fff;text-decoration:none;padding:10px 18px;border-radius:12px;font-weight:600">${esc(T.open)}</a></p>
+<p style="margin:18px 0 0;font-size:12px;color:#9a94ad">${esc(T.why)} · <a href="${esc(unsub)}" style="color:#9a94ad">${esc(T.off)}</a></p>
+</div>`;
+  return { subject: T.subject(one), html, text: text.join('\n') };
+}
+async function mailOne(env, to, mail, unsub) {
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Piccab <no-reply@piccab.com>', to: [to], subject: mail.subject, html: mail.html, text: mail.text,
+      headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }),
+  }).catch(() => null);
+  if (!r || !r.ok) console.log('digest mail failed', r && r.status);
+  return !!(r && r.ok);
+}
+// The children in these owners' family groups, with their reports: owner id -> [{ nick, group, rep }]
+async function familyKids(env, groups) {
+  const out = new Map(); if (!groups.length) return out;
+  const mem = await q(env, `class_members?class_id=${inList(groups.map(g => g.id))}&select=class_id,user_id,nickname,joined_at&order=joined_at.asc`) || [];
+  const reps = mem.length ? await q(env, `learner_reports?user_id=${inList([...new Set(mem.map(m => m.user_id))])}&select=user_id,data`) || [] : [];
+  const rep = new Map(reps.map(r => [r.user_id, r.data])), byId = new Map(groups.map(g => [g.id, g]));
+  for (const m of mem) { const g = byId.get(m.class_id); if (!g) continue; if (!out.has(g.owner)) out.set(g.owner, []); out.get(g.owner).push({ nick: m.nickname, group: g.name, rep: rep.get(m.user_id) || null }); }
+  return out;
+}
+async function ownerEmail(env, uid) {
+  const r = await fetch(`${env.SUPABASE_URL || SUPABASE_URL}/auth/v1/admin/users/${uid}`, { headers: { apikey: env.SUPABASE_SECRET_KEY, authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` } }).catch(() => null);
+  const u = r && r.ok ? await r.json().catch(() => null) : null;
+  return u && typeof u.email === 'string' && u.email.includes('@') && !u.is_anonymous ? u.email.toLowerCase() : '';
+}
+// The weekly run (cron). Returns what it did, for the log and the tests.
+export async function weeklyDigest(env, now = Date.now(), origin = 'https://piccab.com') {
+  if (!env.SUPABASE_SECRET_KEY || !env.RESEND_API_KEY) return { sent: 0, why: 'not_configured' };
+  let groups, prefs;
+  try { groups = await q(env, 'classes?kind=eq.family&select=id,name,owner') || []; } catch (e) { return { sent: 0, why: 'no_families' }; }
+  try { prefs = new Map((await q(env, 'email_prefs?select=user_id,weekly,lang,last_sent') || []).map(r => [r.user_id, r])); }
+  catch (e) { return { sent: 0, why: 'needs_update' }; }                     // supabase/2026-11-email-prefs.sql not run yet
+  const weekAgo = dayTH(now - 6 * 86400000);
+  const owners = [...new Set(groups.map(g => g.owner))].filter(o => { const p = prefs.get(o); return !p || (p.weekly !== false && !(p.last_sent && p.last_sent >= weekAgo)); }).slice(0, DIGEST_BATCH);
+  if (!owners.length) return { sent: 0, why: 'done' };
+  const kids = await familyKids(env, groups.filter(g => owners.includes(g.owner)));
+  const plans = proRequired(env) ? new Map((await q(env, 'plans?select=email,until').catch(() => []) || []).map(r => [r.email, r])) : null;
+  const done = []; let sent = 0;
+  for (const o of owners) {
+    const list = kids.get(o) || [];
+    const p = prefs.get(o) || {};
+    if (!list.length) { done.push({ user_id: o, weekly: p.weekly !== false, lang: p.lang || 'th', last_sent: dayTH(now) }); continue; }   // no child yet: look again next week
+    const email = await ownerEmail(env, o);
+    if (!email) continue;
+    if (plans) { const pl = plans.get(email); if (!pl || (pl.until && Date.parse(pl.until) <= now)) { done.push({ user_id: o, weekly: p.weekly !== false, lang: p.lang || 'th', last_sent: dayTH(now) }); continue; } }
+    const unsub = await unsubLink(env, origin, o);
+    if (await mailOne(env, email, digestMail({ lang: p.lang || 'th', kids: list, origin, unsub, now }), unsub)) { sent++; done.push({ user_id: o, weekly: true, lang: p.lang || 'th', last_sent: dayTH(now) }); }
+  }
+  if (done.length) await q(env, 'email_prefs?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(done) }).catch(e => console.log('email_prefs', e.message));
+  return { sent, owners: owners.length };
+}
+async function emailRoutes(request, env, url, ctx) {
+  const path = url.pathname.split('/')[3] || '';
+  if (path === 'unsub' && request.method === 'GET') {
+    const uid = url.searchParams.get('u') || '', t = url.searchParams.get('t') || '';
+    const ok = UUID.test(uid) && env.SUPABASE_SECRET_KEY && t === await unsubSig(env, uid);
+    if (ok) await q(env, 'email_prefs?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: uid, weekly: false, updated_at: new Date().toISOString() }) }).catch(() => {});
+    const en = url.searchParams.get('hl') === 'en';
+    const msg = ok ? (en ? "You won't get the weekly summary any more. You can switch it back on in Piccab → 🎓 Classes → your family group." : 'เลิกส่งอีเมลสรุปรายสัปดาห์แล้ว เปิดกลับได้ใน Piccab → 🎓 ห้องเรียน → กลุ่มครอบครัวของคุณ')
+      : (en ? 'This link is not valid.' : 'ลิงก์นี้ใช้ไม่ได้');
+    const html = `<!DOCTYPE html><html lang="${en ? 'en' : 'th'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Piccab</title><link rel="stylesheet" href="/legal.css"><main style="max-width:520px;margin:60px auto;padding:0 20px;font-family:Sarabun,Arial,sans-serif"><h1>Piccab</h1><p>${esc(msg)}</p><p><a href="/app">${en ? 'Open Piccab' : 'เปิด Piccab'}</a></p></main></html>`;
+    return new Response(html, { status: ok ? 200 : 400, headers: await pageHeaders(html, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }) });
+  }
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const me = await userInfo(request, env);
+  if (!me) return error('unauthorized', 401);
+  if (me.anon || !me.email) return error('student_account', 403);
+  if (path === 'prefs') {
+    let row;
+    try { row = (await q(env, `email_prefs?user_id=eq.${me.uid}&select=weekly,lang,last_sent`) || [])[0]; } catch (e) { return error('needs_update', 409); }
+    if (request.method === 'GET') return json({ weekly: !row || row.weekly !== false, lang: (row && row.lang) || 'th', last_sent: (row && row.last_sent) || null, email: me.email });
+    if (request.method === 'POST') {
+      const b = await request.json().catch(() => ({}));
+      const out = { user_id: me.uid, weekly: b.weekly !== false, lang: b.lang === 'en' ? 'en' : 'th', updated_at: new Date().toISOString() };
+      await q(env, 'email_prefs?on_conflict=user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(out) });
+      return json({ weekly: out.weekly, lang: out.lang });
+    }
+  }
+  if (path === 'preview' && request.method === 'POST') {
+    if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'mailpv:' + me.uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+    if (proRequired(env) && !(await proOf(env, me)).pro) return error('pro_required', 402);
+    const groups = await q(env, `classes?owner=eq.${me.uid}&kind=eq.family&select=id,name,owner`).catch(() => []) || [];
+    const list = (await familyKids(env, groups)).get(me.uid) || [];
+    if (!list.length) return error('no_children', 404);
+    if (!env.RESEND_API_KEY) return error('mail_not_configured', 503);
+    const b = await request.json().catch(() => ({}));
+    const unsub = await unsubLink(env, url.origin, me.uid);
+    const ok = await mailOne(env, me.email, digestMail({ lang: b.lang === 'en' ? 'en' : 'th', kids: list, origin: url.origin, unsub }), unsub);
+    return ok ? json({ sent: true, to: me.email, kids: list.length }) : error('mail_failed', 502);
+  }
+  return error('not_found', 404);
 }
 
 // ---------- friends (👫) ----------

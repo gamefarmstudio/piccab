@@ -217,6 +217,20 @@ revoke all on public.learner_reports from anon, authenticated;
 grant select, insert, update, delete on public.learner_reports to service_role;
 
 -- ─────────────────────────────────────────────────────────────
+-- 📧 Weekly summary e-mail to parents (family groups): on/off, language, the last Sunday sent. Worker only.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.email_prefs (
+  user_id     uuid primary key references auth.users on delete cascade,
+  weekly      boolean not null default true,
+  lang        text not null default 'th' check (lang in ('th', 'en')),
+  last_sent   date,
+  updated_at  timestamptz not null default now()
+);
+alter table public.email_prefs enable row level security;
+revoke all on public.email_prefs from anon, authenticated;
+grant select, insert, update, delete on public.email_prefs to service_role;
+
+-- ─────────────────────────────────────────────────────────────
 -- Pro plan (detailed reports), given by an admin per e-mail. "until" null = no end date.
 -- The Worker variable PRO_REQUIRED=1 turns the lock on; without it everyone can use Pro features.
 -- ─────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 ROOT=$(cd ../.. && pwd)
 export SHOTS=${SHOTS:-/tmp/piccab-shots}
 OFFLINE="test_update.py test_sheet_pics.py test_challenges.py test_rounds.py test_fx.py test_find_reveal.py test_journey.py test_print_cards.py test_own_sentences.py test_edit_meaning.py test_cozy_home.py test_wordsheet.py test_fullscreen_tall.py test_german.py test_english_ui.py test_speak.py test_spaced_review.py test_draw.py test_captcha.py test_landing.py test_account_policies.py"
-SERVER_TESTS="test_pics_fast.py test_game_sync.py test_sheet_sync.py test_reports.py test_classes.py test_classes_german.py test_admin.py test_ai_usage.py test_english_web.py test_pwa.py test_trial.py test_gallery.py"
+SERVER_TESTS="test_weekly_mail.py test_pics_fast.py test_game_sync.py test_sheet_sync.py test_reports.py test_classes.py test_classes_german.py test_admin.py test_ai_usage.py test_english_web.py test_pwa.py test_trial.py test_gallery.py"
 WANT="${*:-$OFFLINE $SERVER_TESTS}"
 failed=()
 # What Cloudflare serves: the app built by Vite + public/ (wrangler dev builds it again, which is quick)

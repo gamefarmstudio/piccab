@@ -205,6 +205,7 @@ function renderTeacher(v,d){
       el('p',{text: fam ? 'ในเครื่องของลูก เปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือเปิดลิงก์เชิญในเครื่องของลูก' : 'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
       el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,(fam?'เข้ากลุ่มครอบครัว ':'เข้าห้องเรียน ')+d.name)})))));
   memberReports(v,d);
+  if(fam) v.append(mailCard());
   // leaderboard switch + preview (classes only)
   if(!fam){
   const lbBtn=el('button',{class:'toggle'+(d.leaderboard?' on':''),text:d.leaderboard?'🏆 ตารางอันดับ: เปิด':'🏆 ตารางอันดับ: ปิด',onclick:async()=>{
@@ -259,6 +260,42 @@ function renderTeacher(v,d){
     el('button',{class:'linkbtn small danger-link',text:fam?'🗑 ลบกลุ่มครอบครัว':'🗑 ลบห้องเรียน',onclick:async()=>{
       if(!(await ask(fam ? `ลบกลุ่ม “${d.name}”? ลูกจะออกจากกลุ่ม และคุณจะไม่เห็นรายงานอีก` : `ลบห้อง “${d.name}”? นักเรียนจะออกจากห้องทั้งหมด และความคืบหน้าในห้องนี้จะถูกลบ`, fam?'ลบกลุ่ม':'ลบห้องเรียน'))) return;
       const r=await classApi('DELETE','/'+d.id); if(!r.ok){ toast(classErr(r)); return; } toast(fam?'ลบกลุ่มแล้ว':'ลบห้องเรียนแล้ว'); backToClasses(); }})));
+}
+// 📧 the weekly summary e-mail (family groups): on/off and a sample sent now
+var MAIL={ prefs:null };
+const MAIL_ERR={ no_children:'ยังไม่มีลูกในกลุ่ม — ส่งรหัสกลุ่มให้ลูกเข้าก่อน', mail_not_configured:'ระบบส่งอีเมลยังไม่พร้อม', rate_limited:'ส่งถี่เกินไป รอสักครู่แล้วลองใหม่',
+  pro_required:'อีเมลสรุปเป็นฟีเจอร์ Pro', needs_update:'ต้องรัน SQL 2026-11-email-prefs.sql ใน Supabase ก่อน', mail_failed:'ส่งอีเมลไม่สำเร็จ ลองใหม่อีกครั้ง' };
+async function mailApi(method, path, body){
+  const tok=await accessToken();
+  const r=await fetch('/api/email'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined }).catch(()=>null);
+  const j=r ? await r.json().catch(()=>({})) : {};
+  return { ok:!!(r && r.ok), status:r ? r.status : 0, j };
+}
+function mailCard(){
+  const box=el('div',{class:'mailcard'});
+  const lang=()=>UI==='en'?'en':'th';
+  const draw=()=>{
+    const p=MAIL.prefs;
+    if(!p){ box.replaceChildren(el('p',{class:'note small',text:'📧 กำลังโหลด…'})); return; }
+    if(p.error){ box.replaceChildren(el('p',{class:'note small',text:'📧 '+(MAIL_ERR[p.error]||'โหลดการตั้งค่าอีเมลไม่สำเร็จ')})); return; }
+    const tg=el('button',{class:'toggle'+(p.weekly?' on':''),text:p.weekly?'📧 อีเมลสรุปรายสัปดาห์: เปิด':'📧 อีเมลสรุปรายสัปดาห์: ปิด',onclick:async()=>{
+      tg.disabled=true;
+      const r=await mailApi('POST','/prefs',{ weekly:!p.weekly, lang:lang() });
+      if(!r.ok){ tg.disabled=false; toast(MAIL_ERR[r.j && r.j.error]||'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); return; }
+      p.weekly=r.j.weekly; tally(p.weekly?'mail_on':'mail_off');
+      toast(p.weekly?'จะส่งสรุปทุกวันอาทิตย์ราว 6 โมงเย็น':'ปิดอีเมลสรุปแล้ว'); draw(); }});
+    const pv=el('button',{text:'✉️ ส่งตัวอย่างให้ฉันตอนนี้',onclick:async()=>{
+      pv.disabled=true; pv.textContent='กำลังส่ง…';
+      const r=await mailApi('POST','/preview',{ lang:lang() });
+      pv.disabled=false; pv.textContent='✉️ ส่งตัวอย่างให้ฉันตอนนี้';
+      if(r.ok){ tally('mail_preview'); toast(`ส่งไปที่ ${r.j.to} แล้ว — ดูในกล่องจดหมาย (หรือจดหมายขยะ)`, 5000); return; }
+      toast(MAIL_ERR[r.j && r.j.error]||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง', 4500); }});
+    box.replaceChildren(el('div',{class:'cllb'}, tg, pv),
+      el('p',{class:'note small',text: p.weekly ? `ทุกวันอาทิตย์ราว 6 โมงเย็น ส่งสรุปการฝึก 7 วันของลูก (วันที่ฝึก เวลาที่ใช้ คำที่จำได้ใหม่ คำที่ยังพลาดบ่อย) ไปที่ ${p.email}` : 'ปิดอยู่ — เปิดเพื่อรับสรุปการฝึกของลูกทางอีเมลทุกวันอาทิตย์'}));
+  };
+  draw();
+  if(!MAIL.prefs) mailApi('GET','/prefs').then(r=>{ MAIL.prefs=r.ok ? r.j : { error:(r.j && r.j.error)||'x' }; if(box.isConnected) draw(); });
+  return box;
 }
 // 📈 one row per member: a short summary and their full report (members who share it)
 function memberReports(v,d){
