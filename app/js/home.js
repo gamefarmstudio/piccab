@@ -120,7 +120,7 @@ function reviewTile(){
   const all=allWords(), learned=all.filter(w=>w.st!=='todo').length;
   if(!learned) return el('div',{class:'tile srs idle'},
     el('span',{class:'ic'},ic('autorenew')),
-    el('span',{class:'tt'}, el('b',{text:'ทบทวนตามรอบ'}), el('small',{text:'พิมพ์คำให้ผ่าน แล้วคำจะกลับมาตอนใกล้ลืม'})));
+    el('span',{class:'tt'}, el('b',{text:'ทบทวนตามรอบ'}), el('small',{text:'คำจะกลับมาตอนใกล้ลืม'})));
   const due=dueWords(all).length;
   if(!due){
     const t=dayNo(); let nd=0, nn=0;
@@ -244,7 +244,7 @@ function renderHome(){
   h.append(el('div',{class:'hsec'}, el('h3',{}, ic('grid_view'), 'ฉากล่าสุด'),
     el('button',{class:'linkbtn more','aria-label':`ดูทั้งหมด ${all.length} ฉาก`,title:`ดูทั้งหมด ${all.length} ฉาก`,onclick:()=>goHome('library')}, String(all.length), ic('arrow_forward'))));
   if(list.length){ const grid=el('div',{class:'grid two'}); list.forEach(sc=>grid.append(sceneCard(sc))); h.append(grid); }
-  else h.append(el('p',{class:'empty',text:'ยังไม่มีฉากอื่น ลองถ่ายรูปหรือเลือกรูปเพื่อสร้างฉากแรกของคุณ'}));
+  else h.append(el('p',{class:'empty',text:'ยังไม่มีฉากอื่น — ลองถ่ายรูปดูสิ'}));
   h.append(feedbackStrip());
 }
 function feedbackStrip(){
@@ -281,7 +281,7 @@ function openFeedback(kind){
     m.append(el('h3',{}, ic('chat'), 'ส่งความเห็น'),
       el('p',{class:'note',text:'ทุกข้อความมีคนอ่านจริง ช่วยให้ Piccab ดีขึ้นมาก'}),
       seg, ta, el('label',{class:'fbmail'}, el('span',{text:'อีเมลของคุณ สำหรับให้เราตอบกลับ (ไม่บังคับ)'}), mail),
-      el('p',{class:'note small',text:'ระบบจะแนบหน้าที่คุณใช้อยู่และรุ่นเบราว์เซอร์ไปด้วย เพื่อช่วยหาสาเหตุ ไม่แนบรูปหรือคำศัพท์ของคุณ'}),
+      el('p',{class:'note small',text:'แนบหน้าที่ใช้อยู่และรุ่นเบราว์เซอร์ไปด้วย (ไม่แนบรูปหรือคำศัพท์)'}),
       err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
     setTimeout(()=>ta.focus(),50);
   });

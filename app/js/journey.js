@@ -120,7 +120,7 @@ function renderJourney(){
   const v=$('#journeyView'); if(!v) return; v.innerHTML='';
   achCheck();
   const J=journey(), P=ACH_PLACES[J.place], need=J.next-J.xp, pct=Math.round((J.xp-J.cur)/(J.next-J.cur)*100);
-  v.append(el('div',{class:'ghead'}, el('h2',{text:'🗺️ การเดินทางของฉัน'}), el('p',{text:'ฝึกคำศัพท์เพื่อเก็บ XP เดินทางไปดินแดนใหม่ และสะสมตรา'})));
+  v.append(el('div',{class:'ghead'}, el('h2',{text:'🗺️ การเดินทางของฉัน'}), el('p',{text:'ฝึกคำ เก็บ XP เดินทาง สะสมตรา'})));
   v.append(el('div',{class:'jhead'},
     el('div',{class:'jlv'}, el('small',{text:'เลเวล'}), el('b',{text:String(J.lv)})),
     el('div',{class:'grow'},

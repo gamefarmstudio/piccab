@@ -37,8 +37,8 @@ function openInstallHelp(){
   if(matchMedia('(display-mode: standalone)').matches){ toast('เปิด Piccab แบบแอปอยู่แล้ว 🎉'); return; }
   if(isIOS()){ installApp(); return; }
   openModal(m=>m.append(el('h3',{text:'📲 ติดตั้ง Piccab เป็นแอป'}),
-    el('p',{text:'เปิดจากไอคอนบนหน้าจอโฮมได้เหมือนแอปทั่วไป และฝึกต่อได้แม้ไม่มีอินเทอร์เน็ต'}),
-    installEvt ? null : el('p',{class:'note',text:'ถ้าไม่มีหน้าต่างติดตั้งขึ้นมา: เปิดเมนูของเบราว์เซอร์ (⋮ หรือ ⋯) แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มลงในหน้าจอหลัก”'}),
+    el('p',{text:'เปิดจากหน้าจอโฮม และฝึกได้แม้ไม่มีเน็ต'}),
+    installEvt ? null : el('p',{class:'note',text:'ไม่มีหน้าต่างขึ้น? เปิดเมนูเบราว์เซอร์ (⋮) → “ติดตั้งแอป”'}),
     el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ไว้ทีหลัง',onclick:closeModal}),
       el('button',{class:'primary',text:'ติดตั้ง',onclick:()=>{ closeModal(); if(installEvt) installApp(); else toast('ใช้เมนูของเบราว์เซอร์ → “ติดตั้งแอป” ได้เลย', 4000); }}))));
 }

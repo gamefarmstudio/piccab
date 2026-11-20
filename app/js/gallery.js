@@ -78,7 +78,7 @@ function openGalleryScene(g){
       el('div',{class:'pv-fig sharefig'}, el('img',{alt:'',src:galImg(g)})),
       words,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ไว้ทีหลัง',onclick:closeModal}), go),
-      el('p',{class:'note small',text:'ภาพในคลังสร้างด้วย AI · ฉากจะถูกเก็บในเครื่องนี้ (และในบัญชี ถ้าเข้าสู่ระบบ) แก้ไขในคลังของคุณได้ ไม่กระทบคนอื่น'}));
+      el('p',{class:'note small',text:'ภาพสร้างด้วย AI · แก้ไขสำเนาของคุณได้ ไม่กระทบคนอื่น'}));
   });
 }
 async function galCopy(g, full, name){

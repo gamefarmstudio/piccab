@@ -142,7 +142,7 @@ function boardRows(members, progress, items, me){
 function renderStudent(v,d){
   const fam=d.kind==='family';
   v.append(el('div',{class:'ghead'}, el('h2',{text:(fam?'🏠 ':'🎒 ')+d.name}), el('p',{text:(fam?'ชื่อในกลุ่ม: ':'ชื่อในห้อง: ')+d.nickname})));
-  if(fam) v.append(el('p',{class:'note rshare on',text:'📈 ผู้ปกครองเห็นรายงานการเรียนของคุณ: วันที่ฝึก เกมที่เล่น คำที่ผ่านแล้ว คำที่ยังพลาด และระดับ'}));
+  if(fam) v.append(el('p',{class:'note rshare on',text:'📈 ผู้ปกครองเห็นรายงานการเรียนของคุณ'}));
   else {
     const tg=el('button',{class:'toggle'+(d.report?' on':''),text:d.report?'📈 แชร์รายงานกับครู: เปิด':'📈 แชร์รายงานกับครู: ปิด',onclick:async()=>{
       tg.disabled=true;
@@ -202,7 +202,7 @@ function renderTeacher(v,d){
   v.append(el('div',{class:'clinvite'},
     el('div',{}, el('small',{text:fam?'รหัสกลุ่ม':'รหัสห้อง'}), el('div',{class:'clcode',text:d.code})),
     el('div',{class:'clinv-r'},
-      el('p',{text: fam ? 'ในเครื่องของลูก เปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือเปิดลิงก์เชิญในเครื่องของลูก' : 'ให้นักเรียนเปิด piccab.com → 🎓 ห้องเรียน → เข้าห้องด้วยรหัส หรือส่งลิงก์เชิญ'}),
+      el('p',{text: fam ? 'ให้ลูกใส่รหัสนี้ที่ 🎓 ห้องเรียน หรือเปิดลิงก์เชิญ' : 'ให้นักเรียนใส่รหัสนี้ที่ 🎓 ห้องเรียน หรือเปิดลิงก์เชิญ'}),
       el('div',{class:'row'}, el('button',{class:'primary',text:'📋 คัดลอกลิงก์เชิญ',onclick:()=>copyLink(link)}), el('button',{text:'📲 ส่งต่อ…',onclick:()=>shareLinkNative(link,(fam?'เข้ากลุ่มครอบครัว ':'เข้าห้องเรียน ')+d.name)})))));
   memberReports(v,d);
   if(fam) v.append(mailCard());
@@ -213,12 +213,12 @@ function renderTeacher(v,d){
     const r=await classApi('PATCH','/'+d.id,{ leaderboard:!d.leaderboard }).catch(()=>({ok:false}));
     if(!r.ok){ lbBtn.disabled=false; toast(r.j && r.j.error==='needs_update' ? 'ต้องรัน SQL 2026-11-leaderboard.sql ใน Supabase ก่อน' : classErr(r), 4500); return; }
     toast(!d.leaderboard?'เปิดตารางอันดับแล้ว นักเรียนจะเห็นอันดับในห้อง':'ปิดตารางอันดับแล้ว'); CL.detail=null; renderClassDetail(); }});
-  v.append(el('div',{class:'cllb'}, lbBtn, el('span',{class:'note small',text: d.leaderboard ? 'นักเรียนเห็นชื่อเล่นและจำนวนคำของเพื่อนในห้องนี้' : 'เปิดเพื่อให้นักเรียนเห็นอันดับของเพื่อนในห้อง (เฉพาะชื่อเล่นและจำนวนคำ)'})));
+  v.append(el('div',{class:'cllb'}, lbBtn, el('span',{class:'note small',text: d.leaderboard ? 'นักเรียนเห็นชื่อเล่นและจำนวนคำของเพื่อน' : 'เปิดให้นักเรียนเห็นอันดับในห้อง'})));
   if(d.leaderboard && d.members.length) v.append(boardEl(boardRows(d.members, d.progress, d.items, null)));
   }
   // assignments
   v.append(el('div',{class:'hsec'}, el('h3',{text:fam?'งานที่ให้ลูกฝึก':'งานที่มอบหมาย'}), el('button',{class:'linkbtn',text:'➕ มอบหมายฉากหรือชุดคำ',onclick:()=>openAssignPicker(d)})));
-  if(!d.items.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีงาน — กด “มอบหมายฉากหรือชุดคำ” เลือกจากคลังของคุณ'}));
+  if(!d.items.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีงาน'}));
   // progress table
   if(d.items.length){
     const wrap=el('div',{class:'cltablewrap'}), tb=el('table',{class:'cltable'});
@@ -246,7 +246,7 @@ function renderTeacher(v,d){
       tb.append(tr);
     });
     wrap.append(tb); v.append(wrap);
-    v.append(el('p',{class:'note small',text:'ตัวเลข = คำที่นักเรียนพิมพ์ตอบถูกแล้ว / คำทั้งหมด · ★ = ตอบถูกเองโดยไม่ใช้ตัวช่วย · อัปเดตเมื่อนักเรียนเปิดแอปและออนไลน์'}));
+    v.append(el('p',{class:'note small',text:'ตอบถูก/ทั้งหมด · ★ = ไม่ใช้ตัวช่วย'}));
     if(d.members.length) v.append(el('div',{class:'clexport'},
       el('span',{class:'lbl',text:'⬇️ ส่งออกความคืบหน้า'}),
       el('button',{class:'primary',text:'📊 Excel (.xlsx)',onclick:()=>{ try{ exportClassXlsx(d); toast('ดาวน์โหลดไฟล์ Excel แล้ว'); }catch(e){ console.warn(e); toast('ส่งออกไม่สำเร็จ ลองใหม่อีกครั้ง'); } }}),
@@ -291,7 +291,7 @@ function mailCard(){
       if(r.ok){ tally('mail_preview'); toast(`ส่งไปที่ ${r.j.to} แล้ว — ดูในกล่องจดหมาย (หรือจดหมายขยะ)`, 5000); return; }
       toast(MAIL_ERR[r.j && r.j.error]||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง', 4500); }});
     box.replaceChildren(el('div',{class:'cllb'}, tg, pv),
-      el('p',{class:'note small',text: p.weekly ? `ทุกวันอาทิตย์ราว 6 โมงเย็น ส่งสรุปการฝึก 7 วันของลูก (วันที่ฝึก เวลาที่ใช้ คำที่จำได้ใหม่ คำที่ยังพลาดบ่อย) ไปที่ ${p.email}` : 'ปิดอยู่ — เปิดเพื่อรับสรุปการฝึกของลูกทางอีเมลทุกวันอาทิตย์'}));
+      el('p',{class:'note small',text: p.weekly ? `ทุกวันอาทิตย์ 6 โมงเย็น ไปที่ ${p.email}` : 'ปิดอยู่ — เปิดเพื่อรับสรุปการฝึกของลูกทางอีเมลทุกวันอาทิตย์'}));
   };
   draw();
   if(!MAIL.prefs) mailApi('GET','/prefs').then(r=>{ MAIL.prefs=r.ok ? r.j : { error:(r.j && r.j.error)||'x' }; if(box.isConnected) draw(); });
@@ -301,7 +301,7 @@ function mailCard(){
 function memberReports(v,d){
   const fam=d.kind==='family', reps=new Map((d.reports||[]).map(r=>[r.user_id,r]));
   v.append(el('div',{class:'hsec'}, el('h3',{text:'📈 รายงานการเรียน'}), proBadge(d.plan)));
-  if(!d.members.length){ v.append(el('p',{class:'libempty',text: fam ? 'ยังไม่มีลูกในกลุ่ม — เปิดลิงก์เชิญหรือใส่รหัสในเครื่องของลูก' : 'ยังไม่มีนักเรียนเข้าห้อง'})); return; }
+  if(!d.members.length){ v.append(el('p',{class:'libempty',text: fam ? 'ยังไม่มีลูกในกลุ่ม' : 'ยังไม่มีนักเรียนเข้าห้อง'})); return; }
   const box=el('div',{class:'liblist rmembers'}), locked=proLocked(d.plan);
   d.members.forEach(mb=>{
     const r=reps.get(mb.user_id);
@@ -426,7 +426,7 @@ function openAssignPicker(d){
   };
   openModal(m=>{
     m.classList.add('dkbox');
-    m.append(el('h3',{text:'มอบหมายงานให้ห้อง “'+d.name+'”'}), el('p',{class:'note',text:'เลือกฉากหรือชุดคำ ระบบจะสร้างลิงก์ (สำเนา ณ ตอนนี้) ให้นักเรียน'}));
+    m.append(el('h3',{text:'มอบหมายงานให้ห้อง “'+d.name+'”'}), el('p',{class:'note',text:'เลือกฉากหรือชุดคำที่จะมอบหมาย'}));
     const langSeg=el('div',{class:'aslang'}), segIn=el('div',{class:'seg',role:'group','aria-label':'ภาษาที่ให้นักเรียนฝึก'});
     const list=el('div',{class:'dk-list tall'});
     const targets=[{kind:'scene',sc:BUILTIN[0],icon:'🖼️',meta:'ฉากตัวอย่าง · '}].concat(mine.map(sc=>({kind:'scene',sc,icon:'🖼️',meta:'ฉาก · '})), dks.map(dk=>({kind:'deck',deck:dk,icon:'📚',meta:'ชุดคำ · '})));
@@ -499,9 +499,9 @@ function openJoinClass(code){
     [ci,ni].forEach(x=>x.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); }));
     m.append(el('h3',{text:'🔑 เข้าห้องเรียน'}),
       el('label',{},'รหัสจากครูหรือผู้ปกครอง', ci), el('label',{},'ชื่อเล่น (ครูหรือผู้ปกครองจะเห็นชื่อนี้)', ni),
-      el('label',{class:'chk rchk'}, rep, el('span',{text:'แชร์รายงานการเรียน (วันที่ฝึก เกมที่เล่น คำที่ผ่านแล้ว คำที่ยังพลาด และระดับ) — กลุ่มครอบครัวแชร์เสมอ'})), tsbox, err,
+      el('label',{class:'chk rchk'}, rep, el('span',{text:'แชร์รายงานการเรียนกับครู (กลุ่มครอบครัวแชร์เสมอ)'})), tsbox, err,
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go),
-      el('p',{class:'note small'}, user ? (isStudent() ? 'เข้าด้วยบัญชีนักเรียนในเครื่องนี้' : 'เข้าด้วยบัญชี '+(user.email||'')) : 'ไม่ต้องมีอีเมล — ระบบจะสร้างบัญชีนักเรียนในเครื่องนี้ให้ · ใช้ชื่อเล่น ไม่ต้องใส่ชื่อจริงหรือนามสกุล',
+      el('p',{class:'note small'}, user ? (isStudent() ? 'เข้าด้วยบัญชีนักเรียนในเครื่องนี้' : 'เข้าด้วยบัญชี '+(user.email||'')) : 'ไม่ต้องมีอีเมล · ใช้ชื่อเล่น ไม่ต้องใส่ชื่อจริง',
         ' · ', el('a',{href:'/privacy#class',target:'_blank',text:'ความเป็นส่วนตัว'})));
     if(!user) hc=humanCheck(tsbox);       // only a new student account needs the check
   });
@@ -522,7 +522,7 @@ function createClassDialog(kind){
 function openStudentAccount(){
   openModal(m=>m.append(el('h3',{text:'🎓 บัญชีนักเรียน'}),
     el('p',{}, 'ชื่อเล่น: ', el('b',{text:studentNick()})),
-    el('p',{class:'note warn',text:'บัญชีนี้ไม่มีอีเมล ข้อมูลอยู่ในเบราว์เซอร์นี้เท่านั้น ถ้าออกจากระบบ ล้างข้อมูลเบราว์เซอร์ หรือเปลี่ยนเครื่อง จะกลับมาใช้บัญชีนี้ไม่ได้'}),
+    el('p',{class:'note warn',text:'บัญชีนี้ไม่มีอีเมล ใช้ได้แค่เบราว์เซอร์นี้ · ถ้าออกจากระบบหรือเปลี่ยนเครื่อง จะกลับมาไม่ได้'}),
     el('p',{class:'note',id:'syncNote',text:syncText()}),
     el('div',{class:'row'}, el('button',{text:'🎓 ห้องเรียนของฉัน',onclick:()=>{ closeModal(); goHome('class'); }}), el('span',{class:'sp'}), el('button',{class:'primary',text:'ปิด',onclick:closeModal})),
     el('div',{class:'acctlinks'},

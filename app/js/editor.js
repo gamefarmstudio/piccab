@@ -165,9 +165,9 @@ function askCode(again){
 // and keep people / personal info out of what is sent. kind: 'photo' (a scene), 'sheet' (a word sheet), 'sent' (sentences)
 function aiNotice(kind='photo'){
   const what={
-    photo:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · รูปจะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และคำศัพท์ที่ได้อาจผิด ตรวจก่อนใช้ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคนหรือข้อมูลส่วนตัว · ',
-    sheet:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · รูปชีทจะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และผลอาจผิด ตรวจก่อนบันทึก · ปิดหรือตัดชื่อนักเรียนและข้อมูลส่วนตัวออกก่อนถ่าย · ',
-    sent:'🤖 ใช้ระบบ AI (ปัญญาประดิษฐ์) ไม่ใช่คน · คำในฉาก (และรูปขนาดเล็กของฉาก) จะถูกส่งให้ AI (Google Gemini หรือ Anthropic Claude) และประโยคที่ได้อาจผิด · ',
+    photo:'🤖 AI (Google Gemini / Anthropic Claude) หาคำให้ ไม่ใช่คน · อาจผิด ตรวจก่อนใช้ · ถ่ายเฉพาะสิ่งของ ไม่ถ่ายคน · ',
+    sheet:'🤖 AI (Google Gemini / Anthropic Claude) อ่านชีทให้ ไม่ใช่คน · อาจผิด ตรวจก่อนบันทึก · ปิดชื่อนักเรียนก่อนถ่าย · ',
+    sent:'🤖 AI (Google Gemini / Anthropic Claude) เขียนประโยคจากคำในฉาก ไม่ใช่คน · อาจผิด · ',
   }[kind]||'';
   return el('p',{class:'note ainote'}, what, el('a',{href:'/privacy#ai-safety',target:'_blank',text:'อ่านเพิ่ม'}));
 }
@@ -177,7 +177,7 @@ function aiWait(title, usual, t0=Date.now()){
   const box=el('div',{class:'aiwait',role:'status','aria-live':'polite'},
     el('div',{class:'spin'}),
     el('div',{class:'grow'}, el('b',{text:title}), t,
-      el('span',{class:'note small aidisc',text:'ระบบ AI (ปัญญาประดิษฐ์) กำลังทำงาน ไม่ใช่คน · ผลอาจผิดได้ ตรวจก่อนใช้'})));
+      el('span',{class:'note small aidisc',text:'AI ทำงานอยู่ ไม่ใช่คน · ผลอาจผิด'})));
   const tick=()=>{ const n=Math.round((Date.now()-t0)/1000); if(n>=1) t.textContent=`ผ่านไป ${n} วินาที (ปกติ ${usual} วินาที)`; };
   tick(); const iv=setInterval(()=>{ if(!box.isConnected && Date.now()-t0>1500){ clearInterval(iv); return; } tick(); },1000);
   return box;
@@ -193,7 +193,7 @@ function openAI(){
     (has?add:rep).checked=true;
     m.append(
       el('h3',{text:'✨ ให้ AI หาคำศัพท์ในรูป'}),
-      el('p',{text:'AI จะดูรูป ตีกรอบรอบสิ่งของ และใส่คำศัพท์พร้อมคำแปลให้ จากนั้นคุณแก้ไขหรือย้ายกรอบได้'}),
+      el('p',{text:'AI ตีกรอบและใส่คำศัพท์ให้ แล้วคุณแก้ไขได้'}),
       aiNotice(),
       (aiCredits && user && typeof G.aiLeft==='number') ? el('p',{class:'note',text:`✨ เครดิต AI เดือนนี้เหลือ ${G.aiLeft} / ${aiMonthly} ครั้ง (ใช้ 1 ครั้งต่อรูป)`}) : null,
       el('label',{},'จำนวนคำสูงสุด', cnt),

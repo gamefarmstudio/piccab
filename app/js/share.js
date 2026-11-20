@@ -56,7 +56,7 @@ function openShare(t){
     m.innerHTML='';
     const cur=myShares[key];
     m.append(el('h3',{text:(isScene?'🔗 แชร์ฉาก “':'🔗 แชร์ชุดคำ “')+name+'”'}),
-      el('p',{class:'note',text:'ส่งลิงก์ให้เพื่อนหรือนักเรียน เปิดแล้วกดเก็บเข้าคลังของตัวเองได้เลย ไม่ต้องสมัครสมาชิก'}));
+      el('p',{class:'note',text:'ส่งลิงก์ให้เพื่อนหรือนักเรียน กดเก็บได้เลย ไม่ต้องสมัคร'}));
     if(cur){
       const inp=el('input',{class:'sharelink',readonly:'',value:shareUrl(cur.id),'aria-label':'ลิงก์แชร์'});
       inp.addEventListener('focus',()=>inp.select());
@@ -72,7 +72,7 @@ function openShare(t){
       m.append(el('div',{class:'row'}, el('button',{class:'primary',text:busy?'กำลังสร้างลิงก์…':'🔗 สร้างลิงก์',disabled:busy?'':null,onclick:()=>make(m)})));
     }
     if(err) m.append(el('p',{class:'err',text:err}));
-    m.append(el('p',{class:'note small'},'ผู้ที่มีลิงก์จะเห็นรูปและคำศัพท์ (ไม่เห็นอีเมลหรือชื่อของคุณ) · ลิงก์เป็นสำเนา ณ ตอนแชร์ · ยกเลิกลิงก์ได้ทุกเมื่อ'));
+    m.append(el('p',{class:'note small'},'คนที่มีลิงก์เห็นรูปและคำศัพท์ (ไม่เห็นอีเมลหรือชื่อคุณ) · ยกเลิกลิงก์ได้ทุกเมื่อ'));
     const foot=el('div',{class:'row'});
     if(isScene) foot.append(el('button',{class:'linkbtn small',text:'📄 ส่งเป็นไฟล์แทน',onclick:()=>{ closeModal(); shareScene(); }}));
     if(cur) foot.append(el('button',{class:'linkbtn small danger-link',text:'ยกเลิกลิงก์',onclick:()=>revokeShare(key, cur.id).then(()=>draw(m))}));
