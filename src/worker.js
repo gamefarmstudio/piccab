@@ -35,6 +35,7 @@
 // The prompt is built here on the server from a few validated options, so this
 // endpoint cannot be used as a general-purpose proxy to an AI API.
 
+import { pageHeaders } from './csp.js';
 const DEFAULT_MODEL = 'claude-haiku-5-5';
 
 // Supabase project (public values: the publishable key is meant for browsers; data is protected by RLS).
@@ -1222,7 +1223,7 @@ async function sharePage(request, env, url) {
 <meta name="twitter:card" content="summary_large_image">`;
     html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
   }
-  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
+  return new Response(html, { status: 200, headers: await pageHeaders(html, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' }) });
 }
 
 // ---------- classrooms ----------
@@ -1989,7 +1990,7 @@ async function appPageWith(request, env, url, title, desc) {
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Piccab"><meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(url.origin + '/og-image.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">`);
-  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
+  return new Response(html, { status: 200, headers: await pageHeaders(html, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' }) });
 }
 
 // ---------- friends (👫) ----------
@@ -2182,7 +2183,7 @@ async function classPage(request, env, url) {
 <meta property="og:image" content="${esc(url.origin + '/og-image.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:url" content="${esc(url.origin + '/c/' + code)}">`;
     html = html.replace(/<title>[\s\S]*?<\/title>/, tags);
   }
-  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
+  return new Response(html, { status: 200, headers: await pageHeaders(html, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' }) });
 }
 
 // ---------- sign-in e-mails (Supabase "Send Email" auth hook → Resend) ----------

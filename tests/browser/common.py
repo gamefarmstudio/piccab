@@ -17,7 +17,22 @@ SBJS = (PUB / 'vendor' / 'supabase-2.119.0.js').read_text(encoding='utf-8')
 PHOTO = str(FIX / 'kitchen.jpg'); PORTRAIT = str(FIX / 'portrait.jpg')
 
 def shot(name): return str(SHOTS / name)
-def launch(p): return p.chromium.launch(executable_path=os.environ.get('CHROME') or None)
+# The Content-Security-Policy the site sends (dist/_headers, written by tools/csp-headers.mjs): the app runs under it in
+# every test, and anything it blocks fails the test (finish).
+CSP = next((l.split(':', 1)[1].strip() for l in (PUB / '_headers').read_text(encoding='utf-8').splitlines() if l.strip().startswith('Content-Security-Policy:')), '')
+CSP_BLOCKED = []
+WATCH_CSP = """document.addEventListener('securitypolicyviolation', e => console.error('CSP blocked: ' + e.violatedDirective + ' ' + (e.blockedURI || 'inline') + ' @' + (e.sourceFile || '') + ':' + (e.lineNumber || '')));"""
+def _watch(ctx):
+    ctx.on('console', lambda m: CSP_BLOCKED.append(m.text) if m.text.startswith('CSP blocked') or 'Content Security Policy' in m.text else None)
+async def launch(p):
+    b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None)
+    new_context, new_page = b.new_context, b.new_page
+    async def nc(**kw):
+        ctx = await new_context(**kw); await ctx.add_init_script(WATCH_CSP); _watch(ctx); return ctx
+    async def np(**kw):
+        pg = await new_page(**kw); await pg.context.add_init_script(WATCH_CSP); _watch(pg.context); return pg
+    b.new_context, b.new_page = nc, np
+    return b
 
 async def app_route(r, health='{"ai":false}', extra=None):
     """Serve the app from the repo at https://piccab.test/… without any server (Supabase answers 404)."""
@@ -42,7 +57,7 @@ async def page_or_built(r):
     if path.startswith('/assets/') and (PUB / path[1:]).is_file():
         ct = 'text/css' if path.endswith('.css') else 'application/javascript'
         return await r.fulfill(status=200, content_type=ct, body=(PUB / path[1:]).read_bytes())
-    return await r.fulfill(status=200, content_type='text/html', body=HTML)
+    return await r.fulfill(status=200, content_type='text/html', body=HTML, headers={'content-security-policy': CSP} if CSP else None)
 
 async def to_fake_supabase(r):
     """For server tests: send the app's Supabase calls to the fake."""
@@ -62,6 +77,7 @@ def check(ok, what, got=None):
 def finish(name, out, errs):
     errs = [e for e in errs if 'ERR_FAILED' not in e and 'Failed to load resource' not in e]
     check(not errs, 'no errors on the page', errs)
+    check(not CSP_BLOCKED, 'nothing blocked by the Content-Security-Policy', sorted(set(CSP_BLOCKED))[:8])
     if os.environ.get('VERBOSE'): print(json.dumps(out, ensure_ascii=False, indent=1))
     if FAILS:
         print(f'FAILED {name}:'); [print('  ' + f) for f in FAILS]
