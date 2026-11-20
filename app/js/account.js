@@ -20,14 +20,16 @@ const oauthErr=(()=>{
   try{ history.replaceState(null,'',location.pathname); }catch(e){}
   return { code, desc };
 })();
-const sb = (window.supabase && location.protocol.startsWith('http'))
-  ? window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'implicit' } })
-  : null;
+// Supabase (sign-in, sync) loads alongside the app (async), so the app shows and plays without waiting for it.
+// sb is null until it has loaded; the account button waits for it (whenSb).
+let sb=null;
+const SB_TAG=document.querySelector('script[src*="/vendor/supabase-"]');
+let sbWanted=!!SB_TAG && location.protocol.startsWith('http');
+let sbWaiting=[];
+function whenSb(f){ if(sb) f(); else if(sbWanted) sbWaiting.push(f); }
 let user=null;
 // Google sign-in shows only when it is switched on in Supabase (Authentication → Sign In / Providers → Google).
 let googleOn=false;
-if(sb && navigator.onLine!==false) fetch(SB_URL+'/auth/v1/settings',{ headers:{ apikey:SB_KEY } }).then(r=>r.ok?r.json():null)
-  .then(j=>{ googleOn=!!(j && j.external && j.external.google); }).catch(()=>{});
 async function signInGoogle(btn){
   if(btn){ btn.disabled=true; btn.textContent='กำลังไปที่ Google…'; }
   const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin+'/app', queryParams:{ prompt:'select_account' } } });
@@ -35,7 +37,7 @@ async function signInGoogle(btn){
 }
 function renderAcct(){
   const b=$('#acctBtn'); if(!b) return;
-  b.hidden=!sb; b.innerHTML='';
+  b.hidden=!sb && !sbWanted; b.innerHTML='';
   if(user && isStudent()){
     const nick=studentNick();
     b.classList.add('in'); b.title='บัญชีนักเรียน: '+nick;
@@ -279,8 +281,12 @@ async function wipeLocal(){
   await new Promise(res=>{ try{ const r=indexedDB.deleteDatabase('piccab'); r.onsuccess=r.onerror=r.onblocked=()=>res(); }catch(e){ res(); } });
 }
 $('#fbLink').addEventListener('click',()=>openFeedback());
-$('#acctBtn').addEventListener('click',()=>{ if(!sb) return; user ? openAccount() : openLogin(); });
-if(sb){
+$('#acctBtn').addEventListener('click',()=>whenSb(()=>user ? openAccount() : openLogin()));
+function initSb(){
+  if(sb || !window.supabase || !location.protocol.startsWith('http')) return;
+  sb=window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'implicit' } });
+  if(navigator.onLine!==false) fetch(SB_URL+'/auth/v1/settings',{ headers:{ apikey:SB_KEY } }).then(r=>r.ok?r.json():null)
+    .then(j=>{ googleOn=!!(j && j.external && j.external.google); }).catch(()=>{});
   sb.auth.onAuthStateChange((event, session)=>{
     const before = user && user.id;
     user = session && session.user || null;
@@ -298,6 +304,13 @@ if(sb){
     if(S.view==='class') renderClass();
     if(event==='SIGNED_IN' && !$('#modal').hidden && $('#mbox .code')){ closeModal(); toast('✓ เข้าสู่ระบบแล้ว', 3000); }  // signed in via the e-mail link in another tab
   });
+  renderAcct();
+  const w=sbWaiting; sbWaiting=[]; w.forEach(f=>{ try{ f(); }catch(e){ console.warn(e); } });
+}
+if(window.supabase) initSb();
+else if(SB_TAG){
+  SB_TAG.addEventListener('load', initSb);
+  SB_TAG.addEventListener('error', ()=>{ sbWanted=false; sbWaiting=[]; renderAcct(); });   // offline on a first visit: no sign-in this time
 }
 renderAcct();
 

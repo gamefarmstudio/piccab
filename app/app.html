@@ -33,6 +33,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="./app.css">
+<!-- Supabase (sign-in, sync): downloaded alongside the app and run whenever it arrives (async), so the app shows and
+     plays without waiting for it; account.js connects when it has loaded. -->
+<script src="/vendor/supabase-2.119.0.js" async></script>
 </head>
 <body>
 <!-- Icons: Material Symbols Rounded (Google, Apache License 2.0, github.com/google/material-design-icons) — inlined, nothing loaded from Google -->
@@ -396,7 +399,6 @@
 </g>
 </script>
 
-<script src="/vendor/supabase-2.119.0.js"></script>
 <script type="module" src="./main.js"></script>
 </body>
 </html>
