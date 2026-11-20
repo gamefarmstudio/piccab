@@ -1003,7 +1003,21 @@ export function parseItems(text) {
       return out;
     })
     .filter(Boolean)
+    .filter(dropCutWords)
     .slice(0, 40);
+}
+// A word the AI cut short or repeated, next to the real one (flash-lite gave "teapo" beside "teapot"): drop it,
+// so a child is never taught a misspelling. Only one letter apart and 4+ letters, so real pairs stay
+// (cup/cupboard, pen/pencil, plant/planter); of "sock" and "socks" the singular stays. Exact repeats go too.
+function dropCutWords(it, i, all) {
+  const w = it.word.trim().toLowerCase();
+  return !all.some((o, j) => {
+    if (j === i) return false;
+    const v = o.word.trim().toLowerCase();
+    if (v === w) return j < i;                                         // the same word again: keep the first
+    if (w.length < 4 || v.length !== w.length + 1 || !v.startsWith(w)) return false;
+    return !(v === w + 's');                                           // w is v cut short (but "sock" beside "socks" stays)
+  }) && !(w.endsWith('s') && w.length >= 5 && all.some(o => o !== it && o.word.trim().toLowerCase() === w.slice(0, -1)));   // the plural of a word already there
 }
 
 function clampInt(v, lo, hi, dflt) {

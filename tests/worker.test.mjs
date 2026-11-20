@@ -171,6 +171,14 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.deepEqual(parseItems(cut).map(x => x.word), ['cup', 'spoon']);           // complete ones, no repeats
   assert.deepEqual(parseItems('[{"word":"cup","box_2d":[1,2,3,4]},{"word":"sp').map(x => x.word), ['cup']);
   assert.equal(parseItems('[{"word":"cu'), null);
+  // a word cut short beside the real one ("teapo" / "teapot"), repeats and plurals go; real pairs stay
+  const words = t => parseItems(JSON.stringify(t.split(',').map(word => ({ word, box_2d: [1, 2, 3, 4] })))).map(x => x.word);
+  assert.deepEqual(words('cup,saucer,teapo,spoon,teapot'), ['cup', 'saucer', 'spoon', 'teapot']);
+  assert.deepEqual(words('teapot,teapo'), ['teapot']);
+  assert.deepEqual(words('cup,cupboard,pen,pencil,plant,planter,bus,bush,tap,tape'), ['cup', 'cupboard', 'pen', 'pencil', 'plant', 'planter', 'bus', 'bush', 'tap', 'tape']);
+  assert.deepEqual(words('sock,socks,spoon,Spoon,chair'), ['sock', 'spoon', 'chair']);
+  assert.deepEqual(words('socks,sock'), ['sock']);
+  assert.deepEqual(words('glass,glasses,bus'), ['glass', 'glasses', 'bus']);
   seen.length = 0;
   globalThis.fetch = async (url) => { seen.push(url); return new Response(JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: cut }] } }] }), { status: 200 }); };
   r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'c1,c2' });
