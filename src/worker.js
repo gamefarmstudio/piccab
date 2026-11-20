@@ -759,7 +759,7 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
 
 // ---------- 🧪 admin: one picture through several models (Gemini and Claude), side by side ----------
 // No credits and nothing saved (not in ai_usage either): it's for choosing a provider, not for making scenes.
-export const COMPARE_MODELS = { gemini: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'], claude: ['claude-haiku-5-5', 'claude-sonnet-5-5'] };
+export const COMPARE_MODELS = { gemini: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'], claude: ['claude-haiku-5-5'] };
 async function compareAI(env, body) {
   const m = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
   if (!m || !IMAGE_TYPES.includes(m[1])) return error('bad_image', 400);

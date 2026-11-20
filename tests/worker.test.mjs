@@ -1035,16 +1035,16 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   };
   const E = { ASSETS: assets, GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a', SUPABASE_SECRET_KEY: 'sb_secret_x', ADMIN_EMAILS: 'boss@piccab.th' };
   const cmp = (body, who = 'cmp-boss') => worker.fetch(new Request('https://piccab.com/api/admin/compare', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + who }, body: JSON.stringify(body) }), E);
-  let r = await cmp({ image: img, gemini: 'gemini-3.8-flash', claude: 'claude-sonnet-5-5' });
+  let r = await cmp({ image: img, gemini: 'gemini-3.8-flash', claude: 'claude-haiku-5-5' });
   assert.equal(r.status, 200);
   const { results } = await r.json();
   const [g, c] = results;
-  assert.equal(g.provider, 'gemini'); assert.equal(g.model, 'gemini-3.8-flash'); assert.equal(c.model, 'claude-sonnet-5-5');
-  assert.deepEqual(seen.sort(), ['claude-sonnet-5-5', 'gemini-3.8-flash:generateContent']);   // only the chosen models
+  assert.equal(g.provider, 'gemini'); assert.equal(g.model, 'gemini-3.8-flash'); assert.equal(c.model, 'claude-haiku-5-5');
+  assert.deepEqual(seen.sort(), ['claude-haiku-5-5', 'gemini-3.8-flash:generateContent']);   // only the chosen models
   assert.deepEqual(g.items[0].box, [200, 100, 400, 300]); assert.deepEqual(c.items[0].box, [200, 100, 400, 300]);   // same box format for both
   assert.equal(g.tok_out, 1000);                                                   // thinking counted
   assert.ok(Math.abs(g.cost_usd - (1000 * 0.75 + 1000 * 3.75) / 1e6) < 1e-12);
-  assert.ok(Math.abs(c.cost_usd - (2000 * 2 + 1000 * 10) / 1e6) < 1e-12);
+  assert.ok(Math.abs(c.cost_usd - (2000 * 0.1 + 1000 * 0.5) / 1e6) < 1e-12);
   // unknown models fall back to the cheapest of each; a missing key is reported, not fatal
   seen.length = 0;
   r = await worker.fetch(new Request('https://piccab.com/api/admin/compare', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer cmp-boss' }, body: JSON.stringify({ image: img, gemini: 'gpt-x', claude: 'x' }) }), { ...E, ANTHROPIC_API_KEY: '' });
@@ -1059,8 +1059,8 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.ok(four.every(x => x.ok && x.items.length));
   assert.deepEqual(four.map(x => x.free_rpd), [500, 20, 20, null]);                // free daily quota shown for Gemini
   assert.deepEqual(seen.sort(), ['claude-haiku-5-5', 'gemini-3.5-flash-lite:generateContent', 'gemini-3.6-flash:generateContent', 'gemini-3.8-flash:generateContent']);
-  r = await cmp({ image: img, models: [...COMPARE_MODELS.gemini, ...COMPARE_MODELS.claude, 'gemini-3.8-flash'] });
-  assert.equal((await r.json()).results.length, 5);
+  r = await cmp({ image: img, models: [...COMPARE_MODELS.gemini, ...COMPARE_MODELS.claude, 'claude-sonnet-5-5', 'gemini-3.8-flash'] });
+  assert.deepEqual((await r.json()).results.map(x => x.model), ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash', 'claude-haiku-5-5']);   // Sonnet isn't offered
   // one model out of free quota: only that column fails, and says why; no other model is tried in its place
   cmpOut = 'gemini-3.6-flash'; seen.length = 0;
   const q = (await (await cmp({ image: img, models: ['gemini-3.8-flash', 'gemini-3.6-flash'] })).json()).results;
