@@ -132,6 +132,22 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   globalThis.fetch = async (url) => { seen.push(url); return new Response('{"error":{"message":"Invalid inline_data"}}', { status: 400 }); };
   r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'y1,y2' });
   assert.equal((await r.json()).error, 'image_rejected'); assert.equal(seen.length, 1);
+  // an answer that can't be read → the next Gemini model (not straight to a paid provider)
+  seen.length = 0;
+  globalThis.fetch = async (url) => { const m = url.match(/models\/([^:]+):/)[1]; seen.push(m);
+    if (m === 'z1') return new Response(JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'Here are the things I can see: a cup and a spoon.' }] } }] }), { status: 200 });
+    return new Response(okBody, { status: 200 }); };
+  r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'z1,z2' });
+  jj = await r.json(); assert.equal(r.status, 200); assert.equal(jj.model, 'z2'); assert.deepEqual(seen, ['z1', 'z2']);
+  // an answer cut off part-way (ran out of room) → the things that came complete are kept
+  const cut = '[{"word":"cup","th":"ถ้วย","alts":[],"cefr":"preA1","box_2d":[1,2,3,4]},{"word":"spoon","th":"ช้อน","alts":["teaspoon"],"box_2d":[5,6,7,8]},{"word":"cup","box_2d":[9,9,9,9]},{"word":"pla';
+  assert.deepEqual(parseItems(cut).map(x => x.word), ['cup', 'spoon']);           // complete ones, no repeats
+  assert.deepEqual(parseItems('[{"word":"cup","box_2d":[1,2,3,4]},{"word":"sp').map(x => x.word), ['cup']);
+  assert.equal(parseItems('[{"word":"cu'), null);
+  seen.length = 0;
+  globalThis.fetch = async (url) => { seen.push(url); return new Response(JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: cut }] } }] }), { status: 200 }); };
+  r = await call('/api/scan', post({ image: img }), { ...G, GEMINI_MODEL: 'c1,c2' });
+  jj = await r.json(); assert.equal(r.status, 200); assert.equal(jj.model, 'c1'); assert.equal(jj.items.length, 2); assert.equal(seen.length, 1);
   console.log('gemini tests passed');
 }
 
@@ -1067,6 +1083,16 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal(q[0].ok, true); assert.equal(q[1].ok, false); assert.equal(q[1].why, 'quota_day');
   assert.deepEqual(seen.sort(), ['gemini-3.6-flash:generateContent', 'gemini-3.8-flash:generateContent']);
   cmpOut = '';
+  // an answer that can't be read: the column says why and shows its start and end (for the admin only)
+  const bad = 'Sure! ' + 'x'.repeat(600) + ' the end';
+  const keep = globalThis.fetch;
+  globalThis.fetch = async (url, init) => url.includes('gemini-3.5-flash-lite')
+    ? new Response(JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: bad }] } }], usageMetadata: { promptTokenCount: 1500, candidatesTokenCount: 8192 } }))
+    : keep(url, init);
+  const [lite] = (await (await cmp({ image: img, models: ['gemini-3.5-flash-lite'] })).json()).results;
+  assert.equal(lite.ok, false); assert.equal(lite.why, 'cut_off'); assert.equal(lite.finish, 'MAX_TOKENS'); assert.equal(lite.tok_out, 8192);
+  assert.ok(lite.sample.startsWith('Sure! xxx') && lite.sample.endsWith('the end') && lite.sample.length < 420, lite.sample);
+  globalThis.fetch = keep;
   assert.equal((await cmp({ image: 'data:text/html;base64,AAAA' })).status, 400);
   assert.equal((await cmp({ image: img }, 'cmp-kid')).status, 404);              // admins only
   globalThis.fetch = saved;

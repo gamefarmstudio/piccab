@@ -473,9 +473,9 @@ Reply with a JSON array only, no other text, like [{"w":"apple","th":"แอป�
 export function parseWordlist(text) {
   const s = String(text || '');
   const a = s.indexOf('['), b = s.lastIndexOf(']');
-  if (a < 0 || b <= a) return null;
+  if (a < 0) return null;
   let arr;
-  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  try { if (b <= a) throw 0; arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
   if (!Array.isArray(arr)) return null;
   const seen = new Set(), out = [];
   for (const r of arr) {
@@ -593,9 +593,14 @@ Items: ${JSON.stringify(words)}`;
 export function parseTranslations(text) {
   const s = String(text || '');
   const a = s.indexOf('['), b = s.lastIndexOf(']');
-  if (a < 0 || b <= a) return null;
+  if (a < 0) return null;
   let arr;
-  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  try { if (b <= a) throw 0; arr = JSON.parse(s.slice(a, b + 1)); } catch (e) {
+    // Cut off part-way (the answer ran out of room): keep the things that came complete.
+    const c = s.lastIndexOf('}');
+    try { arr = c > a ? JSON.parse(s.slice(a, c + 1) + ']') : null; } catch (e2) { return null; }
+    if (Array.isArray(arr)) { const seen = new Set(); arr = arr.filter(r => { const k = r && typeof r.word === 'string' ? r.word.toLowerCase() : ''; if (!k || seen.has(k)) return false; seen.add(k); return true; }); }
+  }
   if (!Array.isArray(arr)) return null;
   return arr.map(r => {
     if (!r || typeof r.k !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(r.k) || typeof r.w !== 'string' || !r.w.trim()) return null;
@@ -699,10 +704,11 @@ async function scanGemini(env, mime, data64, prompt, parse = parseItems, log = n
   for (const model of order) {
     const t0 = Date.now();
     const r = await callGemini(env, model, mime, data64, prompt, parse);
-    if (log) log.push({ provider: 'gemini', model, outcome: r.ok ? 'ok' : (r.why || r.code), ms: Date.now() - t0, tok_in: r.usage ? r.usage.in : null, tok_out: r.usage ? r.usage.out : null });
+    if (log) log.push({ provider: 'gemini', model, outcome: r.ok ? 'ok' : (r.why || r.code), ms: Date.now() - t0, tok_in: r.usage ? r.usage.in : null, tok_out: r.usage ? r.usage.out : null,
+      ...(r.sample != null ? { finish: r.finish, sample: r.sample } : {}) });
     if (r.ok) return json({ items: r.items, provider: 'gemini', model, usage: r.usage });
     last = error(r.code, r.status);
-    // Out of quota, model not available to this key, or Google busy: try the next model.
+    // Out of quota, model not available to this key, Google busy, or an answer that couldn't be read: try the next model.
     if (r.next) { if (r.skipMs) skipUntil.set(model, Date.now() + r.skipMs); continue; }
     return last;
   }
@@ -751,10 +757,18 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
   if (/SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(cand.finishReason || '')) return { code: 'refused', status: 422 };
   const text = ((cand.content && cand.content.parts) || []).filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('');
   const items = parse(text);
-  if (!items) return { code: 'invalid_json', status: 502 };
   const u = data.usageMetadata;
   // thinking tokens are billed as output too
-  return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } : undefined };
+  const usage = u ? { in: u.promptTokenCount, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } : undefined;
+  if (!items) {
+    // An answer we can't read: the next model may do better (not a reason to go to a paid provider yet).
+    // Why, and the start and end of the answer, go to the log (shown in the admin's 🧪 compare, never saved).
+    const finish = String(cand.finishReason || ''), cut = finish === 'MAX_TOKENS';
+    console.log('Gemini answer not readable', model, finish, usage ? usage.out : '', text.slice(0, 200));
+    return { code: 'invalid_json', status: 502, next: true, why: cut ? 'cut_off' : text.trim() ? 'bad_json' : 'empty_answer', usage, finish,
+      sample: text.length > 400 ? text.slice(0, 200) + ' … ' + text.slice(-200) : text };
+  }
+  return { ok: true, items, usage };
 }
 
 // ---------- 🧪 admin: one picture through several models (Gemini and Claude), side by side ----------
@@ -785,7 +799,9 @@ async function compareAI(env, body) {
     return { provider, model, ok: res.status === 200, error: res.status === 200 ? undefined : (b.error || 'error'), items: Array.isArray(b.items) ? b.items : [],
       ms: Date.now() - t0, tok_in: tin, tok_out: tout, cost_usd: price ? (tin * price[0] + tout * price[1]) / 1e6 : null,
       free_rpd: provider === 'gemini' ? (freeRpd(env)[model] || null) : null,
-      why: res.status === 200 ? undefined : (log.length ? log[log.length - 1].outcome : undefined) };   // e.g. quota_day, no_quota
+      why: res.status === 200 ? undefined : (log.length ? log[log.length - 1].outcome : undefined),   // e.g. quota_day, no_quota, cut_off
+      ...(res.status !== 200 && log.length && log[log.length - 1].sample != null ? { finish: log[log.length - 1].finish, sample: log[log.length - 1].sample,
+        tok_in: log[log.length - 1].tok_in, tok_out: log[log.length - 1].tok_out } : {}) };
   };
   return json({ results: await Promise.all(models.map(run)) });
 }
@@ -925,9 +941,14 @@ ${gem
 export function parseItems(text) {
   const s = String(text || '');
   const a = s.indexOf('['), b = s.lastIndexOf(']');
-  if (a < 0 || b <= a) return null;
+  if (a < 0) return null;
   let arr;
-  try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  try { if (b <= a) throw 0; arr = JSON.parse(s.slice(a, b + 1)); } catch (e) {
+    // Cut off part-way (the answer ran out of room): keep the things that came complete.
+    const c = s.lastIndexOf('}');
+    try { arr = c > a ? JSON.parse(s.slice(a, c + 1) + ']') : null; } catch (e2) { return null; }
+    if (Array.isArray(arr)) { const seen = new Set(); arr = arr.filter(r => { const k = r && typeof r.word === 'string' ? r.word.toLowerCase() : ''; if (!k || seen.has(k)) return false; seen.add(k); return true; }); }
+  }
   if (!Array.isArray(arr)) return null;
   return arr
     .map(r => {

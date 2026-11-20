@@ -46,7 +46,7 @@ async def main():
             sent=[]
             async def fake_compare(r):
                 body=json.loads(r.request.post_data); sent.append(body)
-                one=lambda m,p,n,ms,ti,to,usd,free,ok=True: {'provider':p,'model':m,'ok':ok,'items':[{'word':w,'th':t,'box':bx} for w,t,bx in [('chair','เก้าอี้',[100,400,300,900]),('lamp','โคมไฟ',[600,50,800,400]),('rug','พรม',[200,800,900,990])][:n]],'ms':ms,'tok_in':ti,'tok_out':to,'cost_usd':usd,'free_rpd':free, **({} if ok else {'error':'rate_limited','why':'quota_day'})}
+                one=lambda m,p,n,ms,ti,to,usd,free,ok=True: {'provider':p,'model':m,'ok':ok,'items':[{'word':w,'th':t,'box':bx} for w,t,bx in [('chair','เก้าอี้',[100,400,300,900]),('lamp','โคมไฟ',[600,50,800,400]),('rug','พรม',[200,800,900,990])][:n]],'ms':ms,'tok_in':ti,'tok_out':to,'cost_usd':usd,'free_rpd':free, **({} if ok else {'error':'invalid_json','why':'cut_off','finish':'MAX_TOKENS','sample':'[{"word":"chair","th":"เก้าอี้" … "box_2d":[1,2','tok_out':8192})}
                 res={'gemini-3.5-flash-lite':one('gemini-3.5-flash-lite','gemini',2,9100,1800,2600,0.00704,500),
                      'gemini-3.8-flash':one('gemini-3.8-flash','gemini',3,7000,1800,2000,0.0089,20),
                      'gemini-3.6-flash':one('gemini-3.6-flash','gemini',0,800,0,0,None,20,ok=False),
@@ -64,6 +64,8 @@ async def main():
             out[name+'_cmp_boxes']=[await A.locator('.cmpcol').nth(i).locator('svg rect').count() for i in range(4)]
             out[name+'_cmp_cost']=await A.locator('.cmpcost').all_inner_texts()
             out[name+'_cmp_err']=await A.locator('.cmpcol .err').all_inner_texts()
+            await A.click('.cmpraw summary'); await A.wait_for_timeout(200)
+            out[name+'_cmp_raw']=(await A.inner_text('.cmpraw summary'), await A.inner_text('.cmpraw pre'))
             out[name+'_cmp_sum']=await A.inner_text('.cmptab')
             # untick one → the next comparison sends those (and it is remembered)
             await A.locator('.cmpm', has_text='gemini-3.6-flash').locator('input').uncheck(); await A.wait_for_timeout(200)
@@ -86,7 +88,8 @@ async def main():
         check(out[n+'_cmp_disabled'] and out[n+'_cmp_sent'] and 'เทียบ 4 รุ่น' in out[n+'_cmp_btn'], f'{n}: compare sends the picture with the ticked models', (out[n+'_cmp_disabled'], out[n+'_cmp_sent'], out[n+'_cmp_btn']))
         check(out[n+'_cmp_cols']==4 and out[n+'_cmp_boxes']==[2,3,0,3], f'{n}: four columns with their boxes', (out[n+'_cmp_cols'], out[n+'_cmp_boxes']))
         check(out[n+'_cmp_cost']==['ฟรี (วันละ 500 ครั้ง) · ถ้าจ่าย ~0.24 บาท/รูป ($0.0070)','ฟรี (วันละ 20 ครั้ง) · ถ้าจ่าย ~0.30 บาท/รูป ($0.0089)','~0.03 บาท/รูป ($0.0009)'], f'{n}: free quota and cost per picture in baht', out[n+'_cmp_cost'])
-        check(out[n+'_cmp_err']==['โควตาฟรีวันนี้ของรุ่นนี้หมดแล้ว (เริ่มใหม่ราวบ่ายสามโมง)'], f'{n}: a model out of quota says so', out[n+'_cmp_err'])
+        check(out[n+'_cmp_err']==['คำตอบยาวเกินจนถูกตัดกลาง (ไม่มีคำที่ครบสักคำ)'], f'{n}: an unreadable answer says why', out[n+'_cmp_err'])
+        check('MAX_TOKENS' in out[n+'_cmp_raw'][0] and '8,192' in out[n+'_cmp_raw'][0] and out[n+'_cmp_raw'][1].startswith('[{"word":"chair"'), f'{n}: the answer itself can be opened', out[n+'_cmp_raw'])
         check('gemini-3.8-flash (ฟรี)' in out[n+'_cmp_sum'] and 'claude-haiku-5-5' in out[n+'_cmp_sum'] and 'gemini-3.5-flash-lite (ฟรี)' in out[n+'_cmp_sum'], f'{n}: averages table', out[n+'_cmp_sum'])
         check(out[n+'_cmp_sent2']==['gemini-3.5-flash-lite','gemini-3.8-flash','claude-haiku-5-5'] and out[n+'_cmp_kept']==out[n+'_cmp_sent2'], f'{n}: ticks change what is compared, and are remembered', (out[n+'_cmp_sent2'], out[n+'_cmp_kept']))
     finish('AI usage', out, errs)
