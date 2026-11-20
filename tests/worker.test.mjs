@@ -55,7 +55,7 @@ assert.equal(parseItems('no json'), null);
 console.log('worker tests passed');
 
 // ---------- Gemini ----------
-import { pickProvider, geminiModels } from '../src/worker.js';
+import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
 {
   const G = { GEMINI_API_KEY: 'g-test' };
   assert.equal(pickProvider({}), null);
@@ -1021,12 +1021,13 @@ import { pickProvider, geminiModels } from '../src/worker.js';
 
 // ---------- 🧪 admin: the same picture through Gemini and Claude ----------
 {
-  const saved = globalThis.fetch; const seen = [];
+  const saved = globalThis.fetch; const seen = []; let cmpOut = '';
   globalThis.fetch = async (url, init = {}) => {
     url = String(url);
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: '33333333-3333-3333-3333-333333333333', email: init.headers.authorization === 'Bearer cmp-boss' ? 'boss@piccab.th' : 'kid@x.th' }));
     if (url.includes('/rest/v1/')) throw new Error('compare must not touch the database: ' + url);   // no credits, no ai_usage rows
     if (url.includes('generativelanguage')) { seen.push(url.split('/models/')[1]);
+      if (cmpOut && url.includes(cmpOut)) return new Response('{"error":{"message":"Quota exceeded for metric: generate_content_free_tier_requests, limit: 20 per day"}}', { status: 429 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","th":"ถ้วย","box_2d":[100,200,300,400]}]' }] } }], usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 200, thoughtsTokenCount: 800 } })); }
     if (url.includes('api.anthropic.com')) { const b = JSON.parse(init.body); seen.push(b.model);
       return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '[{"word":"cup","th":"ถ้วย","box":[200,100,400,300]},{"word":"spoon","th":"ช้อน","box":[1,2,3,4]}]' }], usage: { input_tokens: 2000, output_tokens: 1000 } })); }
@@ -1049,6 +1050,23 @@ import { pickProvider, geminiModels } from '../src/worker.js';
   r = await worker.fetch(new Request('https://piccab.com/api/admin/compare', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer cmp-boss' }, body: JSON.stringify({ image: img, gemini: 'gpt-x', claude: 'x' }) }), { ...E, ANTHROPIC_API_KEY: '' });
   const two = (await r.json()).results;
   assert.equal(two[0].model, 'gemini-3.5-flash-lite'); assert.equal(two[1].error, 'not_configured'); assert.deepEqual(seen, ['gemini-3.5-flash-lite:generateContent']);
+  // several models at once: the three free Gemini models and Claude, in the order asked; unknown ones dropped, at most 5
+  seen.length = 0;
+  r = await cmp({ image: img, models: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gpt-x', 'gemini-3.6-flash', 'claude-haiku-5-5', 'gemini-3.8-flash'] });
+  const four = (await r.json()).results;
+  assert.deepEqual(four.map(x => x.model), ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash', 'claude-haiku-5-5']);
+  assert.deepEqual(four.map(x => x.provider), ['gemini', 'gemini', 'gemini', 'claude']);
+  assert.ok(four.every(x => x.ok && x.items.length));
+  assert.deepEqual(four.map(x => x.free_rpd), [500, 20, 20, null]);                // free daily quota shown for Gemini
+  assert.deepEqual(seen.sort(), ['claude-haiku-5-5', 'gemini-3.5-flash-lite:generateContent', 'gemini-3.6-flash:generateContent', 'gemini-3.8-flash:generateContent']);
+  r = await cmp({ image: img, models: [...COMPARE_MODELS.gemini, ...COMPARE_MODELS.claude, 'gemini-3.8-flash'] });
+  assert.equal((await r.json()).results.length, 5);
+  // one model out of free quota: only that column fails, and says why; no other model is tried in its place
+  cmpOut = 'gemini-3.6-flash'; seen.length = 0;
+  const q = (await (await cmp({ image: img, models: ['gemini-3.8-flash', 'gemini-3.6-flash'] })).json()).results;
+  assert.equal(q[0].ok, true); assert.equal(q[1].ok, false); assert.equal(q[1].why, 'quota_day');
+  assert.deepEqual(seen.sort(), ['gemini-3.6-flash:generateContent', 'gemini-3.8-flash:generateContent']);
+  cmpOut = '';
   assert.equal((await cmp({ image: 'data:text/html;base64,AAAA' })).status, 400);
   assert.equal((await cmp({ image: img }, 'cmp-kid')).status, 404);              // admins only
   globalThis.fetch = saved;

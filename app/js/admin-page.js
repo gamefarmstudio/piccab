@@ -587,32 +587,42 @@ function adminResolve(r){
 }
 
 
-// ---------- 🧪 เทียบ AI: one picture through Gemini and Claude, side by side (no credits, nothing saved on the server) ----------
+// ---------- 🧪 เทียบ AI: one picture through several models at once (no credits, nothing saved on the server) ----------
 const CMP_MODELS={ gemini:['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash'], claude:['claude-haiku-5-5','claude-sonnet-5-5'] };
+const CMP_ALL=[...CMP_MODELS.gemini, ...CMP_MODELS.claude];
+const CMP_DEFAULT=['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash','claude-haiku-5-5'];   // the three free Gemini models + Claude
 const CMP_COLORS=['#fe5e7a','#2563b8','#23915a','#f2683a','#7b4bd1','#0f8a9d'];
+const CMP_WHY={ quota_day:'โควตาฟรีวันนี้ของรุ่นนี้หมดแล้ว (เริ่มใหม่ราวบ่ายสามโมง)', quota_minute:'ใช้ถี่เกินไป รอสักนาทีแล้วลองใหม่', no_quota:'คีย์นี้ไม่มีโควตาฟรีของรุ่นนี้' };
 const CMP_ERR={ not_configured:'ยังไม่ได้ใส่คีย์ของเจ้านี้ใน Cloudflare', refused:'AI ปฏิเสธรูปนี้', busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', rate_limited:'ใช้เกินโควตา ลองใหม่ทีหลัง', invalid_json:'คำตอบของ AI อ่านไม่ได้', image_rejected:'AI รับรูปนี้ไม่ได้' };
 function cmpState(){
-  if(!ADM.cmp) ADM.cmp={ img:null, res:null, busy:false, gemini:store.get('pv-cmp-g',CMP_MODELS.gemini[0]), claude:store.get('pv-cmp-c',CMP_MODELS.claude[0]), log:store.get('pv-cmp-log',[]) };
+  if(!ADM.cmp){ const m=store.get('pv-cmp-models',CMP_DEFAULT).filter(x=>CMP_ALL.includes(x));
+    ADM.cmp={ img:null, res:null, busy:false, models:m.length?m:CMP_DEFAULT.slice(), log:store.get('pv-cmp-log',[]) }; }
   return ADM.cmp;
 }
 function renderCompare(v){
   const C=cmpState();
-  const sel=p=>{ const x=el('select',{'aria-label':p,onchange:e=>{ C[p]=e.target.value; store.set(p==='gemini'?'pv-cmp-g':'pv-cmp-c',C[p]); }}, ...CMP_MODELS[p].map(m=>el('option',{value:m,text:m}))); x.value=C[p]; return x; };
+  const chip=m=>el('label',{class:'chk cmpm'+(CMP_MODELS.gemini.includes(m)?' free':'')},
+    el('input',{type:'checkbox',checked:C.models.includes(m)?'':null,onchange:e=>{
+      C.models=CMP_ALL.filter(x=>x===m ? e.target.checked : C.models.includes(x)); store.set('pv-cmp-models',C.models); renderAdmin(); }}),
+    el('span',{text:m}), CMP_MODELS.gemini.includes(m) ? el('small',{text:'ฟรี'}) : null);
   const file=el('input',{type:'file',accept:'image/*',hidden:'',onchange:async e=>{ const f=e.target.files[0]; if(!f) return;
     try{ C.img=await loadImageFile(f); C.res=null; renderAdmin(); }catch(err){ toast('เปิดรูปนี้ไม่ได้'); } }});
+  const n=C.models.length, freeN=C.models.filter(m=>CMP_MODELS.gemini.includes(m)).length;
   v.append(el('div',{class:'admcard'},
-    el('p',{class:'note small',text:'สแกนรูปเดียวกันด้วย Gemini และ Claude แล้ววางผลเทียบกัน · ไม่ใช้เครดิต และไม่บันทึกรูปหรือผลไว้ที่เซิร์ฟเวอร์'}),
+    el('p',{class:'note small',text:'สแกนรูปเดียวกันด้วยหลายรุ่นพร้อมกัน แล้ววางผลเทียบกัน · ไม่ใช้เครดิต และไม่บันทึกรูปหรือผลไว้ที่เซิร์ฟเวอร์'}),
+    el('div',{class:'row cmpms'}, ...CMP_ALL.map(chip)),
     el('div',{class:'row cmpctl'}, file,
-      el('button',{text:C.img?'🖼️ เปลี่ยนรูป':'🖼️ เลือกรูป',onclick:()=>file.click()}), sel('gemini'), sel('claude'),
-      el('button',{class:'primary',text:C.busy?'กำลังเทียบ…':'🧪 เทียบ',disabled:C.img&&!C.busy?null:'',onclick:runCompare}))));
+      el('button',{text:C.img?'🖼️ เปลี่ยนรูป':'🖼️ เลือกรูป',onclick:()=>file.click()}),
+      el('button',{class:'primary',text:C.busy?'กำลังเทียบ…':`🧪 เทียบ ${n} รุ่น`,disabled:C.img&&!C.busy&&n?null:'',onclick:runCompare})),
+    freeN ? el('p',{class:'note small',text:`แต่ละครั้งใช้โควตาฟรีของ Gemini รุ่นละ 1 ครั้ง (รุ่น Flash ได้วันละ ~20 ครั้ง ใช้ร่วมกับผู้ใช้จริง)`}) : null));
   if(C.res) v.append(el('div',{class:'cmpgrid'}, ...C.res.map(r=>cmpCol(r,C.img))));
   else if(C.img) v.append(el('div',{class:'cmpimg one'}, el('img',{src:C.img.src,alt:''})));
   if(C.log.length) v.append(cmpSummary(C.log));
 }
 async function runCompare(){
-  const C=cmpState(); if(!C.img || C.busy) return;
+  const C=cmpState(); if(!C.img || C.busy || !C.models.length) return;
   C.busy=true; renderAdmin();
-  const r=await adminApi('POST','/compare',{ image:C.img.src, gemini:C.gemini, claude:C.claude, langs:S.lang==='de'?['de']:[] }).catch(()=>({ok:false}));
+  const r=await adminApi('POST','/compare',{ image:C.img.src, models:C.models, langs:S.lang==='de'?['de']:[] }).catch(()=>({ok:false}));
   C.busy=false;
   if(!r.ok){ toast('เทียบไม่สำเร็จ ลองใหม่อีกครั้ง'); if(S.view==='admin') renderAdmin(); return; }
   C.res=r.j.results;
@@ -632,8 +642,8 @@ function cmpCol(r,img){
   const meta=`${r.items.length} คำ · ${(r.ms/1000).toFixed(1)} วินาที · token ${(r.tok_in||0).toLocaleString()} / ${(r.tok_out||0).toLocaleString()}`;
   return el('div',{class:'aicard cmpcol'},
     el('h4',{text:(r.provider==='gemini'?'Gemini · ':'Claude · ')+r.model}),
-    r.ok ? el('p',{class:'note small',text:meta}) : el('p',{class:'err',text:CMP_ERR[r.error]||`สแกนไม่สำเร็จ (${r.error})`}),
-    r.ok ? el('p',{class:'cmpcost',text:r.cost_usd==null ? 'ไม่มีราคาของรุ่นนี้' : `~${(r.cost_usd*THB).toFixed(2)} บาท/รูป ($${r.cost_usd.toFixed(4)})`}) : null,
+    r.ok ? el('p',{class:'note small',text:meta}) : el('p',{class:'err',text:CMP_WHY[r.why]||CMP_ERR[r.error]||`สแกนไม่สำเร็จ (${r.error})`}),
+    r.ok ? el('p',{class:'cmpcost',text:(r.free_rpd ? `ฟรี (วันละ ${r.free_rpd} ครั้ง) · ถ้าจ่าย ` : '')+(r.cost_usd==null ? 'ไม่มีราคาของรุ่นนี้' : `~${(r.cost_usd*THB).toFixed(2)} บาท/รูป ($${r.cost_usd.toFixed(4)})`)}) : null,
     el('div',{class:'cmpimg'}, el('img',{src:img.src,alt:''}), svg, ...nos),
     r.ok ? el('ol',{class:'cmplist'}, ...r.items.map(it=>el('li',{}, el('b',{text:it.word}), it.th?el('span',{lang:'th',text:' — '+it.th}):null,
       it.l&&it.l.de ? el('span',{class:'note',text:` · ${it.l.de.a?it.l.de.a+' ':''}${it.l.de.w}`}) : null))) : null);
@@ -644,8 +654,9 @@ function cmpSummary(log){
   return el('div',{class:'aicard wide'}, el('h4',{text:'ค่าเฉลี่ยจากที่เทียบมาแล้ว (เก็บในเครื่องนี้)'}),
     el('table',{class:'cmptab'},
       el('tr',{}, ...['รุ่น','รูป','คำ/รูป','วินาที','บาท/รูป'].map(t=>el('th',{text:t}))),
-      ...Object.entries(by).map(([m,b])=>el('tr',{}, el('td',{text:m}), el('td',{text:String(b.n)}), el('td',{text:(b.w/b.n).toFixed(1)}),
+      ...Object.entries(by).sort((a,b)=>CMP_ALL.indexOf(a[0])-CMP_ALL.indexOf(b[0])).map(([m,b])=>el('tr',{}, el('td',{text:m+(CMP_MODELS.gemini.includes(m)?' (ฟรี)':'')}), el('td',{text:String(b.n)}), el('td',{text:(b.w/b.n).toFixed(1)}),
         el('td',{text:(b.ms/b.n/1000).toFixed(1)}), el('td',{text:b.priced?(b.usd/b.priced*THB).toFixed(2):'–'})))),
+    el('p',{class:'note small',text:'บาท/รูป = ราคาถ้าจ่ายเงิน · รุ่นที่เขียนว่า (ฟรี) ไม่เสียเงินจนกว่าโควตาฟรีรายวันจะหมด'}),
     el('button',{class:'linkbtn small',text:'ล้างค่าเฉลี่ย',onclick:()=>{ ADM.cmp.log=[]; store.set('pv-cmp-log',[]); renderAdmin(); }}));
 }
 
