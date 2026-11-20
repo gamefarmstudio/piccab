@@ -594,6 +594,9 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .mbox .row .sp{flex:1}
 .mbox p{margin:0 0 12px;line-height:1.5}
+.mailcard{margin:10px 0 4px}
+.mailcard .cllb{flex-wrap:wrap}
+.mailcard .note{margin:6px 0 0}
 .updbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);box-shadow:0 8px 24px rgba(30,25,70,.18);border-radius:16px;padding:8px 8px 8px 16px;max-width:calc(100% - 24px);font-weight:600}
 .updbar{width:max-content}
 .updbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}

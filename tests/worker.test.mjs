@@ -1184,3 +1184,84 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   globalThis.fetch = saved;
   console.log('AI provider order tests passed');
 }
+
+// ---------- 📧 weekly summary e-mail to parents ----------
+import { weeklyDigest, digestMail, weekSummary, unsubLink } from '../src/worker.js';
+{
+  const saved = globalThis.fetch;
+  const NOW = Date.parse('2026-11-22T11:00:00Z');                       // Sunday 18:00 in Thailand
+  const day = n => new Date(NOW + 7 * 3600e3 - n * 86400000).toISOString().slice(0, 10);
+  const P1 = '11111111-1111-4111-8111-111111111111', P2 = '22222222-2222-4222-8222-222222222222', P3 = '33333333-3333-4333-8333-333333333333';
+  const K1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', K2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const rep = { v: 1, s: { streak: 3, last: day(0) }, words: { done: 42 }, ach: { lv: 4, n: 3, total: 39 },
+    days: [[day(0), 12, 6, 0, {}], [day(1), 8, 4, 0, {}], [day(2), 5, 3, 0, {}], [day(9), 40, 20, 0, {}]],
+    learned: [['cat', 'แมว', day(1)], ['dog', 'สุนัข', day(3)], ['old', 'เก่า', day(20)]], weak: [['umbrella', 'ร่ม', 4], ['<b>x', '', 2]] };
+  // one child's week: only the last 7 days count
+  const w = weekSummary(rep, NOW);
+  assert.equal(w.days, 3); assert.equal(w.mins, 13); assert.equal(w.answers, 25); assert.equal(w.streak, 3); assert.equal(w.lv, 4);
+  assert.deepEqual(w.learned.map(x => x[0]), ['cat', 'dog']); assert.deepEqual(w.badges, [3, 39]);
+  assert.equal(weekSummary({ ...rep, s: { streak: 9, last: day(4) } }, NOW).streak, 0);   // not practised lately → no streak
+  // the e-mail: each child, new words, tricky words (escaped), the button, the way out
+  const m = digestMail({ kids: [{ nick: 'น้องฟ้า', group: 'บ้าน', rep }, { nick: 'Tom', group: 'บ้าน', rep: null }], origin: 'https://piccab.com', unsub: 'https://piccab.com/api/email/unsub?u=x&t=y', now: NOW });
+  assert.equal(m.subject, 'สรุปการเรียนสัปดาห์นี้ — Piccab');
+  for (const t of ['น้องฟ้า', 'ฝึก 3 จาก 7 วัน', 'ประมาณ 13 นาที', '🔥 ฝึกติดกัน 3 วัน', '⭐ Lv.4', '<b>cat</b>', 'umbrella', '&lt;b&gt;x', 'ยังไม่มีข้อมูลการฝึก', 'https://piccab.com/app', 'เลิกรับอีเมลนี้']) assert.ok(m.html.includes(t), t);
+  assert.ok(!m.html.includes('<b>x') && !m.html.includes('old'));
+  assert.ok(m.text.includes('cat, dog') && m.text.includes('unsub'));
+  assert.equal(digestMail({ lang: 'en', kids: [{ nick: 'Fah', group: 'Home', rep: { ...rep, days: [] } }], origin: 'https://piccab.com', unsub: 'u', now: NOW }).subject, "Fah's week of practice — Piccab");
+  assert.ok(digestMail({ kids: [{ nick: 'Fah', group: 'H', rep: { ...rep, days: [] } }], origin: 'o', unsub: 'u', now: NOW }).html.includes('สัปดาห์นี้ยังไม่ได้ฝึก'));
+
+  // the Sunday run: P1 gets one (two children), P2 switched it off, P3 has no child yet, an owner sent this week is skipped
+  let db, mails;
+  const reset = () => {
+    db = { classes: [{ id: 'f1', name: 'บ้าน', owner: P1, kind: 'family' }, { id: 'f2', name: 'บ้านยาย', owner: P1, kind: 'family' }, { id: 'f3', name: 'x', owner: P2, kind: 'family' }, { id: 'f4', name: 'y', owner: P3, kind: 'family' }],
+      class_members: [{ class_id: 'f1', user_id: K1, nickname: 'ฟ้า' }, { class_id: 'f2', user_id: K2, nickname: 'ภู' }, { class_id: 'f3', user_id: K2, nickname: 'ภู' }],
+      learner_reports: [{ user_id: K1, data: rep }], email_prefs: [{ user_id: P2, weekly: false }] };
+    mails = [];
+  };
+  const E = { SUPABASE_SECRET_KEY: 'sb_secret_x', RESEND_API_KEY: 're_x', SUPABASE_URL: 'https://db.test' };
+  globalThis.fetch = async (url, init = {}) => {
+    url = String(url);
+    if (url.startsWith('https://api.resend.com')) { mails.push(JSON.parse(init.body)); return new Response('{"id":"1"}', { status: 200 }); }
+    const au = url.match(/\/auth\/v1\/admin\/users\/([0-9a-f-]+)/); if (au) return new Response(JSON.stringify({ id: au[1], email: au[1].slice(0, 2) + '@parent.th' }), { status: 200 });
+    const mt = url.match(/\/rest\/v1\/(\w+)\??(.*)/); const t = mt[1], qs = new URLSearchParams(mt[2]);
+    if ((init.method || 'GET') === 'POST') { const rows = [].concat(JSON.parse(init.body)); for (const r of rows) { const i = db[t].findIndex(x => x.user_id === r.user_id); if (i >= 0) db[t][i] = { ...db[t][i], ...r }; else db[t].push(r); } return new Response(null, { status: 201 }); }
+    let rows = db[t] || [];
+    for (const [k, v] of qs) { if (['select', 'order', 'limit'].includes(k)) continue;
+      if (v.startsWith('eq.')) rows = rows.filter(r => String(r[k]) === v.slice(3));
+      if (v.startsWith('in.(')) { const set = v.slice(4, -1).split(',').map(x => x.replace(/"/g, '')); rows = rows.filter(r => set.includes(String(r[k]))); } }
+    return new Response(JSON.stringify(rows), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  reset();
+  let r = await weeklyDigest(E, NOW);
+  assert.equal(r.sent, 1); assert.equal(mails.length, 1);
+  assert.deepEqual(mails[0].to, ['11@parent.th']); assert.ok(mails[0].html.includes('ฟ้า') && mails[0].html.includes('ภู'));
+  assert.match(mails[0].headers['List-Unsubscribe'], /\/api\/email\/unsub\?u=11111111-.*&t=[0-9a-f]{32}>$/);
+  assert.equal(db.email_prefs.find(x => x.user_id === P1).last_sent, day(0));
+  assert.equal(db.email_prefs.find(x => x.user_id === P3).last_sent, day(0));            // no child: looked at, nothing sent
+  assert.equal(db.email_prefs.find(x => x.user_id === P2).weekly, false);
+  // the next run (30 minutes later): nobody twice
+  mails = []; r = await weeklyDigest(E, NOW + 1800e3); assert.equal(mails.length, 0); assert.equal(r.why, 'done');
+  // next Sunday: P1 again
+  mails = []; await weeklyDigest(E, NOW + 7 * 86400e3); assert.equal(mails.length, 1);
+  // with PRO_REQUIRED=1: only Pro parents
+  reset(); db.plans = [];
+  await weeklyDigest({ ...E, PRO_REQUIRED: '1' }, NOW); assert.equal(mails.length, 0);
+  reset(); db.plans = [{ email: '11@parent.th', until: null }];
+  await weeklyDigest({ ...E, PRO_REQUIRED: '1' }, NOW); assert.equal(mails.length, 1);
+  // the link in the e-mail turns it off (no sign-in); a changed link doesn't
+  reset();
+  const link = await unsubLink(E, 'https://piccab.com', P1);
+  let res = await worker.fetch(new Request(link.replace(/.$/, c => c === '0' ? '1' : '0')), { ...E, ASSETS: assets });
+  assert.equal(res.status, 400); assert.equal(db.email_prefs.find(x => x.user_id === P1), undefined);
+  res = await worker.fetch(new Request(link), { ...E, ASSETS: assets });
+  assert.equal(res.status, 200); assert.ok((await res.text()).includes('เลิกส่งอีเมลสรุปรายสัปดาห์แล้ว'));
+  assert.equal(db.email_prefs.find(x => x.user_id === P1).weekly, false);
+  assert.ok(res.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
+  mails = []; await weeklyDigest(E, NOW); assert.ok(!mails.some(x => x.to[0] === '11@parent.th'));
+  // nothing set up → nothing sent
+  assert.equal((await weeklyDigest({}, NOW)).why, 'not_configured');
+  // the cron handler is there
+  assert.equal(typeof worker.scheduled, 'function');
+  globalThis.fetch = saved;
+  console.log('weekly e-mail tests passed');
+}
