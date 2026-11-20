@@ -592,7 +592,7 @@ const CMP_MODELS={ gemini:['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.
 const CMP_ALL=[...CMP_MODELS.gemini, ...CMP_MODELS.claude];
 const CMP_DEFAULT=['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-3.6-flash','claude-haiku-5-5'];   // the three free Gemini models + Claude
 const CMP_COLORS=['#fe5e7a','#2563b8','#23915a','#f2683a','#7b4bd1','#0f8a9d'];
-const CMP_WHY={ cut_off:'คำตอบยาวเกินจนถูกตัดกลาง (ไม่มีคำที่ครบสักคำ)', bad_json:'ตอบผิดรูปแบบ (ไม่ใช่รายการ JSON)', empty_answer:'ตอบกลับมาว่างเปล่า', quota_day:'โควตาฟรีวันนี้ของรุ่นนี้หมดแล้ว (เริ่มใหม่ราวบ่ายสามโมง)', quota_minute:'ใช้ถี่เกินไป รอสักนาทีแล้วลองใหม่', no_quota:'คีย์นี้ไม่มีโควตาฟรีของรุ่นนี้' };
+const CMP_WHY={ timeout:'AI ใช้เวลานานเกินจนหมดเวลา (Google ตัดเอง)', unreachable:'ติดต่อ Google ไม่ได้', cut_off:'คำตอบยาวเกินจนถูกตัดกลาง (ไม่มีคำที่ครบสักคำ)', bad_json:'ตอบผิดรูปแบบ (ไม่ใช่รายการ JSON)', empty_answer:'ตอบกลับมาว่างเปล่า', quota_day:'โควตาฟรีวันนี้ของรุ่นนี้หมดแล้ว (เริ่มใหม่ราวบ่ายสามโมง)', quota_minute:'ใช้ถี่เกินไป รอสักนาทีแล้วลองใหม่', no_quota:'คีย์นี้ไม่มีโควตาฟรีของรุ่นนี้' };
 const CMP_ERR={ not_configured:'ยังไม่ได้ใส่คีย์ของเจ้านี้ใน Cloudflare', refused:'AI ปฏิเสธรูปนี้', busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', rate_limited:'ใช้เกินโควตา ลองใหม่ทีหลัง', invalid_json:'คำตอบของ AI อ่านไม่ได้', image_rejected:'AI รับรูปนี้ไม่ได้' };
 function cmpState(){
   if(!ADM.cmp){ const m=store.get('pv-cmp-models',CMP_DEFAULT).filter(x=>CMP_ALL.includes(x));
@@ -642,7 +642,7 @@ function cmpCol(r,img){
   const meta=`${r.items.length} คำ · ${(r.ms/1000).toFixed(1)} วินาที · token ${(r.tok_in||0).toLocaleString()} / ${(r.tok_out||0).toLocaleString()}`;
   return el('div',{class:'aicard cmpcol'},
     el('h4',{text:(r.provider==='gemini'?'Gemini · ':'Claude · ')+r.model}),
-    r.ok ? el('p',{class:'note small',text:meta}) : el('p',{class:'err',text:CMP_WHY[r.why]||CMP_ERR[r.error]||`สแกนไม่สำเร็จ (${r.error})`}),
+    r.ok ? el('p',{class:'note small',text:meta}) : el('p',{class:'err',text:CMP_WHY[r.why]||CMP_ERR[r.error]||`สแกนไม่สำเร็จ (${r.error}${r.finish?' · '+r.finish:''})`}),
     !r.ok && r.sample!=null ? el('details',{class:'cmpraw'}, el('summary',{text:`ดูคำตอบของ AI${r.finish?` · ${r.finish}`:''}${r.tok_out?` · token ออก ${Number(r.tok_out).toLocaleString()}`:''}`}),
       el('pre',{text:r.sample||'(ว่าง)'})) : null,
     r.ok ? el('p',{class:'cmpcost',text:(r.free_rpd ? `ฟรี (วันละ ${r.free_rpd} ครั้ง) · ถ้าจ่าย ` : '')+(r.cost_usd==null ? 'ไม่มีราคาของรุ่นนี้' : `~${(r.cost_usd*THB).toFixed(2)} บาท/รูป ($${r.cost_usd.toFixed(4)})`)}) : null,
