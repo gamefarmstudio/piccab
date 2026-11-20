@@ -757,7 +757,7 @@ async function callGemini(env, model, mime, data64, prompt, parse = parseItems) 
   return { ok: true, items, usage: u ? { in: u.promptTokenCount, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) } : undefined };
 }
 
-// ---------- 🧪 admin: one picture through Gemini and Claude, side by side ----------
+// ---------- 🧪 admin: one picture through several models (Gemini and Claude), side by side ----------
 // No credits and nothing saved (not in ai_usage either): it's for choosing a provider, not for making scenes.
 export const COMPARE_MODELS = { gemini: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'], claude: ['claude-haiku-5-5', 'claude-sonnet-5-5'] };
 async function compareAI(env, body) {
@@ -768,8 +768,13 @@ async function compareAI(env, body) {
   const level = LEVELS[body.level] ? body.level : 'mid';
   const langs = (Array.isArray(body.langs) ? body.langs : []).filter(l => AI_LANGS[l]).slice(0, 3);
   const pick = (p, want) => COMPARE_MODELS[p].includes(want) ? want : COMPARE_MODELS[p][0];
-  const run = async provider => {
-    const model = pick(provider, body[provider]);
+  // models: any of the list, up to 5, all at once (e.g. the three free Gemini models and Claude);
+  // older pages send one Gemini and one Claude model instead
+  const known = [...COMPARE_MODELS.gemini, ...COMPARE_MODELS.claude];
+  let models = Array.isArray(body.models) ? [...new Set(body.models.filter(x => known.includes(x)))].slice(0, 5) : [];
+  if (!models.length) models = [pick('gemini', body.gemini), pick('claude', body.claude)];
+  const run = async model => {
+    const provider = COMPARE_MODELS.gemini.includes(model) ? 'gemini' : 'claude';
     if (!(provider === 'gemini' ? env.GEMINI_API_KEY : env.ANTHROPIC_API_KEY)) return { provider, model, ok: false, error: 'not_configured', items: [] };
     const e = provider === 'gemini' ? { ...env, GEMINI_MODEL: model } : { ...env, CLAUDE_MODEL: model };
     const log = [], t0 = Date.now(), prompt = buildPrompt(count, level, [], provider, langs);
@@ -778,9 +783,11 @@ async function compareAI(env, body) {
     const tin = log.reduce((t, x) => t + (x.tok_in || 0), 0), tout = log.reduce((t, x) => t + (x.tok_out || 0), 0);
     const price = PAID_PRICE[model];
     return { provider, model, ok: res.status === 200, error: res.status === 200 ? undefined : (b.error || 'error'), items: Array.isArray(b.items) ? b.items : [],
-      ms: Date.now() - t0, tok_in: tin, tok_out: tout, cost_usd: price ? (tin * price[0] + tout * price[1]) / 1e6 : null };
+      ms: Date.now() - t0, tok_in: tin, tok_out: tout, cost_usd: price ? (tin * price[0] + tout * price[1]) / 1e6 : null,
+      free_rpd: provider === 'gemini' ? (freeRpd(env)[model] || null) : null,
+      why: res.status === 200 ? undefined : (log.length ? log[log.length - 1].outcome : undefined) };   // e.g. quota_day, no_quota
   };
-  return json({ results: await Promise.all(['gemini', 'claude'].map(run)) });
+  return json({ results: await Promise.all(models.map(run)) });
 }
 
 // ---------- scene pictures in R2 ----------
