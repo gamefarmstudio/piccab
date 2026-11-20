@@ -19,8 +19,8 @@ async def main():
     import datetime, zoneinfo
     pt=datetime.datetime.now(zoneinfo.ZoneInfo('America/Los_Angeles')); day0=pt.replace(hour=0,minute=0,second=0,microsecond=0).timestamp()
     at=lambda ago: max(now-ago, min(now-1, day0+(3000-ago)/30+1))   # squeezed in after midnight when it is just past it
-    for i in range(20): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'ok','ms':25000,'tok_in':1900,'tok_out':4200,'created_at':iso(at(3000-i))})
-    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.8-flash','outcome':'quota_day','ms':300,'tok_in':None,'tok_out':None,'created_at':iso(at(1500-i))})
+    for i in range(20): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.6-flash','outcome':'ok','ms':25000,'tok_in':1900,'tok_out':4200,'created_at':iso(at(3000-i))})
+    for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.6-flash','outcome':'quota_day','ms':300,'tok_in':None,'tok_out':None,'created_at':iso(at(1500-i))})
     for i in range(6): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.6-flash','outcome':'ok' if i<4 else 'quota_minute','ms':22000,'tok_in':1900 if i<4 else None,'tok_out':3000 if i<4 else None,'created_at':iso(at(1400-i))})
     for i in range(35): rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'ok','ms':12000,'tok_in':1800,'tok_out':2600,'created_at':iso(at(1200-i))})
     rows.append({'kind':'scan','provider':'gemini','model':'gemini-3.5-flash-lite','outcome':'invalid_json','ms':9000,'tok_in':None,'tok_out':None,'created_at':iso(at(100))})
@@ -81,7 +81,7 @@ async def main():
         today=re.search(r'วันนี้\n(\d+) รูป', out[n+'_cards'])
         check(today and int(today.group(1))>=59 and 'โควตาหมด 8 ครั้ง' in out[n+'_cards'], f'{n}: today counts (59 seeded in the last hour)', out[n+'_cards'])
         check('ถ้าจ่ายเงิน' in out[n+'_cards'], f'{n}: paid estimate shown', out[n+'_cards'])
-        q=re.search(r'gemini-3.8-flash\n(\d+) / 20', out[n+'_quota'])
+        q=re.search(r'gemini-3.6-flash\n(\d+) / 20', out[n+'_quota'])
         check(q and int(q.group(1))>=20 and '/ 500' in out[n+'_quota'], f'{n}: free quota bars', out[n+'_quota'])
         check(out[n+'_cols']==30, f'{n}: 30-day chart', out[n+'_cols'])
         check([c for c,on in out[n+'_cmp_chips'] if on]==['gemini-3.5-flash-lite\nฟรี','gemini-3.8-flash\nฟรี','gemini-3.6-flash\nฟรี','claude-haiku-5-5'] and len(out[n+'_cmp_chips'])==4 and not any('sonnet' in c for c,_ in out[n+'_cmp_chips']), f'{n}: the three free Gemini models and Claude Haiku (no Sonnet)', out[n+'_cmp_chips'])
