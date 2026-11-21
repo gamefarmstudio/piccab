@@ -44,7 +44,9 @@ async def main():
         await pg.locator('#libList .lcard').first.click(); await pg.wait_for_timeout(400)
         out['add_btn']=await pg.locator('#mbox button:has-text("ใส่รูปลายเส้น")').count()
         await pg.click('#mbox button:has-text("แฟลชการ์ด")'); await pg.wait_for_timeout(300)
-        await pg.click('#mbox button.primary'); await pg.wait_for_timeout(1200)
+        await pg.click('#mbox button.primary'); await pg.wait_for_timeout(1200)     # 👀 the preview
+        out['preview_imgs']=await pg.locator('.pcprev .ppage').first.locator('img').count()
+        await pg.click('#mbox button.primary'); await pg.wait_for_timeout(1200)     # 🖨️ print
         out['print_imgs']=await pg.locator('#printSheet .ppage').first.locator('img').count()
         await pg.evaluate("document.getElementById('printSheet')?.remove(); document.body.classList.remove('printing')")
         # words left out: the next try is free (signed note), and 🎨 on a word draws just that one
@@ -73,7 +75,7 @@ async def main():
     check([i[1] for i in out['items']]==['#ef5a78','#ffc928','#ffc928'], 'each word has its picture', out['items'])
     check(len(out['overlay_w'])==3 and max(out['overlay_w'])<300, 'learn-mode cards leave the picture visible', out['overlay_w'])
     check(out['redraw_btn']==1 and out['after'][0]==1 and out['after'][1]==[False,True,False] and out['last_call'].get('redraw') is True, '🔄 redraws one word', (out['after'], out['last_call']))
-    check(out['add_btn']==0 and out['print_imgs']==3, 'flashcards show the pictures', (out['add_btn'], out['print_imgs']))
+    check(out['add_btn']==0 and out['print_imgs']==3 and out['preview_imgs']==3, 'flashcards show the pictures (preview and print)', (out['add_btn'], out['preview_imgs'], out['print_imgs']))
     check(out['left1'][0] and out['left1'][1]==['past','zebra'], 'words left out → a free-retry note kept on the sheet', out['left1'])
     check(out['free_btn']==1 and out['retry_sent']==out['left1'][0] and out['left2'][1]==['zebra'], 'the free retry sends the note and fills what it can', (out['free_btn'], out['retry_sent'], out['left2']))
     check(out['draw_btn']==1 and out['left3'][1]==[] and out['last2'][1] is True, '🎨 on a word draws just that one', (out['draw_btn'], out['left3'], out['last2']))

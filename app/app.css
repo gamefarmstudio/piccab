@@ -1080,6 +1080,39 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .pcefr .note{margin:6px 4px 0;font-size:12.5px;line-height:1.4}
 /* 🖨️ printable flashcards (only on paper; the sheet is hidden on screen) */
 .pcopts{display:flex;flex-direction:column;gap:4px;margin:6px 0}
+/* 👀 flashcard preview: the pages as they will print (screen only) */
+.pcprevbox{max-height:calc(100vh - 32px);display:flex;flex-direction:column}
+.pchead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pchead h3{margin:0;flex:1}
+.pcside button{padding:5px 12px;font-size:14px}
+.pcside button.on{background:var(--ink);color:#fff}
+.pcprev{flex:1;overflow:auto;display:flex;flex-wrap:wrap;gap:18px;justify-content:center;padding:8px 2px 10px;background:#efe9df;border-radius:14px;margin:8px 0}
+.pcpagewrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.pcpn{font-size:12px;color:var(--muted)}
+.pcprev .ppage{width:min(330px,calc(100vw - 72px));aspect-ratio:190/277;background:#fff;box-shadow:0 2px 10px rgba(40,30,80,.12);display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);padding:6px}
+.pcprev.pc12 .ppage{grid-template-columns:repeat(3,1fr)}
+.pcprev .pcard{position:relative;border:1px dashed #c9c1b6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px;overflow:hidden;text-align:center;min-width:0;min-height:0}
+.pcprev .pcard.blank{border-color:transparent}
+.pcprev .pcard img{width:100%;height:58%;object-fit:contain;border-radius:4px}
+.pcprev .pw{font:700 16px/1.1 'Fredoka','Sarabun',sans-serif;color:#2b2550;overflow-wrap:anywhere}
+.pcprev .pw.big{font-size:20px}
+.pcprev .pm{font:500 12px/1.2 'Sarabun',sans-serif;color:#555}
+.pcprev .pm.big{font-size:17px;color:#2b2550}
+.pcprev.pc12 .pw{font-size:12px}.pcprev.pc12 .pw.big{font-size:15px}.pcprev.pc12 .pm{font-size:10px}.pcprev.pc12 .pm.big{font-size:13px}
+.pctools{position:absolute;top:3px;right:3px;display:flex;gap:3px}
+.pctools button{width:26px;height:26px;padding:0;border-radius:50%;font-size:12px;line-height:1;background:#fff;border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.pctools .pcx:hover{background:#fde8ec;border-color:#f3a6b5}
+@media (hover:hover){ .pcprev .pctools{opacity:0;transition:opacity .15s} .pcprev .pcard:hover .pctools,.pcprev .pcard:focus-within .pctools{opacity:1} }
+.pcprev .pcard.editing{border:2px solid var(--ink);justify-content:flex-start;padding:5px}
+.pcedit{display:flex;flex-direction:column;gap:4px;width:100%}
+.pcedit input:not([type=checkbox]){width:100%;padding:4px 6px;font-size:13px;min-width:0}
+.pcedit .chk{display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;margin:0}
+.pcedit .chk input{width:auto;margin:0}
+.pcedit .row{gap:4px;justify-content:flex-end;flex-wrap:wrap}
+.pcedit .row button{padding:3px 8px;font-size:12px}
+.pcfoot{flex-wrap:wrap;align-items:center;gap:8px}
+.pcinfo{margin:0}
+.pcrestore{font-size:13px}
 .pcopts b{margin-top:8px;font-size:14px}
 #printSheet{display:none}
 @page{size:A4 portrait;margin:10mm}
