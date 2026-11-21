@@ -148,6 +148,10 @@ async function printCards(cards){
       sheet.append(el('div',{class:'ppage'}, ...back.map(c=>card(c,'back'))));
     }
   }
+  await printNow(sheet);
+}
+// Print a #printSheet element with the browser (everything else on the page is hidden while printing).
+async function printNow(sheet){
   document.getElementById('printSheet')?.remove();
   document.body.append(sheet); document.body.classList.add('printing');
   await Promise.all([...sheet.querySelectorAll('img')].map(i=>i.decode ? i.decode().catch(()=>{}) : null));
@@ -157,4 +161,4 @@ async function printCards(cards){
   setTimeout(()=>{ if(document.body.classList.contains('printing') && !window.matchMedia('print').matches) done(); }, 60000);
 }
 
-export { cardPicture, loadImg, openPrintCards };
+export { cardPicture, loadImg, makeCards, openPrintCards, printNow };

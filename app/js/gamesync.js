@@ -8,6 +8,7 @@
 import { S, store } from './core.js';
 import { reloadWordStats } from './progress.js';
 import { reloadDays, renderGallery, streakPill } from './home.js';
+import { reloadMatchBest } from './match.js';
 import { reloadSentBest } from './sentence.js';
 import { sb, user } from './account.js';
 import { achCheck, lvPill } from './journey.js';
@@ -17,7 +18,7 @@ import { sendReportSoon } from './report.js';
 
 // local key → field in the account's row
 const GS_KEYS={ days:'pv-days', wstat:'pv-wstat', ach:'pv-ach', best:'pv-best', stk:'pv-stk', chestc:'pv-chestc', dq:'pv-dq',
-  bonusxp:'pv-bonusxp', boss:'pv-boss', timebest:'pv-timebest', sentbest:'pv-sentbest', stage:'pv-stage' };
+  bonusxp:'pv-bonusxp', boss:'pv-boss', timebest:'pv-timebest', sentbest:'pv-sentbest', stage:'pv-stage', matchbest:'pv-matchbest' };
 const GS_LOCAL=new Set(Object.values(GS_KEYS));
 var GS={ off:false, busy:false, again:false, timer:null, applying:false, at:0 };
 
@@ -48,10 +49,12 @@ const MERGE={
     for(const k of ['combo','rounds','s3','chests']) o[k]=maxN(a[k],b[k]); return o; },
   bonusxp:maxN, boss:maxN, timebest:maxN,
   sentbest:(a,b)=>byKey(a,b,(x,y)=>!x ? y : !y ? x : num(y.stars)>num(x.stars) ? y : x),
+  // 🧩 match: the fastest time per set (ms) — the smaller one
+  matchbest:(a,b)=>byKey(a,b,(x,y)=>{ const t=[num(x),num(y)].filter(Boolean); return t.length ? Math.min(...t) : 0; }),
   // the school year chosen: this device's choice, or the account's if none here
   stage:(a,b)=>a||b||'',
 };
-const EMPTY={ days:{}, wstat:{}, ach:null, best:{}, stk:{}, chestc:{got:{},open:{}}, dq:null, bonusxp:0, boss:0, timebest:0, sentbest:{}, stage:'' };
+const EMPTY={ days:{}, wstat:{}, ach:null, best:{}, stk:{}, chestc:{got:{},open:{}}, dq:null, bonusxp:0, boss:0, timebest:0, sentbest:{}, stage:'', matchbest:{} };
 function gsLocal(){ const o={}; for(const [f,k] of Object.entries(GS_KEYS)) o[f]=store.get(k, EMPTY[f]); return o; }
 function gsMerge(a, b){ a=obj(a); b=obj(b); const o={}; for(const f of Object.keys(GS_KEYS)) o[f]=MERGE[f](a[f] ?? EMPTY[f], b[f] ?? EMPTY[f]); return o; }
 // the same content, whatever order the keys came in
@@ -64,7 +67,7 @@ function gsApply(d){
   try{
     for(const [f,k] of Object.entries(GS_KEYS)){ const v=d[f]; if(v==null || v==='') continue; store.set(k, v); }
   }finally{ GS.applying=false; }
-  try{ reloadDays(); reloadWordStats(); reloadBest(); reloadRewards(); reloadSentBest(); }catch(e){ console.warn('game sync reload', e); }
+  try{ reloadDays(); reloadWordStats(); reloadBest(); reloadRewards(); reloadSentBest(); reloadMatchBest(); }catch(e){ console.warn('game sync reload', e); }
   try{ achCheck(); }catch(e){}
   try{ lvPill(); streakPill(); }catch(e){}
   if(S.view!=='play') try{ renderGallery(); }catch(e){}
