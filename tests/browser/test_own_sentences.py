@@ -51,7 +51,7 @@ async def main():
         # a word sheet: example sentences, no picture sent
         await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
         await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300); await pg.click('#importBtn'); await pg.wait_for_timeout(200); await pg.click('.wsimp'); await pg.wait_for_timeout(200)
-        await pg.fill('.wsbox textarea','apple แอปเปิล\nbanana กล้วย\nelephant ช้าง'); await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1200)
+        await paste_words(pg,'apple แอปเปิล\nbanana กล้วย\nelephant ช้าง'); await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1200)
         await pg.click('#modes button[data-mode="sent"]'); await pg.wait_for_timeout(300)
         out['make_list']=await pg.inner_text('.sentgame.make')
         await pg.click('.sentgame.make button.primary'); await pg.wait_for_timeout(2600)

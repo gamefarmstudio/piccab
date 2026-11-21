@@ -6,6 +6,7 @@ import { renderGallery } from './home.js';
 import { loadImg } from './cards.js';
 import { aiCredits, aiErr, aiMonthly, aiNeedCode, aiNotice, aiWait, askCode, createSceneFromFile, onPickImage } from './editor.js';
 import { askLoginForAI, creditText, openLogin, user } from './account.js';
+import { renderClass } from './classes.js';
 import { myShares, shareApi } from './share.js';
 import { accessToken, metaFrom, saveSyncMem, syncDeleted, syncMem } from './sync.js';
 
@@ -239,66 +240,136 @@ async function redrawPic(id){
     fullRender(); toast(`วาดใหม่แล้ว (เหลือ ${2-n} ครั้งสำหรับชีทนี้)`, 3000); tally('sheet_pic_redraw');
   }catch(e){ toast(aiErr('offline')); }
 }
-function openSheetMaker(sc){
+// 📚 A word set, Quizlet-style: one row per word (word · meaning · picture), typed, pasted, or read from a photo of a
+// teacher's sheet by the AI; line-art pictures by the AI for every word (1 credit a set) or one word at a time (free,
+// up to 3 a set). opts.scan: start by taking / choosing a photo of a sheet.
+const cleanTerm=w=>String(w||'').replace(/[^\p{L}\p{N} '\-.]/gu,' ').replace(/[\s.\-]+$/,'').replace(/\s+/g,' ').trim().slice(0,60);
+function openSheetMaker(sc, opts={}){
   const meta=(sc && sc.meta) || {kind:'list', exam:''};
+  const st={ rows: sc ? Object.values(sc.items).filter(it=>it && it.word).map(it=>({ w:it.word, th:it.th||'', pic:it.pic||'' })) : [],
+    redraws:(sc && sc.meta.redraws)||0, retry:(sc && sc.meta.picRetry)||null };
+  if(!st.rows.length) st.rows=[{w:'',th:'',pic:''},{w:'',th:'',pic:''},{w:'',th:'',pic:''}];
   openModal(m=>{
-    m.classList.add('wsbox');
-    const ta=el('textarea',{rows:'8',spellcheck:'false','aria-label':'รายการคำศัพท์',placeholder:'apple แอปเปิล\nbanana กล้วย\nelephant ช้าง'});
-    ta.value=sc ? Object.values(sc.items).filter(it=>it && it.word).map(it=>it.word+(it.th?' '+it.th:'')).join('\n') : '';
+    m.classList.add('wsbox','setbox');
+    const list=el('div',{class:'wsrows'});
     const count=el('span',{class:'wscount'});
-    const name=el('input',{maxlength:'40','aria-label':'ชื่อชุดคำ',value: sc ? sc.name : 'Dictation '+new Date().toLocaleDateString(LOC,{day:'numeric',month:'short'})});
+    const name=el('input',{maxlength:'40','aria-label':'ชื่อชุดคำ',class:'wsname',placeholder:'ชื่อชุดคำ',value: sc ? sc.name : 'Dictation '+new Date().toLocaleDateString(LOC,{day:'numeric',month:'short'})});
     const date=el('input',{type:'date','aria-label':'วันสอบ',value:meta.exam||''});
-    const ok=el('button',{class:'primary'}, sc ? 'บันทึก' : 'สร้างชุดคำ');
+    const ok=el('button',{class:'primary wssave'}, sc ? 'บันทึก' : 'สร้างชุดคำ');
     const pics=el('input',{type:'checkbox'}); pics.checked=store.get('pv-sheetpics',true)!==false;
     pics.addEventListener('change',()=>store.set('pv-sheetpics',pics.checked));
-    const oldPics={}; if(sc) Object.values(sc.items||{}).forEach(it=>{ if(it && it.word && it.pic) oldPics[it.word.toLowerCase()]=it.pic; });
-    const upd=()=>{ const n=parseWordList(ta.value).length; count.textContent=n ? `${n} คำ` : ''; ok.disabled=!n; };
-    ta.addEventListener('input',upd);
-    // a photo of the sheet: take one with the camera or choose one, then box the part to read
+    const busy=el('div',{class:'wsbusy',hidden:''});
+    const words=()=>{ const out=[], seen=new Set();
+      for(const r of st.rows){ const w=cleanTerm(r.w); if(!w || !/[A-Za-z]/.test(w) || seen.has(w.toLowerCase())) continue;
+        seen.add(w.toLowerCase()); out.push({ w, th:String(r.th||'').replace(/\s+/g,' ').trim().slice(0,60), ...(r.pic?{pic:r.pic}:{}) }); if(out.length>=60) break; }
+      return out; };
+    const upd=()=>{ const n=words().length; count.textContent=n ? `${n} คำ` : ''; ok.disabled=!n; };
+    const addRows=(got, replace)=>{   // [{w, th}] from a paste or a photo: after the rows already there (empty ones dropped)
+      const keep=replace ? [] : st.rows.filter(r=>r.w.trim()||r.th.trim()), have=new Set(keep.map(r=>r.w.trim().toLowerCase()));
+      got.forEach(x=>{ if(!have.has(x.w.toLowerCase())){ have.add(x.w.toLowerCase()); keep.push({ w:x.w, th:x.th||'', pic:'' }); } });
+      st.rows=keep.length ? keep : [{w:'',th:'',pic:''}]; draw();
+    };
+    // one word's picture: from the picture bank (free), or drawn by the AI (free, up to 3 a set)
+    const drawOne=async(r, again)=>{
+      const w=cleanTerm(r.w); if(!w){ toast('พิมพ์คำก่อน'); return; }
+      r.busy=true; draw();
+      try{
+        if(!again){ const b=await picsApi([w], false); const p=b.ok && b.data.pics && b.data.pics[picKeyOf(w)]; if(p){ r.pic=p; return; } }
+        if(st.redraws>=3){ toast('วาดทีละคำฟรีได้ 3 ครั้งต่อชุด — กด 🎨 ใส่รูปทุกคำ', 4500); return; }
+        const auth=await aiAuth(); if(!auth) return;
+        const x=await picsApi([w], true, true, auth); const p=x.ok && x.data.pics && x.data.pics[picKeyOf(w)];
+        if(!p){ toast(x.ok ? 'วาดไม่สำเร็จ ลองอีกครั้ง' : aiErr(x.data.error), 4000); return; }
+        r.pic=p; st.redraws++; tally('sheet_pic_redraw');
+        toast(`วาดแล้ว 🎨 (วาดทีละคำฟรีอีก ${3-st.redraws} ครั้ง)`, 2500);
+      }catch(e){ toast(aiErr('offline')); }
+      finally{ r.busy=false; draw(); }
+    };
+    const rowEl=(r, i)=>{
+      const term=el('input',{class:'wst',value:r.w,maxlength:'60',placeholder:'คำศัพท์','aria-label':'คำศัพท์ '+(i+1),spellcheck:'false',autocapitalize:'off'});
+      const def=el('input',{class:'wsd',value:r.th,maxlength:'60',placeholder:'ความหมาย','aria-label':'ความหมาย '+(i+1)});
+      term.addEventListener('input',()=>{ r.w=term.value; upd(); });
+      def.addEventListener('input',()=>{ r.th=def.value; upd(); });
+      term.addEventListener('paste',e=>{   // several lines pasted into a row → one row each
+        const t=(e.clipboardData||window.clipboardData).getData('text'); if(!/\n/.test(t)) return;
+        e.preventDefault(); const got=parseWordList(t); if(!got.length) return;
+        const at=st.rows.indexOf(r), head=r.w.trim()||r.th.trim() ? [r] : [];
+        const fresh=got.map(x=>({ w:x.w, th:x.th||'', pic:'' }));
+        st.rows.splice(at, 1, ...head, ...fresh); draw(); toast(`เพิ่ม ${got.length} คำ`);
+      });
+      const next=e=>{ if(e.key!=='Enter') return; e.preventDefault();
+        if(e.target===term){ def.focus(); return; }
+        const at=st.rows.indexOf(r); if(at===st.rows.length-1){ st.rows.push({w:'',th:'',pic:''}); draw(); }
+        const n=list.querySelectorAll('.wst')[at+1]; if(n) n.focus(); };
+      term.addEventListener('keydown',next); def.addEventListener('keydown',next);
+      const cell = r.busy ? el('span',{class:'wspic busy'}, el('span',{class:'spin'}))
+        : r.pic ? el('span',{class:'wspic has'}, el('img',{src:svgUrl(r.pic),alt:''}),
+            el('button',{type:'button',class:'wspa redo',title:'วาดใหม่','aria-label':'วาดรูปใหม่ '+(r.w||''),text:'🔄',onclick:()=>drawOne(r,true)}),
+            el('button',{type:'button',class:'wspa off',title:'ไม่ใช้รูป','aria-label':'เอารูปออก '+(r.w||''),text:'✕',onclick:()=>{ r.pic=''; draw(); }}))
+        : el('button',{type:'button',class:'wspic add',title:'ใส่รูปลายเส้น','aria-label':'ใส่รูป '+(r.w||''),text:'🎨',onclick:()=>drawOne(r,false)});
+      return el('div',{class:'wsr'}, el('span',{class:'wsn',text:String(i+1)}), el('span',{class:'wsf'}, term, def), cell,
+        el('button',{type:'button',class:'wsdel',title:'ลบคำนี้','aria-label':'ลบคำที่ '+(i+1),onclick:()=>{ st.rows.splice(st.rows.indexOf(r),1); if(!st.rows.length) st.rows.push({w:'',th:'',pic:''}); draw(); }}, ic('delete')));
+    };
+    const draw=()=>{ list.replaceChildren(...st.rows.map(rowEl)); upd(); };
+    const addBtn=el('button',{type:'button',class:'wsadd',onclick:()=>{ st.rows.push({w:'',th:'',pic:''}); draw(); const t=list.querySelectorAll('.wst'); t[t.length-1].focus(); }}, ic('add'), 'เพิ่มคำ');
+    // 📋 paste many words at once
+    const ta=el('textarea',{rows:'5',spellcheck:'false','aria-label':'วางรายการคำศัพท์',placeholder:'apple แอปเปิล\nbanana กล้วย\nelephant ช้าง'});
+    const paste=el('div',{class:'wspaste',hidden:''}, ta,
+      el('div',{class:'wsprow'}, el('span',{class:'note small',text:'ทีละบรรทัด เช่น apple แอปเปิล'}), el('span',{class:'sp'}),
+        el('button',{type:'button',class:'wsreplace',text:'แทนที่ทั้งหมด',onclick:()=>{ const g=parseWordList(ta.value); if(!g.length){ ta.focus(); return; } addRows(g,true); ta.value=''; paste.hidden=true; }}),
+        el('button',{type:'button',class:'primary wsappend',text:'เพิ่ม',onclick:()=>{ const g=parseWordList(ta.value); if(!g.length){ ta.focus(); return; } addRows(g,false); ta.value=''; paste.hidden=true; toast(`เพิ่ม ${g.length} คำ`); }})));
+    // 📷 a photo of the sheet: take one or choose one, then box the part to read
     const cam=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:'',class:'wscam'});
     const file=el('input',{type:'file',accept:'image/*',hidden:'',class:'wsfile'});
-    const busy=el('div',{class:'wsbusy',hidden:''});
-    const photo=el('div',{class:'wsphotos'},
-      el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>cam.click()}, ic('photo_camera'), 'ถ่ายรูปชีท'),
-      el('button',{type:'button',class:'cbtn wsphoto',onclick:()=>file.click()}, ic('imagesmode'), 'เลือกรูป'));
+    const tools=el('div',{class:'wstools'},
+      G.aiReady ? el('button',{type:'button',class:'chip wsphoto',onclick:()=>cam.click()}, ic('photo_camera'), 'สแกนชีท') : null,
+      G.aiReady ? el('button',{type:'button',class:'chip wsphoto',onclick:()=>file.click()}, ic('imagesmode'), 'รูปชีท') : null,
+      el('button',{type:'button',class:'chip wspastebtn',onclick:()=>{ paste.hidden=!paste.hidden; if(!paste.hidden) ta.focus(); }}, ic('content_paste'), 'วางหลายคำ'),
+      G.aiReady ? el('button',{type:'button',class:'chip wsallpics',onclick:async e=>{
+        const b=e.currentTarget, need=st.rows.filter(r=>cleanTerm(r.w) && !r.pic);
+        if(!need.length){ toast('ทุกคำมีรูปแล้ว'); return; }
+        b.disabled=true;
+        const wds=need.map(r=>({ w:cleanTerm(r.w), row:r }));
+        const f=await fillPics(wds, busy, st.retry);
+        wds.forEach(x=>{ if(x.pic) x.row.pic=x.pic; }); st.retry=f.retry; b.disabled=false; draw();
+        if(f.left) picsToast(wds, f); else toast('ใส่รูปครบทุกคำแล้ว 🎨');
+      }}, '🎨 ใส่รูปทุกคำ') : null);
     const picked=inp=>{
       const f=inp.files[0]; inp.value=''; if(!f) return;
-      photo.hidden=true;
+      tools.hidden=true;
       const panel=sheetCropper(f, async src=>{
         busy.replaceChildren(aiWait('🤖 AI กำลังอ่านชีท…','10–30')); busy.hidden=false;
         const got=await readSheetPhoto(src);
-        busy.hidden=true; photo.hidden=false;
-        if(got && got.length){
-          const lines=got.map(x=>x.w+(x.th?' '+x.th:'')).join('\n');
-          ta.value=ta.value.trim() ? ta.value.trim()+'\n'+lines : lines; upd();
-          toast(`AI อ่านได้ ${got.length} คำ — ตรวจและแก้ได้ก่อนบันทึก`, 4000);
-        }
-      }, ()=>{ photo.hidden=false; });
-      photo.after(panel);
+        busy.hidden=true; tools.hidden=false;
+        if(got && got.length){ addRows(got.map(x=>({ w:x.w, th:x.th||'' })), false); toast(`AI อ่านได้ ${got.length} คำ — ตรวจและแก้ได้ก่อนบันทึก`, 4000); }
+      }, ()=>{ tools.hidden=false; });
+      tools.after(panel);
     };
     cam.addEventListener('change',()=>picked(cam)); file.addEventListener('change',()=>picked(file));
     ok.addEventListener('click',async()=>{
-      const words=parseWordList(ta.value); if(!words.length){ ta.focus(); return; }
+      if(ta.value.trim()){ const g=parseWordList(ta.value); if(g.length) addRows(g,false); ta.value=''; }   // words left in the paste box count too
+      const wds=words(); if(!wds.length){ const t=list.querySelector('.wst'); if(t) t.focus(); return; }
       ok.disabled=true;
-      words.forEach(wd=>{ const p=oldPics[wd.w.toLowerCase()]; if(p) wd.pic=p; });
-      const f=pics.checked ? await fillPics(words, busy, sc && sc.meta.picRetry) : { left:0, retry:sc && sc.meta.picRetry };
+      const f=pics.checked ? await fillPics(wds, busy, st.retry) : { left:0, retry:st.retry };
       const nm=(name.value.trim()||'Dictation').slice(0,40);
-      const s2=await saveWordSheet(sc, nm, words, withRetry({kind:'list', exam:date.value||'', style:'listen', ...(sc && sc.meta.redraws ? { redraws:sc.meta.redraws } : {})}, f));
-      if(f.left) setTimeout(()=>picsToast(words, f), 4200);
+      const s2=await saveWordSheet(sc, nm, wds, withRetry({kind:'list', exam:date.value||'', style:'listen', ...(st.redraws ? { redraws:st.redraws } : {})}, f));
+      if(f.left) setTimeout(()=>picsToast(wds, f), 4200);
       closeModal();
+      if(typeof renderClass==='function' && S.view==='class') renderClass();
       if(sc){ if(S.view==='play') fullRender(); else renderGallery(); toast('บันทึกชุดคำแล้ว'); }
-      else { openScene(s2.id,'learn'); toast(`สร้างชุดคำ ${words.length} คำแล้ว — แตะการ์ดเพื่อฟังคำ`, 4000); }
+      else { openScene(s2.id,'learn'); toast(`สร้างชุดคำ ${wds.length} คำแล้ว — แตะการ์ดเพื่อฟังคำ`, 4000); }
     });
     m.append(
-      el('div',{class:'shhead'}, el('h3',{}, ic('edit_note'), sc?'แก้ไขชีทคำศัพท์':'ชีทคำศัพท์จากครู'), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
-      el('p',{class:'note',text:'ถ่ายรูปชีท หรือพิมพ์คำทีละบรรทัด'}),
-      G.aiReady ? photo : null, G.aiReady ? aiNotice('sheet') : null, busy, cam, file,
-      ta, el('div',{class:'wsrow'}, count, el('span',{class:'note small',text:'เช่น apple แอปเปิล'})),
-      el('label',{class:'wslabel'}, el('span',{text:'ชื่อชุด'}), name),
-      el('label',{class:'wslabel'}, el('span',{},ic('event'),'วันสอบ (ถ้ามี)'), date),
-      el('label',{class:'chk wspics'}, pics, el('span',{}, el('b',{text:'🎨 ใส่รูปลายเส้นให้แต่ละคำ'}), el('small',{text:'1 เครดิตต่อชีท · คำที่มีรูปแล้วฟรี'}))),
+      el('div',{class:'shhead'}, el('h3',{}, ic('style'), sc ? 'แก้ไขชุดคำศัพท์' : 'ชุดคำศัพท์ใหม่'), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
+      el('div',{class:'wstop'}, name, el('label',{class:'wsdate',title:'วันสอบ (ถ้ามี)'}, ic('event'), date)),
+      tools, G.aiReady ? aiNotice('sheet') : null, busy, paste, cam, file,
+      el('div',{class:'wshdr'}, el('span',{text:'คำศัพท์'}), el('span',{text:'ความหมาย'}), count),
+      list, addBtn,
+      el('label',{class:'chk wspics'}, pics, el('span',{}, el('b',{text:'🎨 ใส่รูปให้คำที่ยังไม่มีรูปตอนบันทึก'}), el('small',{text:'1 เครดิตต่อชีท · คำที่มีรูปแล้วฟรี'}))),
       el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), ok));
-    upd();
+    draw();
+    if(opts.scan && G.aiReady) cam.click();
+    else if(opts.scan) toast('ตอนนี้ใช้ AI ไม่ได้ — พิมพ์หรือวางรายการคำเองได้', 4000);
+    else if(!sc) setTimeout(()=>{ const t=list.querySelector('.wst'); if(t) t.focus(); }, 50);
   });
 }
 $('#fileImg').addEventListener('change', onPickImage);
@@ -361,7 +432,7 @@ function openImport(){
       el('div',{class:'createrow'},
         el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileCam').click(); }},'📷 ถ่ายรูป'),
         el('button',{class:'cbtn',onclick:()=>{ closeModal(); $('#fileImg').click(); }},'🖼️ เลือกรูป')),
-      el('button',{class:'cbtn wide wsimp',onclick:()=>{ closeModal(); openSheetMaker(); }}, ic('edit_note'), 'ชีทคำศัพท์จากครู (สำหรับสอบ Dictation)'));
+      el('button',{class:'cbtn wide wsimp',onclick:()=>{ closeModal(); openSheetMaker(); }}, ic('style'), 'ชุดคำศัพท์ (สำหรับสอบ Dictation)'));
     if(G.aiReady) m.append(aiNotice());
     if(matchMedia('(pointer:fine)').matches) m.append(el('p',{class:'imphint',text:'หรือลากรูปมาวางที่นี่ / กด Ctrl+V เพื่อวางรูป'}));
     m.append(el('div',{class:'impfoot'},

@@ -11,8 +11,8 @@ async def main():
         ctx=await b.new_context(locale='th-TH', viewport={'width':844,'height':390}, is_mobile=True, has_touch=True, device_scale_factor=2, service_workers='block')
         pg=await ctx.new_page(); pg.on('pageerror',lambda e: errs.append(str(e)))
         await pg.route('**/*', lambda r: app_route(r)); await pg.goto('https://piccab.test/app'); await pg.wait_for_timeout(1200)
-        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(300)
-        await pg.fill('.wsbox textarea', WORDS); await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1500)   # a word sheet: a tall picture
+        await open_set_maker(pg)
+        await paste_words(pg, WORDS); await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1500)   # a word sheet: a tall picture
         await pg.evaluate("document.getElementById('fsBtn').click()"); await pg.wait_for_timeout(800)
         out['fill']=await pg.evaluate("['fsside','fsnarrow','fsfill'].every(c=>document.body.classList.contains(c))")
         cues=lambda: pg.evaluate("[...document.querySelectorAll('.fscue')].map(c=>getComputedStyle(c).display)")

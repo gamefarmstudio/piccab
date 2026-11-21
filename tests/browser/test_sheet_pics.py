@@ -23,9 +23,9 @@ async def main():
         await ctx.add_init_script("window.print=()=>{}; window.speechSynthesis && (speechSynthesis.speak=()=>{});")
         pg=await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.route('**/*', lambda r: app_route(r, health='{"ai":true}', extra=extra)); await pg.goto('https://piccab.test/app'); await pg.wait_for_timeout(700)
-        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(300)
+        await open_set_maker(pg)
         out['checkbox']=[await pg.is_checked('.wspics input'), await pg.inner_text('.wspics')]
-        await pg.fill('.wsbox textarea','minus ลบ\nplus บวก\nhalf ครึ่ง')
+        await paste_words(pg,'minus ลบ\nplus บวก\nhalf ครึ่ง')
         await pg.click('.wsbox .row button.primary'); await pg.wait_for_timeout(2500)
         out['calls']=[[c['words'], c.get('draw',False)] for c in CALLS]
         items=await pg.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); const s=a.find(x=>x.meta&&x.meta.kind==='list'); return Object.values(s.items).map(i=>[i.word, (i.pic||'').match(/fill=\"(#\\w+)\"><\\/circle>|fill=\"(#\\w+)\"\\/>/)?.slice(1).find(Boolean)||'']); })()")
@@ -52,7 +52,7 @@ async def main():
         # words left out: the next try is free (signed note), and 🎨 on a word draws just that one
         await pg.locator('#libList .lcard').first.click(); await pg.wait_for_timeout(400)
         await pg.click('#mbox button:has-text("แก้ไขรายการคำ")'); await pg.wait_for_timeout(300)
-        await pg.fill('.wsbox textarea', 'minus ลบ\nplus บวก\nhalf ครึ่ง\npast อดีต\nzebra ม้าลาย')
+        await paste_words(pg, 'minus ลบ\nplus บวก\nhalf ครึ่ง\npast อดีต\nzebra ม้าลาย')
         await pg.click('.wsbox .row button.primary'); await pg.wait_for_timeout(2500)
         meta=lambda: pg.evaluate("(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); const s=a.find(x=>x.meta&&x.meta.kind==='list'); return [s.meta.picRetry||null, Object.values(s.items).filter(i=>!i.pic).map(i=>i.word)]; })()")
         out['left1']=await meta()

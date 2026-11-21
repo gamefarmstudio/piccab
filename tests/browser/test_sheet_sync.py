@@ -33,8 +33,8 @@ async def main():
         b=await launch(p); errs=[]; out={}
         # desktop: a sheet of 3 words, signed in → it goes to the account
         A=await newpage(b, errs); await A.goto(BASE+'/app'); await A.wait_for_timeout(700)
-        await A.click('.welcome .wslink'); await A.wait_for_timeout(200)
-        await A.fill('.wsbox textarea', LIST); await A.click('.wsbox .row .primary'); await A.wait_for_timeout(1200)
+        await open_set_maker(A)
+        await paste_words(A, LIST); await A.click('.wsbox .row .primary'); await A.wait_for_timeout(1200)
         out['a_modal']=await A.evaluate("(document.querySelector('#modal:not([hidden]) #mbox')||{}).innerText||''")
         for _ in range(5):
             if not await A.locator('#modal:not([hidden])').count(): break
@@ -49,7 +49,7 @@ async def main():
         # desktop: two more words → a taller picture, same address
         await A.click('.cont .primary.big'); await A.wait_for_timeout(500)
         await A.click('#editBtn'); await A.wait_for_timeout(300)
-        await A.fill('.wsbox textarea', LIST+'\nhalf ครึ่ง\nequals เท่ากับ\none hundred หนึ่งร้อย')
+        await paste_words(A, LIST+'\nhalf ครึ่ง\nequals เท่ากับ\none hundred หนึ่งร้อย')
         await A.click('.wsbox .row .primary'); await A.wait_for_timeout(5000)
         out['a2']=(await A.evaluate(SHEET))[0]
         # phone opens the app, gets the new words, but the picture download is cut short (app closed / signal lost)
