@@ -21,6 +21,7 @@
 //   GEMINI_API_KEY     (secret)  key from aistudio.google.com (has a free tier)
 //   ANTHROPIC_API_KEY  (secret)  key from console.anthropic.com
 //   AI_PROVIDER        (text, optional)  "gemini" or "claude"; needed only when both keys are set (default: claude)
+//                                        💎 Pro accounts always get Claude first when ANTHROPIC_API_KEY is set
 //   GEMINI_MODEL       (text, optional)  one model or a comma-separated list tried in order when one is
 //                      out of quota / busy; default gemini-3.6-flash,gemini-3.5-flash-lite
 //   CLAUDE_MODEL       (text, optional)  defaults to claude-haiku-5-5 (cheapest); claude-sonnet-5-5 for harder pictures
@@ -57,6 +58,12 @@ export function pickProviders(env) {
   const has = p => (p === 'gemini' && !!env.GEMINI_API_KEY) || (p === 'claude' && !!env.ANTHROPIC_API_KEY);
   const want = [...new Set(String(env.AI_PROVIDER || '').toLowerCase().split(',').map(x => x.trim()))].filter(has);
   return want.length ? want : ['claude', 'gemini'].filter(has).slice(0, 1);
+}
+// 💎 Pro accounts: Claude first (the others after it, in case it's busy); everyone else keeps AI_PROVIDER's order
+// (e.g. Gemini's free quota first, Claude when it runs out).
+export function proProviders(env, providers) {
+  if (!env.ANTHROPIC_API_KEY) return providers;
+  return ['claude', ...providers.filter(p => p !== 'claude')];
 }
 // The first provider, or null when no key is set.
 export function pickProvider(env) { return pickProviders(env)[0] || null; }
@@ -139,12 +146,14 @@ export default {
 // Who may use AI: a signed-in user with credits, a tester with the access code, or (if neither is set up) anyone.
 // Returns { provider, uid, useCredits } or an error Response.
 async function aiAccess(request, env) {
-  const providers = pickProviders(env), provider = providers[0];
-  if (!provider) return error('not_configured', 503);
+  let providers = pickProviders(env);
+  if (!providers[0]) return error('not_configured', 503);
   const useCredits = !!env.SUPABASE_SECRET_KEY;
   const who = request.headers.get('authorization') ? await userInfo(request, env) : null;
   if (who && who.anon) return error('student_account', 403);       // students (no e-mail) don't use AI
   const uid = who ? who.uid : null;
+  const pro = !!(who && useCredits && env.ANTHROPIC_API_KEY && (await proOf(env, who)).pro);
+  if (pro) providers = proProviders(env, providers);
   if (!(uid && useCredits)) {
     const code = (request.headers.get('x-piccab-code') || '').trim();
     if (env.SCAN_CODE) {
@@ -159,7 +168,7 @@ async function aiAccess(request, env) {
       if (!success) return error('rate_limited', 429);
     } catch (e) { /* limiter unavailable: continue */ }
   }
-  return { provider, providers, uid, useCredits };
+  return { provider: providers[0], providers, uid, useCredits, pro };
 }
 // Takes one credit, runs the AI call, gives the credit back if it didn't work.
 async function withCredit(env, acc, run) {

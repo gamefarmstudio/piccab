@@ -1190,6 +1190,50 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   console.log('AI provider order tests passed');
 }
 
+// ---------- 💎 Pro accounts: Claude first; free accounts keep AI_PROVIDER's order (Gemini first) ----------
+{
+  const saved = globalThis.fetch; let calls = [], claudeBusy = false;
+  const users = { 'tok-pro': ['11111111-1111-4111-8111-111111111111', 'pro@school.th'], 'tok-free': ['22222222-2222-4222-8222-222222222222', 'free@school.th'],
+    'tok-old': ['33333333-3333-4333-8333-333333333333', 'old@school.th'] };
+  const plans = { 'pro@school.th': { plan: 'pro', until: null }, 'old@school.th': { plan: 'pro', until: '2020-01-01T00:00:00Z' } };
+  globalThis.fetch = async (url, init = {}) => {
+    url = String(url);
+    if (url.includes('/auth/v1/user')) { const t = (init.headers.authorization || '').split(' ')[1], u = users[t];
+      return u ? new Response(JSON.stringify({ id: u[0], email: u[1] })) : new Response('{}', { status: 401 }); }
+    if (url.includes('/rest/v1/plans')) { const e = decodeURIComponent(url.split('email=eq.')[1].split('&')[0]); return new Response(JSON.stringify(plans[e] ? [plans[e]] : [])); }
+    if (url.includes('/rest/v1/rpc/use_ai_credit') || url.includes('/rest/v1/rpc/refund_ai_credit')) return new Response('7');
+    if (url.includes('/rest/v1/')) return new Response(null, { status: 201 });
+    if (url.includes('generativelanguage')) { calls.push('gemini');
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '[{"word":"cup","th":"ถ้วย","box_2d":[1,2,3,4]}]' }] } }] })); }
+    if (url.includes('api.anthropic.com')) { calls.push('claude');
+      if (claudeBusy) return new Response('overloaded', { status: 529 });
+      return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '[{"word":"mug","th":"แก้วมัค","box":[1,2,3,4]}]' }], usage: { input_tokens: 10, output_tokens: 5 } })); }
+    throw new Error('unexpected ' + url);
+  };
+  const { proProviders } = await import('../src/worker.js');
+  assert.deepEqual(proProviders({ ANTHROPIC_API_KEY: 'a' }, ['gemini', 'claude']), ['claude', 'gemini']);
+  assert.deepEqual(proProviders({ ANTHROPIC_API_KEY: 'a' }, ['gemini']), ['claude', 'gemini']);   // AI_PROVIDER=gemini only: Pro still gets Claude
+  assert.deepEqual(proProviders({}, ['gemini']), ['gemini']);                                        // no Claude key: nothing changes
+  const E = { ASSETS: assets, AI_PROVIDER: 'gemini,claude', GEMINI_API_KEY: 'g', GEMINI_MODEL: 'pro-test-a', ANTHROPIC_API_KEY: 'a',
+    SUPABASE_URL: 'https://sb.test', SUPABASE_SECRET_KEY: 'sb_secret_test' };
+  const scanAs = tok => worker.fetch(new Request('https://piccab.com/api/scan', post({ image: img }, { authorization: 'Bearer ' + tok })), E);
+  let r = await scanAs('tok-pro'), b = await r.json();
+  assert.equal(r.status, 200); assert.equal(b.provider, 'claude'); assert.deepEqual(calls, ['claude']);
+  calls = []; r = await scanAs('tok-free'); b = await r.json();
+  assert.equal(b.provider, 'gemini'); assert.deepEqual(calls, ['gemini']);
+  calls = []; r = await scanAs('tok-old'); b = await r.json();                                       // Pro ended: like a free account
+  assert.equal(b.provider, 'gemini'); assert.deepEqual(calls, ['gemini']);
+  // Claude busy → a Pro account still gets its answer from Gemini
+  claudeBusy = true; calls = []; r = await scanAs('tok-pro'); b = await r.json();
+  assert.equal(r.status, 200); assert.equal(b.provider, 'gemini'); assert.deepEqual(calls, ['claude', 'gemini']);
+  // the word list (sheet photo) the same way
+  claudeBusy = false; calls = [];
+  r = await worker.fetch(new Request('https://piccab.com/api/wordlist', post({ image: img }, { authorization: 'Bearer tok-pro' })), E);
+  assert.equal(r.status, 200); assert.deepEqual(calls, ['claude']);
+  globalThis.fetch = saved;
+  console.log('Pro → Claude first tests passed');
+}
+
 // ---------- 📧 weekly summary e-mail to parents ----------
 import { weeklyDigest, digestMail, weekSummary, unsubLink } from '../src/worker.js';
 {
