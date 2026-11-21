@@ -1530,3 +1530,8 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .ctmark.bad{background:#fdeaea;border-color:var(--bad);color:var(--bad)}
 @media (max-width:520px){ .ctrow{grid-template-columns:24px minmax(0,1fr) 44px} .ctrow .cthand{grid-column:2;grid-row:1} .ctrow .ctans{grid-column:2;grid-row:2} .ctrow .ctq{grid-row:1/3} .ctrow .ctmark{grid-column:3;grid-row:1/3} }
 .ctpick{max-height:60vh;overflow-y:auto}
+.tsnamesrow{grid-column:2;display:flex;flex-direction:column;gap:4px}
+.tsnamesrow[hidden]{display:none}
+.tsnames{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:15px/1.5 'Sarabun',sans-serif;resize:vertical}
+.tsnamesrow .note{margin:0}
+@media (max-width:520px){ .tsopts{grid-template-columns:1fr} .tsfor,.tsnamesrow{grid-column:1} }

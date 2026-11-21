@@ -357,28 +357,32 @@ revoke all on public.word_pics from anon, authenticated;
 grant select, insert, update, delete on public.word_pics to service_role;
 
 
--- 📝 paper spelling tests checked from a photo (also in 2026-11-class-tests.sql)
+-- 📝 paper spelling tests checked from a photo (also in 2026-11-class-tests.sql + 2026-11-test-names.sql)
+-- A test belongs to the teacher who made it: for a class or group (class_id), or for a typed list of names (no class).
 create table if not exists public.class_tests (
   id          text primary key check (id ~ '^[A-Za-z0-9]{8,16}$'),
-  class_id    text not null references public.classes on delete cascade,
+  owner       uuid not null references auth.users on delete cascade,
+  class_id    text references public.classes on delete cascade,
   name        text not null check (char_length(name) between 1 and 80),
   words       jsonb not null,                       -- the answer key: [{w, th}], in the set's order
   opts        jsonb not null default '{}'::jsonb,   -- how it was printed: {q, hint}
-  roster      jsonb not null,                       -- the students it was printed for: [{u: user id, n: nickname, o: [word order]}]
+  roster      jsonb not null,                       -- who it was printed for: [{u: user id (students with an account), n: name, o: [word order]}]
   reads       integer not null default 0,           -- photos read by AI so far (the Worker caps it per test)
   created_at  timestamptz not null default now(),
   constraint class_tests_size check (octet_length(words::text) + octet_length(roster::text) <= 200000)
 );
 create index if not exists class_tests_class_idx on public.class_tests (class_id, created_at desc);
+create index if not exists class_tests_owner_idx on public.class_tests (owner, created_at desc);
 
 create table if not exists public.class_test_results (
   test_id     text not null references public.class_tests on delete cascade,
-  user_id     uuid not null references auth.users on delete cascade,
-  answers     jsonb not null,                       -- per word of the key: {a: what the child wrote, ok: right or not} or null (not checked)
+  k           integer not null check (k between 0 and 199),   -- place on the test's list
+  user_id     uuid references auth.users on delete cascade,   -- set for a student with an account
+  answers     jsonb not null,                       -- per word of the key: {a: what was written, ok: right or not} or null (not checked)
   score       integer not null check (score between 0 and 100),
   total       integer not null check (total between 1 and 100),
   updated_at  timestamptz not null default now(),
-  primary key (test_id, user_id)
+  primary key (test_id, k)
 );
 create index if not exists class_test_results_user_idx on public.class_test_results (user_id, updated_at desc);
 

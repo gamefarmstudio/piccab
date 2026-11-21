@@ -58,7 +58,7 @@ async def main():
         out['qrs'] = await T.locator('#printSheet .tsqr img').count()
         st = state(); out['db_test'] = [(t['name'], len(t['words']), [r['n'] for r in t['roster']]) for t in st['class_tests']]
         tid = st['class_tests'][0]['id']; roster = [r['n'] for r in st['class_tests'][0]['roster']]
-        mint = roster.index('มิ้นท์'); beam = roster.index('บีม')
+        mint = roster.index('มิ้นท์'); beam = roster.index('บีม'); fake_k = {'mint': mint}
         # the "photo" of มิ้นท์'s sheet: her printed page, as an image
         await T.evaluate("""(k)=>{ const pg=document.querySelectorAll('#printSheet .tspage:not(.key)')[k].cloneNode(true); pg.id='photoPage';
             Object.assign(pg.style,{position:'fixed',left:'0',top:'0',zIndex:'99999',background:'#fff'}); document.body.append(pg); }""", mint)
@@ -68,9 +68,9 @@ async def main():
         # the AI read (faked): what the request asked for, and an answer with a box for the first question
         async def fake_read(r):
             body = json.loads(r.request.post_data); reads.append({ 'k': body['k'], 'first': body['first'], 'last': body['last'], 'jpeg': body['image'].startswith('data:image/jpeg') })
-            items = [{'n': 1, 'a': 'kat', 'box': [60, 300, 600, 340]}, {'n': 2, 'a': 'dog'}, {'n': 3, 'a': 'ice cream'}] if body['k'] == mint else [{'n': 1, 'a': 'cat'}, {'n': 2, 'a': ''}, {'n': 3, 'a': 'icecream'}]
+            items = [{'n': 1, 'a': 'kat', 'box': [60, 300, 600, 340]}, {'n': 2, 'a': 'dog'}, {'n': 3, 'a': 'ice cream'}] if body['k'] == fake_k['mint'] else [{'n': 1, 'a': 'cat'}, {'n': 2, 'a': ''}, {'n': 3, 'a': 'icecream'}]
             await r.fulfill(status=200, content_type='application/json', body=json.dumps({'items': items, 'provider': 'claude'}))
-        await T.route('**/api/classes/*/tests/*/read', fake_read)
+        await T.route('**/api/tests/*/read', fake_read)
         await T.click('#classView button[title="โหลดใหม่"]'); await T.wait_for_timeout(1500)
         out['list'] = await T.inner_text('.ctsec .cttest')
         await T.click('.ctsec .cttest'); await T.wait_for_timeout(1200)
@@ -96,7 +96,7 @@ async def main():
         await T.wait_for_selector('.ctreview', timeout=20000)
         out['rv2_marks'] = await T.locator('.ctreview .ctmark').all_inner_texts()
         await T.click('.ctreview button.primary'); await T.wait_for_timeout(1500)
-        out['reads'] = reads
+        out['reads'] = list(reads)
         out['scores'] = await T.locator('.ctst').all_inner_texts()
         out['miss'] = await T.locator('.rwords .rw').all_inner_texts()
         await T.screenshot(path=shot('ct_scores.png'), full_page=True)
@@ -121,6 +121,37 @@ async def main():
         await S2.reload(); await S2.wait_for_timeout(3500)
         out['s2_set'] = await S2.evaluate("JSON.parse(localStorage.getItem('pv-scenes2')||'[]').filter(s=>s.name.startsWith('📝')).length")
         out['s2_mytests'] = await S2.evaluate("Object.values(JSON.parse(localStorage.getItem('pv-mytests')||'{}')).map(t=>[t.score,t.total,t.n])")
+        # 📝 a typed list of names (people without the app), from the classes page
+        await T.click('.clback button'); await T.wait_for_timeout(300)
+        if await T.locator('.clback button').count(): await T.click('.clback button'); await T.wait_for_timeout(800)
+        out['names_sec'] = await T.inner_text('.ctsec.names')
+        await T.click('.ctsec.names .hsec .linkbtn'); await T.wait_for_timeout(300)
+        await T.locator('#mbox .ctpick .lrow', has_text=set_name).click(); await T.wait_for_timeout(1500)
+        out['n_for'] = await T.input_value('.tsfor'); out['n_box'] = await T.locator('.tsnamesrow:not([hidden]) textarea').count()
+        await T.fill('.tsnames', '1 สมชาย\n\n2 สมหญิง\n'); await T.wait_for_timeout(200)
+        out['n_info'] = await T.inner_text('.tsinfo'); out['n_sample'] = await T.locator('.tsprev .tsf.wide i').first.inner_text()
+        await T.uncheck('.tschk input >> nth=0'); await T.click('.tsbox .tsprint'); await T.wait_for_timeout(2500)
+        out['n_names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
+        out['n_qrs'] = await T.locator('#printSheet .tsqr img').count()
+        await T.evaluate("""()=>{ const pg=document.querySelectorAll('#printSheet .tspage:not(.key)')[1].cloneNode(true); pg.id='photoPage';
+            Object.assign(pg.style,{position:'fixed',left:'0',top:'0',zIndex:'99999',background:'#fff'}); document.body.append(pg); }""")
+        await T.locator('#photoPage').screenshot(path=shot('ct_photo_names.png'))
+        await T.evaluate("document.getElementById('photoPage').remove(); document.getElementById('printSheet')?.remove(); document.body.classList.remove('printing')")
+        await close_modals(T)
+        st = state(); nt = [t for t in st['class_tests'] if not t.get('class_id')]
+        out['n_db'] = [(t['owner'] is not None, [r['n'] for r in t['roster']], any('u' in r for r in t['roster'])) for t in nt]
+        reads.clear(); fake_k['mint'] = -1   # the typed-names sheets get the other answers
+        await T.evaluate("document.querySelector('.mainnav button[data-view=home]').click()"); await T.wait_for_timeout(300)
+        await T.evaluate("document.querySelector('.mainnav button[data-view=class]').click()"); await T.wait_for_timeout(1200)
+        await T.click('.ctsec.names .cttest'); await T.wait_for_timeout(1200)
+        out['n_view'] = await T.inner_text('#classView')
+        await T.set_input_files('.ctfile', [shot('ct_photo_names.png')]); await T.wait_for_selector('.ctreview', timeout=20000)
+        out['n_rv'] = await T.inner_text('.ctrhead')
+        await T.click('.ctreview button.primary'); await T.wait_for_timeout(1500)
+        out['n_reads'] = list(reads)
+        out['n_scores'] = await T.locator('.ctst').all_inner_texts()
+        await T.screenshot(path=shot('ct_names.png'), full_page=True)
+        st = state(); out['n_res'] = [(r['k'], r.get('user_id'), r['score']) for r in st['class_test_results'] if r['test_id'] == nt[0]['id']]
         await b.close()
     check('ยังไม่มี' not in out['empty'] and 'พิมพ์แผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
@@ -138,6 +169,13 @@ async def main():
     check(out['s1_set'] and out['s1_set'][1] == ['cat', 'ice cream'] and out['s1_mytests'] == [[1, 3, 2]], 'the student gets her missed words as a set to practise', (out['s1_set'], out['s1_mytests']))
     check(out['s1_tests'] and 'คะแนน 1/3 · ผิด 2 คำ' in out['s1_tests'][0] and '📝' in out['s1_practice'], 'her score in the class, and ▶ practise', (out['s1_tests'], out['s1_practice']))
     check(out['s2_set'] == 1 and out['s2_mytests'] == [[2, 3, 1]], 'one missed word left for บีม (ice cream) — a set for it', (out['s2_set'], out['s2_mytests']))
+    check('แผ่นสอบรายชื่อเอง' in out['names_sec'], 'the classes page has 📝 tests with typed names', out['names_sec'])
+    check(out['n_for'] == '__names' and out['n_box'] == 1 and '2 คน' in out['n_info'] and out['n_sample'] == '1 สมชาย', 'for: typed names — a box for them, a sample with the first name', (out['n_for'], out['n_box'], out['n_info'], out['n_sample']))
+    check(out['n_names'] == ['1 สมชาย', '2 สมหญิง'] and out['n_qrs'] == 2, 'one sheet per typed name, with a QR', (out['n_names'], out['n_qrs']))
+    check(out['n_db'] == [(True, ['1 สมชาย', '2 สมหญิง'], False)], 'saved for the teacher, no class, no accounts', out['n_db'])
+    check('รายชื่อนี้ไม่ได้ผูกกับบัญชี' in out['n_view'] and 'ห้องเรียนทั้งหมด' in out['n_view'], 'opened from the classes page; scores for the teacher only', out['n_view'])
+    check(out['n_reads'] and out['n_reads'][0]['k'] == 1 and '2 สมหญิง' in out['n_rv'], "the QR on สมหญิง's sheet finds her", (out['n_reads'], out['n_rv']))
+    check(out['n_res'] == [(1, None, 1)] and any('สมหญิง' in x and '1/3' in x for x in out['n_scores']), 'her score is saved without an account', (out['n_res'], out['n_scores']))
     finish('test_class_tests', out, errs)
 
 asyncio.run(main())
