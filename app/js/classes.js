@@ -49,6 +49,7 @@ function renderClass(){
   if(FR.tab==='friends'){ renderFriends(); return; }
   if(FR.tab==='sets'){ renderSets(); return; }
   if(CL.openId){ renderClassDetail(); return; }
+  if(CL.test){ v.innerHTML=''; socialTabs(v); renderClassTest(v, null); return; }   // 📝 a test with typed names
   v.innerHTML='';
   socialTabs(v);
   v.append(el('div',{class:'tiles cltiles'},
@@ -73,6 +74,7 @@ function renderClass(){
   if(fams.length) sec('home', 'กลุ่มครอบครัวของฉัน', fams, teachRow);
   if(cls.length) sec('co_present', 'ห้องที่ฉันสอน', cls, teachRow);
   if(!CL.list.learning.length && !CL.list.teaching.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีห้องเรียน'}));
+  if(!isStudent()) v.append(testsSection(null));   // 📝 tests for a typed list of names (people without the app)
 }
 // 📚 Word sets: make one yourself (Quizlet-style) or scan a teacher's sheet; my sets, newest first
 function renderSets(){

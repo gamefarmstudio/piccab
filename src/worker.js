@@ -122,6 +122,7 @@ export default {
     if (url.pathname === '/api/account') return deleteAccount(request, env);
     if (url.pathname === '/api/shares') return listShares(request, env);
     if (url.pathname === '/api/classes' || url.pathname.startsWith('/api/classes/')) return classes(request, env, url, ctx);
+    if (url.pathname === '/api/tests' || url.pathname.startsWith('/api/tests/')) return tests(request, env, url);
     if (url.pathname === '/api/friends' || url.pathname.startsWith('/api/friends/')) return friends(request, env, url, ctx);
     if (url.pathname === '/api/report/share') return reportShare(request, env, ctx);
     if (url.pathname === '/api/feedback') return feedback(request, env, ctx);
@@ -1493,7 +1494,6 @@ async function classes(request, env, url, ctx) {
       return json({ nickname: mb.nickname, joined_at: mb.joined_at, updated_at: r ? r.updated_at : null, data: r ? r.data : null });
     }
     if (!teacher) return error('forbidden', 403);
-    if (sub === 'tests') return classTests(request, env, me, c, parts, m);
     if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
     if (!sub && m === 'PATCH') {
       const body = await request.json().catch(() => ({}));
@@ -1535,7 +1535,8 @@ async function classes(request, env, url, ctx) {
   }
 }
 // ---------- 📝 paper spelling tests, checked from a photo (supabase/2026-11-class-tests.sql) ----------
-// The teacher prints one sheet per student (name + QR code: test, student, page), photographs the sheets, AI copies
+// The teacher prints one sheet per person (name + QR code: test, place on the list, page) — for a class, or for a typed list
+// of names (no accounts needed) — photographs the sheets, AI copies
 // what each child wrote, the teacher checks it and saves. Photos are only read, never kept. The answer key is not
 // given to the AI, so it copies a misspelling as it is instead of "reading" the right word.
 const MAX_TESTS = 200;
@@ -1556,7 +1557,7 @@ export function cleanAnswers(arr, n) {
   if (!Array.isArray(arr) || arr.length !== n) return null;
   return arr.map(x => x && typeof x === 'object' ? { a: cleanLine(x.a, 60), ok: x.ok === true } : null);
 }
-const testsMissing = e => !!e && (e.status === 404 || /PGRST205|class_test/.test(String(e.body || '')) && e.status === 400);
+const testsMissing = e => !!e && (e.status === 404 || /PGRST20[45]|42703|class_test/.test(String(e.body || '')) && e.status === 400);   // a table or column not made yet
 export function buildTestReadPrompt(first, last, provider) {
   const gem = provider === 'gemini';
   return `This is a photo of one page of a child's English spelling test, printed by a teacher in Thailand. Each question has a printed number (${first} to ${last} on this page), a picture and/or a Thai word (or nothing, when the teacher read the words aloud), and a space where the child wrote an English word by hand: on a line, or one letter in each box. A first letter may be printed in grey in the first box.
@@ -1591,13 +1592,27 @@ export function parseTestRead(text) {
   }
   return out.sort((x, y) => x.n - y.n);
 }
-async function classTests(request, env, me, c, parts, m) {
-  const tid = parts[4], act = parts[5];
+const MAX_OWNER_TESTS = 500;
+// the names a teacher typed for a test (people without an account): one per line
+export function cleanNames(arr) {
+  return (Array.isArray(arr) ? arr : String(arr || '').split(/\r?\n/)).map(x => cleanLine(x, 40)).filter(Boolean).slice(0, MAX_MEMBERS);
+}
+// /api/tests — the paper tests a teacher made: for a class or group (?class=<id>), or for a typed list of names
+async function tests(request, env, url) {
+  if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
+  const me = await userInfo(request, env);
+  if (!me) return error('unauthorized', 401);
+  if (me.anon) return error('student_account', 403);
+  const uid = me.uid, parts = url.pathname.split('/').filter(Boolean);   // api, tests, <test>, <read|results>, <k>
+  const m = request.method, tid = parts[2], act = parts[3];
+  const ownClass = async cid => SHARE_ID.test(cid || '') ? (await q(env, `classes?id=eq.${cid}&owner=eq.${uid}&select=id`) || [])[0] : null;
   try {
     if (!tid && m === 'GET') {
-      const tests = await q(env, `class_tests?class_id=eq.${c.id}&select=id,name,created_at,words,roster&order=created_at.desc&limit=100`) || [];
-      const res = tests.length ? await q(env, `class_test_results?test_id=${inList(tests.map(t => t.id))}&select=test_id,score,total`) || [] : [];
-      return json({ tests: tests.map(t => { const r = res.filter(x => x.test_id === t.id);
+      const cid = url.searchParams.get('class') || '';
+      if (cid && !(await ownClass(cid))) return error('not_found', 404);
+      const list = await q(env, `class_tests?owner=eq.${uid}&class_id=${cid ? 'eq.' + cid : 'is.null'}&select=id,name,created_at,words,roster&order=created_at.desc&limit=100`) || [];
+      const res = list.length ? await q(env, `class_test_results?test_id=${inList(list.map(t => t.id))}&select=test_id,score,total`) || [] : [];
+      return json({ tests: list.map(t => { const r = res.filter(x => x.test_id === t.id);
         return { id: t.id, name: t.name, created_at: t.created_at, total: (t.words || []).length, students: (t.roster || []).length, checked: r.length,
           avg: r.length ? Math.round(r.reduce((s, x) => s + x.score / x.total, 0) / r.length * 100) : null }; }) });
     }
@@ -1606,30 +1621,37 @@ async function classTests(request, env, me, c, parts, m) {
       const name = cleanLine(body.name, 80), words = cleanTestWords(body.words);
       if (!name || !words.length) return error('bad_request', 400);
       const opts = { q: TEST_QS.includes(body.q) ? body.q : 'pic', hint: TEST_HINTS.includes(body.hint) ? body.hint : 'none' };
-      const have = await q(env, `class_tests?class_id=eq.${c.id}&select=id`) || [];
-      if (have.length >= MAX_TESTS) return error('too_many_tests', 429);
-      const members = await q(env, `class_members?class_id=eq.${c.id}&select=user_id,nickname&order=nickname.asc`) || [];
-      if (!members.length) return error('no_students', 400);
+      let people, cid = null;
+      if (body.class_id) {
+        if (!(await ownClass(body.class_id))) return error('not_found', 404);
+        cid = body.class_id;
+        if ((await q(env, `class_tests?class_id=eq.${cid}&select=id`) || []).length >= MAX_TESTS) return error('too_many_tests', 429);
+        people = (await q(env, `class_members?class_id=eq.${cid}&select=user_id,nickname&order=nickname.asc`) || []).map(x => ({ u: x.user_id, n: x.nickname }));
+      } else {
+        people = cleanNames(body.names).map(n => ({ n }));
+      }
+      if (!people.length) return error('no_students', 400);
+      if ((await q(env, `class_tests?owner=eq.${uid}&select=id`) || []).length >= MAX_OWNER_TESTS) return error('too_many_tests', 429);
       const order = () => { const o = words.map((_, i) => i); if (body.mix) for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
-      const roster = members.slice(0, MAX_MEMBERS).map(x => ({ u: x.user_id, n: x.nickname, o: order() }));
+      const roster = people.slice(0, MAX_MEMBERS).map(p => ({ ...p, o: order() }));
       const id = newShareId();
-      await q(env, 'class_tests', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ id, class_id: c.id, name, words, opts, roster }) });
-      return json({ id, name, words, opts, roster: roster.map(r => ({ n: r.n, o: r.o })) });
+      await q(env, 'class_tests', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ id, owner: uid, class_id: cid, name, words, opts, roster }) });
+      return json({ id, name, words, opts, class_id: cid, roster: roster.map(r => ({ n: r.n, o: r.o, account: !!r.u })) });
     }
     if (!SHARE_ID.test(tid || '')) return error('not_found', 404);
-    const t = (await q(env, `class_tests?id=eq.${tid}&class_id=eq.${c.id}&select=*`) || [])[0];
+    const t = (await q(env, `class_tests?id=eq.${tid}&owner=eq.${uid}&select=*`) || [])[0];
     if (!t) return error('not_found', 404);
     const roster = t.roster || [], words = t.words || [];
     if (!act && m === 'GET') {
-      const res = await q(env, `class_test_results?test_id=eq.${tid}&select=user_id,answers,score,total,updated_at`) || [];
-      const by = new Map(res.map(r => [r.user_id, r]));
-      return json({ id: t.id, name: t.name, created_at: t.created_at, words, opts: t.opts || {},
-        roster: roster.map(r => { const x = by.get(r.u); return { n: r.n, o: r.o, result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
+      const res = await q(env, `class_test_results?test_id=eq.${tid}&select=k,answers,score,total,updated_at`) || [];
+      const by = new Map(res.map(r => [r.k, r]));
+      return json({ id: t.id, name: t.name, created_at: t.created_at, class_id: t.class_id || null, words, opts: t.opts || {},
+        roster: roster.map((r, k) => { const x = by.get(k); return { n: r.n, o: r.o, account: !!r.u, result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
     }
     if (!act && m === 'DELETE') { await q(env, `class_tests?id=eq.${tid}`, { method: 'DELETE' }); return json({ ok: true }); }
-    // ✨ read one photographed page of one student's sheet: questions first..last
+    // ✨ read one photographed page of one person's sheet: questions first..last
     if (act === 'read' && m === 'POST') {
-      if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'test:' + me.uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+      if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'test:' + uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
       const providers = env.ANTHROPIC_API_KEY ? ['claude'] : pickProviders(env);   // children's handwriting and names: not to a free tier that may keep it
       if (!providers.length) return error('not_configured', 503);
       const body = await request.json().catch(() => ({}));
@@ -1646,23 +1668,25 @@ async function classTests(request, env, me, c, parts, m) {
       await saveUsage(env, 'scan', log);
       return res;
     }
-    // ✓ save what the teacher checked for one student
+    // ✓ save what the teacher checked for one person on the list
     if (act === 'results' && m === 'PUT') {
-      const k = Number(parts[6]);
+      const k = Number(parts[4]);
       if (!Number.isInteger(k) || !roster[k]) return error('bad_request', 400);
       const body = await request.json().catch(() => ({}));
       const answers = cleanAnswers(body.answers, words.length);
       if (!answers) return error('bad_request', 400);
-      if (!answers.some(Boolean)) { await q(env, `class_test_results?test_id=eq.${tid}&user_id=eq.${roster[k].u}`, { method: 'DELETE' }); return json({ ok: true, result: null }); }
-      const score = answers.filter(x => x && x.ok).length, row = { test_id: tid, user_id: roster[k].u, answers, score, total: words.length, updated_at: new Date().toISOString() };
-      try { await q(env, 'class_test_results?on_conflict=test_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) }); }
-      catch (e) { if (e.status === 409) return error('not_found', 404); throw e; }   // the student's account was deleted
+      if (!answers.some(Boolean)) { await q(env, `class_test_results?test_id=eq.${tid}&k=eq.${k}`, { method: 'DELETE' }); return json({ ok: true, result: null }); }
+      const score = answers.filter(x => x && x.ok).length;
+      const row = { test_id: tid, k, user_id: roster[k].u || null, answers, score, total: words.length, updated_at: new Date().toISOString() };
+      const put = r => q(env, 'class_test_results?on_conflict=test_id,k', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(r) });
+      try { await put(row); }
+      catch (e) { if (e.status === 409 && row.user_id) await put({ ...row, user_id: null }); else throw e; }   // the student's account was deleted: keep the result without it
       return json({ ok: true, result: { answers, score, total: words.length, at: row.updated_at } });
     }
     return error('method_not_allowed', 405);
   } catch (e) {
     if (testsMissing(e)) return error('needs_tests_sql', 503);
-    console.log('class tests error', e && e.message);
+    console.log('tests error', e && e.message);
     return error('db_error', 502);
   }
 }

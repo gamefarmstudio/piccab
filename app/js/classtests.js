@@ -1,4 +1,5 @@
-// Piccab — 📝 paper spelling tests in a class or family group, checked from photos.
+// Piccab — 📝 paper spelling tests, checked from photos — for a class or family group, or for a typed list of names
+// (people who don't use the app: they get a score, nothing goes to any account).
 // 1. The teacher prints one sheet per student (📝 แผ่นสอบ → choose the class): the student's name is printed on it, and
 //    each page has a QR code "PCB1.<test>.<student>.<page>", so the app knows whose sheet a photo is, and its order.
 // 2. The teacher photographs the sheets; the app reads the QR on the phone, and AI copies what the child wrote
@@ -16,15 +17,24 @@ import { isList, saveWordSheet } from './sheets.js';
 import { user } from './account.js';
 import { CL, classApi, classErr, renderClass } from './classes.js';
 import { sendReportSoon } from './report.js';
+import { accessToken } from './sync.js';
 
 var CT={ checking:false };
 const QR_PREFIX='PCB1';
 const normAns=s=>String(s||'').toLowerCase().replace(/[’‘`´]/g,"'").replace(/[^\p{L}\p{N}' -]/gu,'').replace(/\s+/g,' ').trim();
 const isRight=(a, w)=>!!normAns(a) && normAns(a)===normAns(w);
-const TEST_ERR={ needs_tests_sql:'ต้องรัน SQL 2026-11-class-tests.sql ใน Supabase ก่อน', no_students:'ยังไม่มีนักเรียนในห้องนี้', too_many_tests:'มีแผ่นสอบในห้องนี้ครบ 200 ชุดแล้ว — ลบชุดเก่าก่อน',
+const TEST_ERR={ needs_tests_sql:'ต้องรัน SQL 2026-11-class-tests.sql และ 2026-11-test-names.sql ใน Supabase ก่อน', no_students:'ยังไม่มีนักเรียนในห้องนี้', too_many_tests:'มีแผ่นสอบในห้องนี้ครบ 200 ชุดแล้ว — ลบชุดเก่าก่อน',
   too_many_reads:'อ่านรูปของแผ่นสอบนี้ครบจำนวนแล้ว — ตรวจที่เหลือด้วยมือได้', rate_limited:'ส่งรูปถี่เกินไป รอสักครู่แล้วลองใหม่', not_configured:'ตอนนี้ใช้ AI ไม่ได้ — ตรวจด้วยมือได้',
   busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', invalid_json:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', refused:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', image_too_large:'รูปใหญ่เกินไป' };
 const testErr=r=>TEST_ERR[r && r.j && r.j.error] || classErr(r);
+// /api/tests: the teacher's paper tests
+async function testApi(method, path, body){
+  const tok=await accessToken();
+  const r=await fetch('/api/tests'+path,{ method, headers:{ 'content-type':'application/json', ...(tok?{authorization:'Bearer '+tok}:{}) }, body: body?JSON.stringify(body):undefined });
+  return { ok:r.ok, status:r.status, j:await r.json().catch(()=>({})) };
+}
+// the names a teacher types for a test without a class: one per line
+const namesFrom=text=>String(text||'').split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim().slice(0,40)).filter(Boolean).slice(0,200);
 
 // ---------- 1. printing: one sheet per student ----------
 // the QR code of one page, as an image
@@ -33,11 +43,12 @@ async function qrUrl(text){
   const qr=qrcode(0,'M'); qr.addData(text); qr.make();
   return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr.createSvgTag({ cellSize:4, margin:8, scalable:true }));
 }
-// Make the test in the class (the server takes the class list and gives each student their order), then the pages:
-// each student's sheet, then one answer page in the word set's order.
-async function classTestPages(clsId, sc, cards, o){
+// Make the test (for a class the server takes the class list; or the typed names) — each person gets their order —
+// then the pages: each person's sheet, then one answer page in the word set's order.
+// target: {class_id} or {names: [...]}
+async function classTestPages(target, sc, cards, o){
   const seen=new Set(), words=cards.filter(c=>{ const k=c.word.trim().toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,60);
-  const r=await classApi('POST',`/${clsId}/tests`,{ name:sc.name, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
+  const r=await testApi('POST','',{ ...target, name:sc.name, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
   if(!r.ok){ toast(testErr(r), 5000); return null; }
   const T=r.j, byWord=new Map(words.map(c=>[c.word.trim().toLowerCase(), c]));
   const key=T.words.map(w=>byWord.get(w.w.trim().toLowerCase()) || { word:w.w, mean:w.th, pic:'' });
@@ -52,15 +63,17 @@ async function classTestPages(clsId, sc, cards, o){
 }
 
 // ---------- the tests of a class (teacher) ----------
+// d: the class shown, or null for the tests with typed names (on the classes page)
 function testsSection(d){
-  const box=el('div',{class:'ctsec'});
-  const head=el('div',{class:'hsec'}, el('h3',{text:'📝 แผ่นสอบ'}), el('button',{class:'linkbtn',text:'➕ พิมพ์แผ่นสอบให้ห้องนี้',onclick:()=>pickTestSet(d)}));
+  const box=el('div',{class:'ctsec'+(d?'':' names')});
+  const head=el('div',{class:'hsec'}, el('h3',{text: d ? '📝 แผ่นสอบ' : '📝 แผ่นสอบรายชื่อเอง'}),
+    el('button',{class:'linkbtn',text: d ? '➕ พิมพ์แผ่นสอบให้ห้องนี้' : '➕ พิมพ์แผ่นสอบ',onclick:()=>pickTestSet(d)}));
   const body=el('div',{}, el('p',{class:'note small',text:'กำลังโหลด…'}));
   box.append(head, body);
-  classApi('GET',`/${d.id}/tests`).catch(()=>({ok:false})).then(r=>{
+  testApi('GET', d ? `?class=${d.id}` : '').catch(()=>({ok:false})).then(r=>{
     body.replaceChildren();
     if(!r.ok){ body.append(el('p',{class:'note small',text: r.j && r.j.error==='needs_tests_sql' ? TEST_ERR.needs_tests_sql : 'โหลดแผ่นสอบไม่สำเร็จ'})); return; }
-    if(!r.j.tests.length){ body.append(el('p',{class:'note small',text:'พิมพ์แผ่นสอบที่มีชื่อนักเรียนแต่ละคน แล้วถ่ายรูปให้ AI ช่วยตรวจ'})); return; }
+    if(!r.j.tests.length){ body.append(el('p',{class:'note small',text: d ? 'พิมพ์แผ่นสอบที่มีชื่อนักเรียนแต่ละคน แล้วถ่ายรูปให้ AI ช่วยตรวจ' : 'สำหรับนักเรียนที่ไม่ได้ใช้แอป: พิมพ์รายชื่อเอง แล้วถ่ายรูปให้ AI ช่วยตรวจ'})); return; }
     const list=el('div',{class:'liblist'});
     r.j.tests.forEach(t=>list.append(el('button',{class:'lrow cttest',onclick:()=>openClassTest(t.id)},
       el('span',{class:'clic',text:'📝'}),
@@ -79,16 +92,17 @@ function pickTestSet(d){
     m.append(el('h3',{text:'📝 เลือกชุดคำที่จะสอบ'}));
     if(!list.length) m.append(el('p',{class:'libempty',text:'ยังไม่มีชุดคำ'}));
     const box=el('div',{class:'liblist ctpick'});
-    list.slice(0,80).forEach(sc=>box.append(el('button',{class:'lrow',onclick:()=>{ closeModal(); openTestSheet(sc, { cls:d.id }); }},
+    list.slice(0,80).forEach(sc=>box.append(el('button',{class:'lrow',onclick:()=>{ closeModal(); openTestSheet(sc, { cls: d ? d.id : NAMES }); }},
       el('span',{class:'clic',text:isList(sc)?'📚':'🖼️'}), el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:sc.name}),
         el('span',{class:'lm',text:`${Object.values(sc.items||{}).filter(it=>it && it.word).length} คำ`})))));
     m.append(box, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
   });
 }
+const NAMES='__names';   // "for": a typed list of names
 function openClassTest(id){ CL.test={ id, data:null }; renderClass(); window.scrollTo(0,0); loadClassTest(); }
 async function loadClassTest(){
   const T=CL.test; if(!T) return;
-  const r=await classApi('GET',`/${CL.openId}/tests/${T.id}`).catch(()=>({ok:false}));
+  const r=await testApi('GET',`/${T.id}`).catch(()=>({ok:false}));
   if(CL.test!==T) return;
   T.data = r.ok ? r.j : { error:testErr(r) };
   if(S.view==='class') renderClass();
@@ -99,9 +113,11 @@ function missRanking(t){
   t.roster.forEach(st=>{ const a=st.result && st.result.answers; if(a) a.forEach((x,i)=>{ if(x && !x.ok) n.set(i,(n.get(i)||0)+1); }); });
   return [...n.entries()].sort((a,b)=>b[1]-a[1]).map(([i,c])=>({ w:t.words[i], n:c }));
 }
+// d: the class it is in, or null (a test with typed names, opened from the classes page)
 function renderClassTest(v, d){
   const T=CL.test;
-  v.append(el('div',{class:'clback'}, el('button',{class:'linkbtn',onclick:()=>{ CL.test=null; renderClass(); }}, ic('arrow_back'), d.kind==='family' ? 'กลับไปที่กลุ่มครอบครัว' : 'กลับไปที่ห้องเรียน')));
+  v.append(el('div',{class:'clback'}, el('button',{class:'linkbtn',onclick:()=>{ CL.test=null; renderClass(); }}, ic('arrow_back'),
+    !d ? 'ห้องเรียนทั้งหมด' : d.kind==='family' ? 'กลับไปที่กลุ่มครอบครัว' : 'กลับไปที่ห้องเรียน')));
   const t=T.data;
   if(!t){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); return; }
   if(t.error){ v.append(el('p',{class:'libempty',text:t.error})); return; }
@@ -115,7 +131,7 @@ function renderClassTest(v, d){
     el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
     el('button',{class:'danger ctdel',text:'🗑 ลบ',onclick:async()=>{
       if(!(await ask(`ลบแผ่นสอบ “${t.name}” และคะแนนทั้งหมด?`,'ลบ'))) return;
-      const r=await classApi('DELETE',`/${CL.openId}/tests/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }
+      const r=await testApi('DELETE',`/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }
       CL.test=null; toast('ลบแล้ว'); renderClass(); }})),
     el('p',{class:'note small',text:'ถ่ายทีละแผ่นให้เห็นทั้งหน้าและ QR ที่มุมขวาบน เลือกหลายรูปพร้อมกันได้ · AI อ่านคำตอบ แล้วคุณตรวจทานก่อนบันทึก · รูปไม่ถูกเก็บไว้'}));
   // scores
@@ -131,8 +147,8 @@ function renderClassTest(v, d){
   // the words most students got wrong
   const miss=missRanking(t);
   if(miss.length) v.append(el('h3',{class:'psub',text:'คำที่ผิดบ่อย'}),
-    el('div',{class:'rwords'}, ...miss.slice(0,20).map(x=>el('span',{class:'rw weak'}, el('b',{'data-noi18n':'',text:x.w.w}), x.w.th ? el('small',{'data-noi18n':'',text:x.w.th}) : null, el('em',{text:`${x.n} คน`})))),
-    el('p',{class:'note small',text:'นักเรียนแต่ละคนได้คำที่ตัวเองผิดไปฝึกต่อในแอปโดยอัตโนมัติ'}));
+    el('div',{class:'rwords'}, ...miss.slice(0,20).map(x=>el('span',{class:'rw weak'}, el('b',{'data-noi18n':'',text:x.w.w}), x.w.th ? el('small',{'data-noi18n':'',text:x.w.th}) : null, el('em',{text:`${x.n} คน`})))));
+  if(miss.length || !t.class_id) v.append(el('p',{class:'note small',text: t.class_id ? 'นักเรียนแต่ละคนได้คำที่ตัวเองผิดไปฝึกต่อในแอปโดยอัตโนมัติ' : 'รายชื่อนี้ไม่ได้ผูกกับบัญชีในแอป — เก็บไว้เป็นคะแนนสำหรับครูเท่านั้น'}));
 }
 
 // ---------- 2. photos: whose sheet (QR), then AI reads it ----------
@@ -175,7 +191,7 @@ async function checkPhotos(t, files){
       if(!hit){ URL.revokeObjectURL(url); continue; }
       const range=ranges[hit.p], photo=photoCanvas(img, 1600);
       openModal(m=>m.append(el('h3',{text:'📷 '+where}), el('p',{class:'note ctwait'}, '✨ AI กำลังอ่านแผ่นของ', ' ', el('b',{'data-noi18n':'',text:t.roster[hit.k].n}), '…')));
-      const r=await classApi('POST',`/${CL.openId}/tests/${t.id}/read`,{ image:photo.toDataURL('image/jpeg',0.85), k:hit.k, first:range[0], last:range[1] }).catch(()=>({ok:false}));
+      const r=await testApi('POST',`/${t.id}/read`,{ image:photo.toDataURL('image/jpeg',0.85), k:hit.k, first:range[0], last:range[1] }).catch(()=>({ok:false}));
       if(!r.ok) toast(testErr(r), 5000);
       const go=await reviewSheet(t, hit.k, range, photo, r.ok ? r.j.items || [] : null, where);
       URL.revokeObjectURL(url);
@@ -238,7 +254,7 @@ function reviewSheet(t, k, range, photo, read, where){
       save.addEventListener('click',async()=>{
         save.disabled=true; save.textContent='กำลังบันทึก…';
         const answers=prev.slice(); rows.forEach(r=>{ answers[r.i]={ a:normAns(r.a), ok:r.ok }; });
-        const x=await classApi('PUT',`/${CL.openId}/tests/${t.id}/results/${k}`,{ answers }).catch(()=>({ok:false}));
+        const x=await testApi('PUT',`/${t.id}/results/${k}`,{ answers }).catch(()=>({ok:false}));
         if(!x.ok){ save.disabled=false; save.textContent='✓ บันทึก'; toast(testErr(x)); return; }
         st.result=x.j.result; out=true; toast(`บันทึกคะแนน ${st.n} แล้ว`); closeModal();
       });
@@ -309,4 +325,4 @@ function myTestsEl(classId){
 // for the learning report: [name, class, score, total, day]
 const testsForReport=()=>myTests().slice(0,10).map(t=>[t.name||'', t.cls||'', t.score|0, t.total|0, String(t.at||'').slice(0,10)]);
 
-export { checkMyTests, classTestPages, myTestsEl, renderClassTest, testsForReport, testsSection };
+export { checkMyTests, classTestPages, myTestsEl, NAMES, namesFrom, renderClassTest, testsForReport, testsSection };

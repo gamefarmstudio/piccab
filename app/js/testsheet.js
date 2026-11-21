@@ -6,7 +6,7 @@ import { el, LANGS, S, shuffle, store, tally, toast } from './core.js';
 import { closeModal, openModal } from './scene.js';
 import { allWords } from './home.js';
 import { makeCards, printNow } from './cards.js';
-import { classTestPages } from './classtests.js';
+import { classTestPages, NAMES, namesFrom } from './classtests.js';
 import { user } from './account.js';
 import { CL, loadClasses } from './classes.js';
 
@@ -14,7 +14,8 @@ var TS={ q:store.get('pv-ts-q','pic'), hint:store.get('pv-ts-hint','none'), mix:
 const TS_PIC_PER=12, TS_ROW_FIRST=17, TS_ROW_PER=19;   // questions a page: 3 × 4 pictures, or rows of meanings
 const LETTER=/[\p{L}\p{N}]/u;
 
-// opts.cls: a class or family group to print for (one sheet per student, with name and QR; see classtests.js)
+// opts.cls: a class or family group to print for (one sheet per student, with name and QR; see classtests.js),
+// or NAMES: a list of names the teacher types (people without the app)
 async function openTestSheet(sc, opts={}){
   const words=allWords().filter(w=>w.sc===sc);
   if(!words.length){ toast('ยังไม่มีคำศัพท์'); return; }
@@ -36,33 +37,46 @@ async function openTestSheet(sc, opts={}){
     // 🎓 for: the same sheet for everyone, or one sheet per student of a class (signed-in teachers)
     const forSel=el('select',{class:'tsfor','aria-label':'สำหรับ'});
     const classes=()=>((CL.list && CL.list.teaching) || []);
+    const known=v=>v==='' || v===NAMES || classes().some(c=>c.id===v);
     const fillFor=()=>{ forSel.replaceChildren(el('option',{value:'',text:'ทุกคนใช้แผ่นเดียวกัน (เขียนชื่อเอง)'}),
-      ...classes().map(c=>el('option',{value:c.id,text:`${c.kind==='family'?'🏠':'🎓'} ${c.name} · ${c.members} คน (พิมพ์ชื่อและ QR ให้แต่ละคน)`})));
-      if(CL.list && !classes().some(c=>c.id===cls)) cls=''; forSel.value=classes().some(c=>c.id===cls) ? cls : ''; };
-    forSel.addEventListener('change',()=>{ cls=forSel.value; draw(); });
+      ...classes().map(c=>el('option',{value:c.id,text:`${c.kind==='family'?'🏠':'🎓'} ${c.name} · ${c.members} คน (พิมพ์ชื่อและ QR ให้แต่ละคน)`})),
+      el('option',{value:NAMES,text:'📝 พิมพ์รายชื่อเอง (ไม่ต้องมีบัญชีในแอป)'}));
+      if(CL.list && !known(cls)) cls=''; forSel.value=known(cls) ? cls : ''; };
+    // the typed names, one per line (kept for next time)
+    const namesBox=el('textarea',{class:'tsnames',rows:'4','aria-label':'รายชื่อ',placeholder:'หนึ่งชื่อต่อบรรทัด เช่น\n1 สมชาย\n2 สมหญิง'});
+    namesBox.value=store.get('pv-ts-names','')||'';
+    const namesRow=el('div',{class:'tsnamesrow'}, namesBox, el('p',{class:'note small',text:'แต่ละคนได้แผ่นที่มีชื่อและ QR · ไม่ต้องมีบัญชีในแอป · เก็บแค่คะแนนไว้ให้ครู'}));
+    namesBox.addEventListener('input',()=>{ store.set('pv-ts-names', namesBox.value.slice(0,6000)); draw(); });
+    forSel.addEventListener('change',()=>{ cls=forSel.value; draw(); if(cls===NAMES) setTimeout(()=>namesBox.focus(),0); });
     if(user){ fillFor(); if(!CL.list) loadClasses().then(()=>{ if(forSel.isConnected){ fillFor(); draw(); } }); }
     const printBtn=el('button',{class:'primary tsprint',text:'🖨️ พิมพ์ / บันทึก PDF'});
     const fit=()=>{ const p=prev.querySelector('.tspage'); if(!p || !prev.clientWidth) return; prev.style.zoom='';
       prev.style.zoom=String(Math.min(1, (prev.clientWidth-4)/p.offsetWidth)); };
     const draw=()=>{
       for(const [g,cur] of [[qSeg,TS.q],[hSeg,TS.hint]]) [...g.children].forEach(b=>{ const on=b.dataset.v===cur; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
-      const c=classes().find(x=>x.id===cls);
-      const pages=testPages(sc, order, TS, c ? { name:'(ชื่อนักเรียน)', sample:true } : {}), qp=pages.filter(p=>!p.classList.contains('key')).length;
+      const c=classes().find(x=>x.id===cls), names=cls===NAMES ? namesFrom(namesBox.value) : null;
+      namesRow.hidden=cls!==NAMES;
+      const who=c || names ? { name: names && names[0] ? names[0] : '(ชื่อนักเรียน)', sample:true } : {};
+      const pages=testPages(sc, order, TS, who), qp=pages.filter(p=>!p.classList.contains('key')).length;
       prev.replaceChildren(...pages.map((p,i)=>el('div',{class:'tspagewrap'}, el('span',{class:'pcpn',text: p.classList.contains('key') ? 'เฉลย (สำหรับครู)' : c ? `ตัวอย่าง หน้า ${i+1}` : `หน้า ${i+1}`}), p)));
       const noPic=(TS.q==='pic' || TS.q==='both') ? order.filter(c=>!c.pic).length : 0;
-      info.textContent= c ? `${order.length} ข้อ · ${c.members} คน คนละ ${qp} หน้า` : TS.key ? `${order.length} ข้อ · ${qp} หน้า + เฉลย 1 หน้า` : `${order.length} ข้อ · ${qp} หน้า`;
-      if(c) info.append(el('br'), 'ถ่ายรูปแผ่นที่ทำแล้วใน 🎓 ห้องเรียน ให้ AI ช่วยตรวจ');
+      const n=c ? c.members : names ? names.length : 0;
+      info.textContent= c || names ? `${order.length} ข้อ · ${n} คน คนละ ${qp} หน้า` : TS.key ? `${order.length} ข้อ · ${qp} หน้า + เฉลย 1 หน้า` : `${order.length} ข้อ · ${qp} หน้า`;
+      if(c || names) info.append(el('br'), 'ถ่ายรูปแผ่นที่ทำแล้วใน 🎓 ห้องเรียน ให้ AI ช่วยตรวจ');
+      printBtn.disabled=!!names && !names.length;
       if(noPic) info.append(el('br'), `${noPic} คำไม่มีรูป จะแสดงคำแปลแทน`);
       fit();
     };
     printBtn.addEventListener('click',async()=>{
       printBtn.disabled=true; printBtn.textContent='กำลังเตรียม…';
       if(cls){
-        const got=await classTestPages(cls, sc, cards, TS);
+        const names=cls===NAMES ? namesFrom(namesBox.value) : null;
+        if(names && !names.length){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; namesBox.focus(); return; }
+        const got=await classTestPages(names ? { names } : { class_id:cls }, sc, cards, TS);
         if(!got){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; return; }
         await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages));
         closeModal(); tally('test_sheet');
-        toast('บันทึกแผ่นสอบไว้ในห้องเรียนแล้ว — เมื่อนักเรียนทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบ', 7000);
+        toast(names ? 'บันทึกแผ่นสอบแล้ว — เมื่อทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบรายชื่อเอง' : 'บันทึกแผ่นสอบไว้ในห้องเรียนแล้ว — เมื่อนักเรียนทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบ', 7000);
         return;
       }
       await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...testPages(sc, order, TS)));
@@ -70,7 +84,7 @@ async function openTestSheet(sc, opts={}){
     });
     m.append(el('div',{class:'pchead'}, el('h3',{text:'📝 แผ่นสอบเขียนคำศัพท์'}), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('div',{class:'tsopts'},
-        user ? el('b',{text:'สำหรับ'}) : null, user ? forSel : null,
+        user ? el('b',{text:'สำหรับ'}) : null, user ? forSel : null, user ? namesRow : null,
         el('b',{text:'โจทย์'}), qSeg,
         el('b',{text:'ตัวช่วย'}), hSeg,
         el('div',{class:'tschk'},
