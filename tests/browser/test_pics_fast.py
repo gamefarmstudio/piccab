@@ -23,13 +23,12 @@ async def main():
         A=await newpage(b, errs); await A.goto(BASE+'/app'); await A.wait_for_timeout(700)
         names=[]
         for i in range(5):
-            if i==0: await A.click('.welcome .wslink')
-            else: await A.click('.cbtn.wide:has-text("ชีทคำศัพท์จากครู")')
+            await open_set_maker(A)
             await A.wait_for_timeout(250)
             name=f'Sheet {i+1}'; names.append(name)
             await A.fill('.wsbox input[aria-label="ชื่อชุดคำ"]', name)
             if await A.locator('.wsbox input[type=checkbox]').count(): await A.locator('.wsbox input[type=checkbox]').first.uncheck()
-            await A.fill('.wsbox textarea', f"cat แมว\ndog สุนัข\nbird นก{i}"); await A.click('.wsbox .row .primary'); await A.wait_for_timeout(900)
+            await paste_words(A, f"cat แมว\ndog สุนัข\nbird นก{i}"); await A.click('.wsbox .row .primary'); await A.wait_for_timeout(900)
             for _ in range(4):
                 if not await A.locator('#modal:not([hidden])').count(): break
                 await A.evaluate("document.querySelector('#modal').click()"); await A.wait_for_timeout(250)

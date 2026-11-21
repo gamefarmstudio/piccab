@@ -90,3 +90,18 @@ async def skip_ai_offer(pg):
     await pg.wait_for_timeout(300)
     if await pg.locator('#modal:not([hidden])').count() and not await pg.locator('#mbox input.word').count():
         await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
+
+
+# 📚 word sets (🎓 Classes → ชุดคำศัพท์): open the editor for a new set, and fill it by pasting a list
+async def open_set_maker(pg):
+    for sel in ['#bnav [data-view=class]', '.mainnav [data-view=class]']:
+        if await pg.locator(sel).is_visible(): await pg.click(sel); break
+    await pg.wait_for_timeout(300)
+    await pg.click('.socialtabs button:has-text("ชุดคำศัพท์")'); await pg.wait_for_timeout(200)
+    await pg.click('.tile.setnew'); await pg.wait_for_timeout(250)
+async def paste_words(pg, text, replace=False):
+    await pg.click('.wsbox .wspastebtn'); await pg.fill('.wsbox .wspaste textarea', text)
+    await pg.click('.wsbox .wsreplace' if replace else '.wsbox .wsappend'); await pg.wait_for_timeout(150)
+async def set_words(pg):
+    """the words in the open editor, as 'word meaning' lines"""
+    return await pg.evaluate("[...document.querySelectorAll('.wsbox .wsr')].map(r=>(r.querySelector('.wst').value+' '+r.querySelector('.wsd').value).trim()).filter(Boolean)")

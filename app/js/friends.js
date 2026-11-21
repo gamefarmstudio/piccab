@@ -10,7 +10,7 @@ import { copyLink, importShare, myShares, openImported, picturesUploaded, shareA
 import { accessToken } from './sync.js';
 
 // ---------- 👫 friends (safe by design: codes in person, no search, no chat) ----------
-var FR={ tab: store.get('pv-social-tab','class')==='friends'?'friends':'class', data:null, loading:false, badge:0 };
+var FR={ tab: ['friends','sets'].includes(store.get('pv-social-tab','class')) ? store.get('pv-social-tab','class') : 'class', data:null, loading:false, badge:0 };
 const CHEER_TEXT={ clap:'👏 เก่งมาก!', fire:'🔥 มาทบทวนกันเถอะ', strong:'💪 สู้ๆ นะ', star:'⭐ ได้ดาวเยอะเลย' };
 function badgeEl(n){ return n ? el('span',{class:'nbadge',text:n>9?'9+':String(n)}) : null; }
 function setSocialBadge(n){

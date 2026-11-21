@@ -15,8 +15,12 @@ LIST = """1. elephant ช้าง
 10. dictionary"""
 SPEAK = "window.__said=[]; if(window.speechSynthesis){ speechSynthesis.speak=u=>{ __said.push(u.text); }; }"
 SHEET = "(()=>{ const a=JSON.parse(localStorage.getItem('pv-scenes2')||'[]'); return a.filter(s=>s.meta&&s.meta.kind==='list').map(s=>({name:s.name, meta:s.meta, items:s.items})); })()"
-SENT=[]
+SENT=[]; PICS=[]
 async def extra(r):
+    if r.request.url.endswith('/api/wordpics'):
+        body=json.loads(r.request.post_data or '{}'); PICS.append([body.get('words'), body.get('draw'), body.get('redraw')])
+        svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="none" stroke="#333" stroke-width="4"/></svg>'
+        return await r.fulfill(status=200, content_type='application/json', body=json.dumps({'pics': {w.lower(): svg for w in body.get('words',[])} if body.get('draw') else {}}))
     if r.request.url.endswith('/api/wordlist'):
         body = json.loads(r.request.post_data or '{}'); SENT.append(body.get('image',''))
         ok = str(body.get('image','')).startswith('data:image/jpeg;base64,')
@@ -36,9 +40,12 @@ async def main():
             await pg.route('**/*', lambda r: app_route(r, health='{"ai":true}', extra=extra)); await pg.goto('https://piccab.test/app'); await pg.wait_for_timeout(700)
             return pg
         pg=await page()
-        # 1) paste the list from the first-visit card
-        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(200)
-        await pg.fill('.wsbox textarea', LIST); out['count']=await pg.inner_text('.wscount')
+        # 1) the first-visit card's link goes to 🎓 → 📚 word sets; paste the list into a new set
+        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(400)
+        out['sets_tab']=(await pg.locator('#classView .socialtabs button.on').inner_text(), await pg.locator('#classView .tile.setnew').count(), await pg.locator('#classView .tile.setscan').count())
+        await pg.click('.tile.setnew'); await pg.wait_for_timeout(250)
+        out['rows0']=await pg.locator('.wsbox .wsr').count()
+        await paste_words(pg, LIST); out['count']=await pg.inner_text('.wscount'); out['rows1']=await pg.locator('.wsbox .wsr').count()
         await pg.fill('.wsbox input[type=date]', in3)
         await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1200)
         out['cards']=await pg.locator('#scene .item').count()
@@ -70,8 +77,16 @@ async def main():
         # 4) edit the list (add a word): ids and progress stay
         await pg.click('.cont .primary.big'); await pg.wait_for_timeout(500)
         await pg.click('#editBtn'); await pg.wait_for_timeout(300)
-        out['prefill']=(await pg.input_value('.wsbox textarea')).split('\n')[:2]
-        await pg.fill('.wsbox textarea', (await pg.input_value('.wsbox textarea'))+'\nnotebook สมุด')
+        out['prefill']=(await set_words(pg))[:2]
+        # Quizlet-style rows: + a word typed in a new row (Enter moves on), a word deleted and put back
+        await pg.click('.wsbox .wsadd'); await pg.wait_for_timeout(100)
+        await pg.locator('.wsbox .wst').last.fill('notebook'); await pg.locator('.wsbox .wst').last.press('Enter')
+        out['enter_focus']=await pg.evaluate("document.activeElement.classList.contains('wsd')")
+        await pg.keyboard.type('สมุด'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(100)
+        out['enter_row']=await pg.locator('.wsbox .wsr').count()      # Enter on the last meaning adds a row
+        await pg.locator('.wsbox .wsr').nth(1).locator('.wsdel').click(); await pg.wait_for_timeout(100)
+        out['after_del']=(await set_words(pg))[:2]
+        await paste_words(pg, 'giraffe ยีราฟ')                           # back again (at the end)
         await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1000)
         sh2=(await pg.evaluate(SHEET))[0]; ida=dict((it['word'],k) for k,it in sh2['items'].items())
         out['ids_kept']=all(ida[w]==idb[w] for w in idb); out['n_after']=len(sh2['items'])
@@ -80,7 +95,7 @@ async def main():
         await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
         await pg.click('#bnav [data-view=library]'); await pg.wait_for_timeout(300); await pg.click('#importBtn'); await pg.wait_for_timeout(200)
         await pg.click('.wsimp'); await pg.wait_for_timeout(200)
-        out['photo_btns']=await pg.locator('.wsbox .wsphotos button').all_inner_texts()
+        out['photo_btns']=await pg.locator('.wsbox .wstools .wsphoto').all_inner_texts()
         out['ws_notice']=await pg.inner_text('.wsbox .ainote')
         out['cam_capture']=await pg.get_attribute('.wsbox input.wscam','capture')
         await pg.set_input_files('.wsbox input.wsfile', PHOTO); await pg.wait_for_timeout(800)
@@ -93,8 +108,11 @@ async def main():
         await pg.click('.wsbox .croppanel button.primary'); await pg.wait_for_timeout(1500)
         out['crop']=await pg.evaluate('''async ([sent, full])=>{ const sz=src=>new Promise(r=>{ const i=new Image(); i.onload=()=>r([i.naturalWidth,i.naturalHeight]); i.src=src; });
           return [await sz(sent), await sz(full)]; }''', [SENT[-1], 'data:image/jpeg;base64,'+__import__('base64').b64encode(open(PHOTO,'rb').read()).decode()])
-        out['crop_gone']=await pg.locator('.wsbox .croppanel').count()==0 and await pg.locator('.wsbox .wsphotos').is_visible()
-        out['ai_lines']=(await pg.input_value('.wsbox textarea')).split('\n'); out['ai_count']=await pg.inner_text('.wscount')
+        out['crop_gone']=await pg.locator('.wsbox .croppanel').count()==0 and await pg.locator('.wsbox .wstools').is_visible()
+        out['ai_lines']=await set_words(pg); out['ai_count']=await pg.inner_text('.wscount')
+        # 🎨 one word's picture from its row (the picture bank first — none here — then the AI, free 3 a set)
+        await pg.locator('.wsbox .wsr').first.locator('.wspic.add').click(); await pg.wait_for_timeout(800)
+        out['row_pic']=(await pg.locator('.wsbox .wsr').first.locator('.wspic img').count(), PICS[:])
         out['style_picker']=await pg.locator('.wsbox .wsstyle, .wsbox [aria-label="ครูสอบแบบไหน"]').count()
         await pg.fill('.wsbox input[aria-label="ชื่อชุดคำ"]','Kitchen words')
         await pg.screenshot(path=shot('ws3_photo.png'))
@@ -108,14 +126,17 @@ async def main():
         await pg.context.close()
         # 6) English menus: nothing Thai left in the dialog, tile and dictation
         pg=await page('en')
-        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(200); left.update(await pg.evaluate(THAI_LEFT))
-        await pg.fill('.wsbox textarea', 'apple\nbanana'); await pg.fill('.wsbox input[type=date]', in3)
+        await pg.click('.welcome .wslink'); await pg.wait_for_timeout(300); left.update(await pg.evaluate(THAI_LEFT))
+        await pg.click('.tile.setnew'); await pg.wait_for_timeout(250); left.update(await pg.evaluate(THAI_LEFT))
+        await paste_words(pg, 'apple\nbanana'); await pg.fill('.wsbox input[type=date]', in3)
         await pg.click('.wsbox .row .primary'); await pg.wait_for_timeout(1000); await pg.click('#homeBtn'); await pg.wait_for_timeout(300)
         out['en_tile']=await pg.inner_text('.tile.exam'); left.update(await pg.evaluate(THAI_LEFT))
         await pg.click('.tile.exam'); await pg.wait_for_timeout(400); left.update(await pg.evaluate(THAI_LEFT))
         out['en_q']=await pg.inner_text('#mbox .rv-q')
         await b.close()
     out['thai_left']=sorted(left)
+    check(out['sets_tab']==('ชุดคำศัพท์',1,1), 'the first-visit link opens 🎓 → 📚 word sets (make one / scan a sheet)', out['sets_tab'])
+    check(out['rows0']==3 and out['rows1']==10, 'a new set starts with 3 empty rows; the pasted list fills one row per word', (out['rows0'], out['rows1']))
     check(out['count']=='10 คำ' and out['cards']==10, 'pasted list → 10 word cards', (out['count'], out['cards']))
     check(out['words']==['elephant','giraffe','butterfly','umbrella','library','beautiful','Wednesday','vegetable','breakfast','dictionary'], 'words read from numbered / = / (n.) - lines', out['words'])
     check(out['th'][:3]==['ช้าง','ยีราฟ','ผีเสื้อ'] and out['th'][-1]=='', 'Thai meanings kept', out['th'])
@@ -126,10 +147,12 @@ async def main():
     check(out['rv_title']=='📝 เขียนตามคำบอก' and 'ฟังแล้วเขียน' in out['rv_q'] and out['rv_listen_btn']==0, 'dictation round: listen and write', (out['rv_title'], out['rv_q'], out['rv_listen_btn']))
     check(out['said'] in out['words'] and '★' in out['rv_msg'], 'the app reads the word; replaying it still earns a ★', (out['said'], out['rv_msg']))
     check(len(out['star'])==1, 'answer saved', out['star'])
-    check(out['prefill']==['elephant ช้าง','giraffe ยีราฟ'] and out['ids_kept'] and out['n_after']==11 and out['star_after']==out['star'], 'editing the list keeps ids and progress', (out['prefill'], out['ids_kept'], out['n_after'], out['star_after']))
+    check(out['enter_focus'] and out['enter_row']==12 and out['after_del']==['elephant ช้าง','butterfly ผีเสื้อ'], 'rows: Enter goes word → meaning → a new row; 🗑 deletes a row', (out['enter_focus'], out['enter_row'], out['after_del']))
+    check(out['prefill']==['elephant ช้าง','giraffe ยีราฟ'] and out['ids_kept'] and out['n_after']==11 and out['star_after']==out['star'], 'editing the set keeps ids and progress', (out['prefill'], out['ids_kept'], out['n_after'], out['star_after']))
     (cw,ch),(fw,fh)=out['crop']
     check('ไม่ใช่คน' in out['ws_notice'] and 'ชื่อนักเรียน' in out['ws_notice'], 'word sheet photo: says it is AI, not a person, and to hide names', out['ws_notice'])
-    check(out['photo_btns']==['ถ่ายรูปชีท','เลือกรูป'] and out['cam_capture']=='environment', 'camera or a saved photo', (out['photo_btns'], out['cam_capture']))
+    check(out['photo_btns']==['สแกนชีท','รูปชีท'] and out['cam_capture']=='environment', 'camera or a saved photo', (out['photo_btns'], out['cam_capture']))
+    check(out['row_pic'][0]==1 and out['row_pic'][1][-2:]==[[['kitchen'],False,False],[['kitchen'],True,True]], '🎨 on a row: the picture bank, then a free AI drawing of that word', out['row_pic'])
     check(abs(cw/fw-.5)<.04 and abs(ch/fh-.35)<.04 and out['crop_gone'], 'only the boxed part is sent to the AI', out['crop'])
     check(out['ai_lines']==['kitchen ห้องครัว','kettle กาน้ำ','toaster'] and out['ai_count']=='3 คำ', 'photo of the list read by AI', (out['ai_lines'], out['ai_count']))
     check('สอบจำลองทั้งชุด (3 คำ)' in out['pv'] and out['mock_title']=='📝 สอบจำลอง' and out['mock_n']=='1/3', 'practice test of the whole list', (out['pv'][:200], out['mock_title'], out['mock_n']))

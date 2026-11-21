@@ -1,8 +1,10 @@
 // Piccab — Classrooms and the teacher's progress export (.xlsx / CSV).
 import { G, $, BUILTIN, el, HL, ic, langOk, LANGS, LOC, pk, progress, S, scenes, store, tally, toast, tx, UI } from './core.js';
 import { ask, closeModal, goHome, openModal, setLang } from './scene.js';
-import { deckCount, deckList, deckName, deckNameDialog, getDeck, liveKeys, wkey } from './decks.js';
+import { sceneTime } from './home.js';
+import { deckCount, deckList, deckName, deckNameDialog, getDeck, liveKeys, openPreview, wkey } from './decks.js';
 import { autoLangState, autoTranslate, missingIn } from './editor.js';
+import { examIn, examLabel, isList, openSheetMaker } from './sheets.js';
 import { authErr, capErr, humanCheck, openDeleteAccount, openLogin, sb, user } from './account.js';
 import { badgeEl, FR, renderFriends } from './friends.js';
 import { openMemberReport, proBadge, proLocked, renderReport, reportLine, setReportOn } from './report.js';
@@ -38,11 +40,13 @@ function socialTabs(v){
   const t=FR.tab;
   v.append(el('div',{class:'seg socialtabs',role:'tablist'},
     el('button',{class:t==='class'?'on':'',role:'tab',onclick:()=>{ FR.tab='class'; store.set('pv-social-tab','class'); renderClass(); }}, ic('school'), 'ห้องเรียน'),
+    el('button',{class:t==='sets'?'on':'',role:'tab',onclick:()=>{ FR.tab='sets'; store.set('pv-social-tab','sets'); renderClass(); }}, ic('style'), 'ชุดคำศัพท์'),
     el('button',{class:t==='friends'?'on':'',role:'tab',onclick:()=>{ FR.tab='friends'; FR.data=null; store.set('pv-social-tab','friends'); renderClass(); }}, ic('group'), 'เพื่อน', badgeEl(FR.badge))));
 }
 function renderClass(){
   const v=$('#classView'); if(!v) return;
   if(FR.tab==='friends'){ renderFriends(); return; }
+  if(FR.tab==='sets'){ renderSets(); return; }
   if(CL.openId){ renderClassDetail(); return; }
   v.innerHTML='';
   socialTabs(v);
@@ -68,6 +72,28 @@ function renderClass(){
   if(fams.length) sec('home', 'กลุ่มครอบครัวของฉัน', fams, teachRow);
   if(cls.length) sec('co_present', 'ห้องที่ฉันสอน', cls, teachRow);
   if(!CL.list.learning.length && !CL.list.teaching.length) v.append(el('p',{class:'libempty',text:'ยังไม่มีห้องเรียน'}));
+}
+// 📚 Word sets: make one yourself (Quizlet-style) or scan a teacher's sheet; my sets, newest first
+function renderSets(){
+  const v=$('#classView'); v.innerHTML=''; socialTabs(v);
+  v.append(el('div',{class:'tiles cltiles'},
+    el('button',{class:'tile setnew',onclick:()=>openSheetMaker()}, el('span',{class:'ic'},ic('edit_note')),
+      el('span',{class:'tt'}, el('b',{text:'สร้างชุดคำเอง'}), el('small',{text:'พิมพ์คำกับความหมาย ใส่รูปได้'})), el('span',{class:'arrow'},ic('arrow_forward'))),
+    el('button',{class:'tile setscan',onclick:()=>openSheetMaker(null,{scan:true})}, el('span',{class:'ic'},ic('document_scanner')),
+      el('span',{class:'tt'}, el('b',{text:'สแกนชีทจากครู'}), el('small',{text:'ถ่ายรูปชีท ให้ AI อ่านคำ'})), el('span',{class:'arrow'},ic('arrow_forward')))));
+  const sets=G.customs.filter(isList).sort((a,b)=>sceneTime(b)-sceneTime(a));
+  v.append(el('div',{class:'hsec'}, el('h3',{}, ic('style'), 'ชุดคำของฉัน'), sets.length ? el('span',{class:'note small',text:`${sets.length} ชุด`}) : null));
+  if(!sets.length){ v.append(el('p',{class:'libempty',text:'ยังไม่มีชุดคำ'})); return; }
+  const box=el('div',{class:'liblist'});
+  for(const sc of sets){
+    const n=Object.values(sc.items||{}).filter(it=>it && it.word).length, ex=examIn(sc), pr=progress[sc.id], done=pr ? Object.keys(pr.done||{}).length : 0;
+    box.append(el('button',{class:'lrow setrow',onclick:()=>openPreview(sc.id)},
+      el('span',{class:'clic s'},ic('style')),
+      el('span',{class:'lb'}, el('b',{text:sc.name}),
+        el('span',{class:'lm'}, el('span',{text:`${n} คำ · ผ่านแล้ว ${done}`}), ex!=null && ex>=0 ? el('span',{class:'setexam',text:' · '+examLabel(ex)}) : null)),
+      ic('chevron_right','chev')));
+  }
+  v.append(box);
 }
 function openClass(id){ CL.openId=id; CL.detail=null; CL.report=null; renderClass(); window.scrollTo(0,0); }
 function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; CL.report=null; renderClass(); }

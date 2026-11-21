@@ -4,9 +4,10 @@ import { dayNo, dueOn, dueWords } from './progress.js';
 import { closeModal, goHome, IMG_PENDING, openModal, openScene, progOf, rrPath, sceneImg } from './scene.js';
 import { openPreview, renderWords, startDueReview, startReview } from './decks.js';
 import { aiCredits, aiMonthly, translateAll } from './editor.js';
-import { examIn, examLabel, isList, openSheetMaker } from './sheets.js';
+import { examIn, examLabel, isList } from './sheets.js';
 import { user } from './account.js';
 import { isStudent, renderClass } from './classes.js';
+import { FR } from './friends.js';
 import { renderAdmin } from './admin.js';
 import { renderPicLib } from './gallery.js';
 import { pathTile, renderPath } from './path.js';
@@ -163,7 +164,7 @@ function welcomeCard(){
       el('button',{class:'primary big',onclick:()=>$('#fileCam').click()}, ic('photo_camera'), 'ถ่ายรูป'),
       el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()}, ic('imagesmode'), 'เลือกรูป')),
     el('p',{class:'capt',id:'homeCredit',text:homeCredit()}),
-    el('button',{class:'linkbtn wslink',onclick:()=>openSheetMaker()}, ic('edit_note'), 'มีชีทคำศัพท์จากครู?'));
+    el('button',{class:'linkbtn wslink',onclick:()=>goSets()}, ic('style'), 'มีชีทคำศัพท์จากครู?'));
 }
 // "Dictation in 3 days": practise the sheet's words (the ones not passed yet first)
 function examTile(sc){
@@ -237,7 +238,7 @@ function renderHome(){
   h.append(el('div',{class:'createrow'},
     el('button',{class:'cbtn',onclick:()=>$('#fileCam').click()}, ic('photo_camera'), 'ถ่ายรูป'),
     el('button',{class:'cbtn',onclick:()=>$('#fileImg').click()}, ic('imagesmode'), 'เลือกรูป'),
-    el('button',{class:'cbtn wide',onclick:()=>openSheetMaker()}, ic('edit_note'), 'ชีทคำศัพท์จากครู')));
+    ));
   h.append(el('p',{class:'capt',id:'homeCredit',text:homeCredit()}));
   // recent
   const list=all.filter(sc=>sc!==cur).sort(byRecent).slice(0,4);
@@ -247,6 +248,8 @@ function renderHome(){
   else h.append(el('p',{class:'empty',text:'ยังไม่มีฉากอื่น — ลองถ่ายรูปดูสิ'}));
   h.append(feedbackStrip());
 }
+// 📚 word sets live in 🎓 Classes
+function goSets(){ FR.tab='sets'; store.set('pv-social-tab','sets'); goHome('class'); }
 function feedbackStrip(){
   return el('button',{type:'button',class:'fbstrip',onclick:()=>openFeedback()}, ic('chat'), el('span',{text:'ใช้แล้วเป็นอย่างไรบ้าง? บอกเราได้เลย'}));
 }
