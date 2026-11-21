@@ -69,7 +69,11 @@ async def main():
         out['printed'] = await pg.evaluate('window.__printed||0')
         out['p_pages'] = await pg.locator('#printSheet .tspage').count()
         out['onscreen'] = await pg.locator('#printSheet').is_visible()
-        await pg.emulate_media(media='print'); pdf = await pg.pdf(path=shot('ts_both.pdf'), format='A4', print_background=True)
+        await pg.emulate_media(media='print')
+        # no page margin, so the browser can't add its header / footer (date, title, link, page number) to a teacher's printout
+        out['page_margin'] = await pg.evaluate("[...document.styleSheets].flatMap(s=>{ try{ return [...s.cssRules]; }catch(e){ return []; } }).filter(r=>r instanceof CSSPageRule).map(r=>r.style.margin)")
+        out['print_fits'] = await pg.evaluate("[...document.querySelectorAll('#printSheet .tspage:not(.key)')].every(p=>p.scrollHeight<=p.clientHeight+1 && Math.abs(p.getBoundingClientRect().height-297*96/25.4)<2)")
+        pdf = await pg.pdf(path=shot('ts_both.pdf'), prefer_css_page_size=True, print_background=True)
         out['pdf_pages'] = len(re.findall(rb'/Type\s*/Page[^s]', pdf))
         await pg.emulate_media(media='screen')
         # a phone: the page shrinks to fit
@@ -94,6 +98,7 @@ async def main():
     check(out['both_means'] == 25 and out['both_keys'] == 0 and out['fits_both'], 'picture + meaning; no answer page when unticked', (out['both_means'], out['both_keys'], out['fits_both']))
     check(out['saved'] == ['"both"', '"none"', 'false', 'false'], 'the choices are remembered', out['saved'])
     check(out['printed'] == 1 and out['p_pages'] == 4 and not out['onscreen'] and out['pdf_pages'] == 4, 'prints 3 pages + answers, one A4 page each', (out['printed'], out['p_pages'], out['onscreen'], out['pdf_pages']))
+    check(out['page_margin'] == ['0px'] and out['print_fits'], 'printed with no page margin (no browser header / footer); each sheet is one full A4 page', (out['page_margin'], out['print_fits']))
     check(out['phone_zoom'] < 0.6 and out['phone_overflow'], 'on a phone the page shrinks to fit', (out['phone_zoom'], out['phone_overflow']))
     finish('test_test_sheet', out, errs)
 
