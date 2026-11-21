@@ -1163,12 +1163,14 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .pcrestore{font-size:13px}
 .pcopts b{margin-top:8px;font-size:14px}
 #printSheet{display:none}
-@page{size:A4 portrait;margin:10mm}
+/* No page margin: the browser then has nowhere to print its own header and footer (date, page title, link, page number),
+   so a teacher's printout is clean. Each page keeps a 10 mm white edge of its own (padding) instead. */
+@page{size:A4 portrait;margin:0}
 @media print{
   body.printing > *:not(#printSheet){display:none !important}
   body.printing{background:#fff !important;padding:0 !important;margin:0 !important}
   body.printing #printSheet{display:block}
-  #printSheet .ppage{display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);height:277mm;break-after:page;page-break-after:always}
+  #printSheet .ppage{display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);box-sizing:border-box;width:210mm;height:297mm;padding:10mm;overflow:hidden;break-after:page;page-break-after:always}
   #printSheet.pc12 .ppage{grid-template-columns:repeat(3,1fr)}
   #printSheet .ppage:last-child{break-after:auto;page-break-after:auto}
   #printSheet .pcard{border:0.4mm dashed #b9b2a8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2mm;padding:4mm;overflow:hidden;text-align:center;
@@ -1481,7 +1483,7 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .tskey b{font-family:'Fredoka','Sarabun',sans-serif}
 .tskey span{color:#666;margin-left:2mm;font-size:10pt}
 @media print{
-  #printSheet.tsprint .tspage{break-after:page;page-break-after:always;padding:0 1mm}
+  #printSheet.tsprint .tspage{width:210mm;height:297mm;padding:10mm 11mm;break-after:page;page-break-after:always}
   #printSheet.tsprint .tspage:last-child{break-after:auto;page-break-after:auto}
-  #printSheet.tsprint .tspage.key{min-height:0}
+  #printSheet.tsprint .tspage.key{height:auto;min-height:0}
 }
