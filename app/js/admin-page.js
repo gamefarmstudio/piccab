@@ -475,8 +475,8 @@ function renderStatsAdmin(v){
   v.append(el('h4',{class:'aih',text:'เครื่องที่เปิดแอป 30 วันล่าสุด'}), chart,
     el('p',{class:'note small aileg'}, el('span',{class:'k t'}),' เครื่องใหม่ ', el('span',{class:'k s'}),' เครื่องที่เคยเปิดแล้ว'));
   // what people did (30 days)
-  const acts=[['mode:learn','👀 ดูคำศัพท์'],['mode:quiz','⌨️ ทบทวน (พิมพ์)'],['mode:find','👂 ฟังแล้วหา'],['mode:speak','🎤 ฝึกพูด'],['review','🔁 รอบทบทวน'],['mock','📝 สอบจำลอง'],
-    ['scene_new','📷 สร้างฉากจากรูป'],['ai_scene','✨ AI หาคำ'],['sheet_new','📝 ชีทคำศัพท์'],['gallery_add','🖼️ เก็บฉากจากคลังภาพ'],['share','🔗 สร้างลิงก์แชร์'],['class_join','🎓 เข้าห้องเรียน'],['feedback','💬 ส่งความเห็น'],
+  const acts=[['mode:learn','👀 ดูคำศัพท์'],['mode:quiz','⌨️ ทบทวน (พิมพ์)'],['mode:find','👂 ฟังแล้วหา'],['mode:speak','🎤 ฝึกพูด'],['review','🔁 รอบทบทวน'],['mock','📝 สอบจำลอง'],['match','🧩 เกมจับคู่'],
+    ['scene_new','📷 สร้างฉากจากรูป'],['ai_scene','✨ AI หาคำ'],['sheet_new','📝 ชีทคำศัพท์'],['print_cards','🖨️ พิมพ์แฟลชการ์ด'],['test_sheet','📝 พิมพ์แผ่นสอบ'],['gallery_add','🖼️ เก็บฉากจากคลังภาพ'],['share','🔗 สร้างลิงก์แชร์'],['class_join','🎓 เข้าห้องเรียน'],['feedback','💬 ส่งความเห็น'],
     ['ui:en','🇬🇧 ใช้เมนูอังกฤษ (เครื่อง-วัน)'],['lang:de','🇩🇪 ฝึกเยอรมัน (เครื่อง-วัน)'],['installed','📲 เปิดจากแอปที่ติดตั้ง (เครื่อง-วัน)']];
   const tb=el('table',{class:'aitable stat'}, el('tr',{}, ...['สิ่งที่ทำ','7 วัน','30 วัน'].map(h=>el('th',{text:h}))));
   acts.forEach(([k,t])=>tb.append(el('tr',{}, el('td',{text:t}), el('td',{text:String(sum(k,7))}), el('td',{text:String(sum(k,30))}))));

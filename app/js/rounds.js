@@ -21,7 +21,7 @@ function roundMiss(id){ if(id) RD.missed.add(id); }
 function sceneStars(sid){ let b=0; for(const [k,v] of Object.entries(roundBest)) if(k.startsWith(sid+'|') && v && v.s>b) b=v.s; return b; }
 function starsEl(n, cls){ return n ? el('span',{class:'cstars'+(cls?' '+cls:''),title:`ดาวดีที่สุด ${n}/3`,'aria-label':`ดาวดีที่สุด ${n} จาก 3`}, '★'.repeat(n), el('i',{text:'★'.repeat(3-n)})) : null; }
 const fmtTime=ms=>{ const s=Math.max(1,Math.round(ms/1000)); return s<60 ? `${s} วินาที` : `${Math.floor(s/60)} นาที ${s%60} วินาที`; };
-// o: {right, total, title, again(), missed(list) — optional}
+// o: {right, total, title, again(), missed(list), note — optional}
 function roundEnd(o){
   const total=o.total||0; if(!total) return;
   const stars=starsFor(o.right, total), pct=Math.round(o.right/total*100), ms=Date.now()-(RD.t0||Date.now()), xp=FX.rx||0, combo=FX.rbest||0;
@@ -48,6 +48,7 @@ function roundEnd(o){
         el('div',{}, el('small',{text:'คอมโบสูงสุด'}), el('b',{text: combo>=2 ? `🔥 x${combo}` : '–'})),
         el('div',{}, el('small',{text:'เวลา'}), el('b',{text:fmtTime(ms)}))),
       old && !better ? el('p',{class:'note small',text:`ดีที่สุดของฉากนี้: ${'★'.repeat(old.s)} (${old.p}%)`}) : null,
+      o.note ? el('p',{class:'note small rdnote',text:o.note}) : null,
       chest ? chestEl() : null,
       el('div',{class:'row'},
         el('button',{text:'ปิด',onclick:closeModal}),

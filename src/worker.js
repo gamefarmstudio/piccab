@@ -1294,7 +1294,7 @@ export function leaderboard(members, progress, itemIds, me) {
 const cleanNick = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 30);
 // ---------- 📈 learning reports ----------
 // Worked out on the learner's device (see app/js/report.js); kept here only in this shape, with limits.
-const REPORT_MODES = ['learn', 'quiz', 'find', 'speak', 'sent', 'review'];
+const REPORT_MODES = ['learn', 'quiz', 'find', 'speak', 'sent', 'review', 'match'];
 export function cleanReport(d) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
   const int = (v, max = 100000) => Math.max(0, Math.min(max, Math.round(+v || 0)));
@@ -1576,7 +1576,7 @@ async function clientError(request, env) {
 // Usage counts: only names from this list, small numbers, no ids.
 export const USAGE_EVENTS = ['open', 'open_signed', 'update_reload', 'mail_on', 'mail_off', 'mail_preview', 'new_device', 'age:0', 'age:1-6', 'age:7-29', 'age:30+', 'ui:en', 'lang:de', 'installed',
   'mode:learn', 'mode:quiz', 'mode:find', 'mode:speak', 'mode:sent', 'review', 'mock', 'scene_new', 'ai_scene', 'sheet_new', 'share', 'class_join', 'family_new', 'report_view', 'report_share', 'feedback', 'gallery_add',
-  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pics_retry', 'sheet_pic_redraw'];
+  'sent_round', 'sent_ai', 'path', 'stage:p12', 'stage:p34', 'stage:p56', 'stage:m13', 'stage:m46', 'stage:adult', 'print_cards', 'journey', 'badge', 'find_reveal', 'combo', 'round_end', 'round_3stars', 'chest_c', 'chest_r', 'chest_l', 'quest', 'quest_all', 'challenge_normal', 'challenge_time', 'challenge_hearts', 'hearts_out', 'boss', 'boss_win', 'sheet_pics', 'sheet_pics_retry', 'sheet_pic_redraw', 'match', 'test_sheet'];
 export function cleanUsage(b) {
   const out = {};
   const ev = (b && typeof b.events === 'object' && b.events) || {};

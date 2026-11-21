@@ -977,6 +977,11 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.deepEqual(cleanUsage({ day:'2026-11-08', events:{ open:1, 'mode:quiz':3, evil:5, review:999, mock:-2, 'age:0':'x' } }),
     { day:'2026-11-08', events:{ open:1, 'mode:quiz':3, review:50 } });
   assert.equal(cleanUsage({ day:'bad', events:{} }).day, null);
+  // 🧩 match and 📝 test sheets are counted; a day's match answers reach the teacher's report
+  assert.deepEqual(cleanUsage({ day:'2026-11-21', events:{ match:2, test_sheet:1 } }).events, { match:2, test_sheet:1 });
+  { const { cleanReport } = await import('../src/worker.js');
+    const r = cleanReport({ days:[['2026-11-21', 6, 3, 0, { match:6, quiz:2, hack:9 }]] });
+    assert.deepEqual(r.days[0][4], { quiz:2, match:6 }); }
   const saved = globalThis.fetch; const seen = [];
   globalThis.fetch = async (url, init) => { seen.push({ url:String(url), body: init && init.body ? JSON.parse(init.body) : null }); return new Response(null, { status: 201 }); };
   const DB = { SUPABASE_SECRET_KEY:'sb_secret_test' };

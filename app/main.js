@@ -6,6 +6,8 @@ import { closeModal, fullRender, goHome, langLabel, openModal, refresh, renderSc
 import './js/home.js';
 import './js/decks.js';
 import './js/cards.js';
+import './js/testsheet.js';
+import './js/match.js';
 import './js/games.js';
 import './js/sentence.js';
 import './js/editor.js';

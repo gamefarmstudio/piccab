@@ -14,8 +14,8 @@ import { accessToken } from './sync.js';
 
 // (var + function declarations: other parts may call these before this part of the script has run)
 var RPT={ t:null, sig:null, busy:false };
-const MODE_LABEL={ learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา', speak:'ฝึกพูด', sent:'แต่งประโยค', review:'ทบทวนชุดคำ' };
-const MODE_UNIT={ learn:'ครั้ง', sent:'ประโยค' };
+const MODE_LABEL={ learn:'ดูคำศัพท์', quiz:'ทบทวน (พิมพ์)', find:'ฟังแล้วหา', speak:'ฝึกพูด', sent:'แต่งประโยค', review:'ทบทวนชุดคำ', match:'จับคู่' };
+const MODE_UNIT={ learn:'ครั้ง', sent:'ประโยค', match:'คู่' };
 
 function reportOn(){ return !!(user && store.get('pv-report-on',false)); }
 function setReportOn(on){ store.set('pv-report-on', !!on); if(on){ RPT.sig=null; sendReportSoon(1500); } }

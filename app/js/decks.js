@@ -4,6 +4,8 @@ import { dayNo, dueOn, dueWords, nextReviewText, saveProg, srsAnswer, srsDue, sr
 import { ask, closeModal, openModal, openScene, progOf, sceneImg, select } from './scene.js';
 import { allWords, markActive, renderHome, sayWord, statChip, WD, WD_IC, WD_LABELS, WD_ST, wordEl, wordThumb } from './home.js';
 import { openPrintCards } from './cards.js';
+import { openTestSheet } from './testsheet.js';
+import { openMatch } from './match.js';
 import { pattern } from './games.js';
 import { addSheetPics, deleteScene, examIn, examLabel, isList, listStyle, openSheetMaker } from './sheets.js';
 import { user } from './account.js';
@@ -409,12 +411,14 @@ function openPreview(id){
         el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       fig,
       n && isList(sc) ? el('div',{class:'pv-row'}, el('button',{class:'modebtn primary',onclick:()=>{ closeModal(); startReview(allWords().filter(w=>w.sc===sc), true); }}, `📝 สอบจำลองทั้งชุด (${n} คำ)`)) : null,
-      n ? el('div',{class:'pv-row'}, mode('learn','👀 ดูคำศัพท์'), mode('quiz','✍️ ทบทวน (พิมพ์)'), mode('find','👂 ฟังแล้วหา'), mode('speak','🎤 ฝึกพูด'))
+      n ? el('div',{class:'pv-row'}, mode('learn','👀 ดูคำศัพท์'), mode('quiz','✍️ ทบทวน (พิมพ์)'), mode('find','👂 ฟังแล้วหา'), mode('speak','🎤 ฝึกพูด'),
+          n>=3 ? el('button',{class:'modebtn mtbtn',text:'🧩 จับคู่',onclick:()=>{ closeModal(); openMatch(sc); }}) : null)
         : el('div',{class:'pv-row'}, el('button',{class:'modebtn primary',text: G.aiReady?'✨ ให้ AI หาคำศัพท์ / ✏️ แก้ไขฉาก':'✏️ เริ่มใส่คำศัพท์',onclick:()=>{ closeModal(); openScene(sc.id,'learn',true); }})),
       el('div',{class:'pv-row'},
         n ? lbl : null,
         el('span',{class:'sp'}),
         n ? el('button',{text:'🖨️ แฟลชการ์ด',title:'พิมพ์แฟลชการ์ด หรือบันทึกเป็น PDF',onclick:()=>{ closeModal(); openPrintCards(sc); }}) : null,
+        n && !isStudent() ? el('button',{class:'tsbtn',text:'📝 แผ่นสอบ',title:'พิมพ์แผ่นสอบเขียนคำศัพท์ให้เด็ก',onclick:()=>{ closeModal(); openTestSheet(sc); }}) : null,
         (sc.builtin || !n) ? null : el('button',{text:'🔗 แชร์',onclick:()=>{ closeModal(); openShare({kind:'scene',sc}); }}),
         isList(sc) ? el('button',{text:'✏️ แก้ไขรายการคำ',onclick:()=>{ closeModal(); openSheetMaker(sc); }}) : null,
         isList(sc) && !isStudent() && Object.values(sc.items||{}).some(it=>it && it.word && !it.pic) ? el('button',{text: sc.meta.picRetry ? '🎨 ใส่รูปที่ขาด (ฟรี)' : '🎨 ใส่รูปลายเส้น',title: sc.meta.picRetry ? 'คราวก่อนวาดได้ไม่ครบ — ครั้งนี้ไม่ใช้เครดิต' : 'คำที่มีรูปในคลังแล้วไม่ใช้เครดิต · ที่เหลือ AI วาด 1 เครดิตต่อชีท',onclick:()=>{ closeModal(); addSheetPics(sc); }}) : null,
