@@ -1,4 +1,4 @@
-import asyncio, json
+import re, asyncio, json
 from playwright.async_api import async_playwright
 from common import *
 BASE=SERVER.replace('127.0.0.1','localhost')   # the app registers its service worker on https or localhost only
@@ -66,7 +66,7 @@ async def main():
     check(not out['manifest_errors'], 'manifest has no errors', out['manifest_errors'])
     for u in ['/', '/app', '/privacy', '/terms', '/en', '/en/privacy', '/en/terms', '/i18n/en.js', '/fonts/fonts.css', '/vendor/supabase-2.119.0.js']:
         check(u in out['cached'], f'{u} is kept for offline', out['cached'])
-    check(len(out['built'])==2 and all(u in out['cached'] for u in out['built']), "the app's built JS and CSS are kept for offline", (out['built'], out['cached']))
+    check(any(re.search(r'/assets/app-.*\.js$',u) for u in out['built']) and any(u.endswith('.css') for u in out['built']) and all(u in out['cached'] for u in out['built']), "the app's built JS and CSS are kept for offline", (out['built'], out['cached']))
     check(not out['old_kept'], 'files from an older build are removed')
     check(out['tile']==1 and out['footer_link'] and out['prompted']==1, 'install tile and prompt', (out['tile'], out['footer_link'], out['prompted']))
     check('ออฟไลน์' in out['offline_toast'], 'going offline is announced', out['offline_toast'])

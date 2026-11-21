@@ -3,6 +3,7 @@ import { G, $, BUILTIN, el, HL, ic, langOk, LANGS, LOC, pk, progress, S, scenes,
 import { ask, closeModal, goHome, openModal, setLang } from './scene.js';
 import { sceneTime } from './home.js';
 import { deckCount, deckList, deckName, deckNameDialog, getDeck, liveKeys, openPreview, wkey } from './decks.js';
+import { checkMyTests, myTestsEl, renderClassTest, testsSection } from './classtests.js';
 import { autoLangState, autoTranslate, missingIn } from './editor.js';
 import { examIn, examLabel, isList, openSheetMaker } from './sheets.js';
 import { authErr, capErr, humanCheck, openDeleteAccount, openLogin, sb, user } from './account.js';
@@ -18,7 +19,7 @@ import { accessToken, syncText } from './sync.js';
 // (function / var: the account code above may ask before this part of the script has run)
 function isStudent(){ return !!(user && user.is_anonymous); }
 function studentNick(){ return String((user && user.user_metadata && user.user_metadata.nickname) || 'นักเรียน').slice(0,30); }
-var CL={ list:null, openId:null, detail:null, busy:false, report:null };
+var CL={ list:null, openId:null, detail:null, busy:false, report:null, test:null };
 const classItemsMap=()=>store.get('pv-class-items',{})||{};       // { classId: [shareId…] } for progress reports
 async function classApi(method, path, body){
   const tok=await accessToken();
@@ -34,7 +35,7 @@ async function loadClasses(){
   if(!user){ CL.list={teaching:[],learning:[]}; return; }
   const r=await classApi('GET','').catch(()=>({ok:false}));
   CL.list = r.ok ? r.j : (CL.list||null);
-  if(!r.ok) CL.err=classErr(r); else { CL.err=null; setReportOn((r.j.learning||[]).some(c=>c.report)); }
+  if(!r.ok) CL.err=classErr(r); else { CL.err=null; setReportOn((r.j.learning||[]).some(c=>c.report)); if((r.j.learning||[]).length) checkMyTests(); }
 }
 function socialTabs(v){
   const t=FR.tab;
@@ -95,8 +96,8 @@ function renderSets(){
   }
   v.append(box);
 }
-function openClass(id){ CL.openId=id; CL.detail=null; CL.report=null; renderClass(); window.scrollTo(0,0); }
-function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; CL.report=null; renderClass(); }
+function openClass(id){ CL.openId=id; CL.detail=null; CL.report=null; CL.test=null; renderClass(); window.scrollTo(0,0); }
+function backToClasses(){ CL.openId=null; CL.detail=null; CL.list=null; CL.report=null; CL.test=null; renderClass(); }
 async function loadClassDetail(){
   const id=CL.openId, r=await classApi('GET','/'+id).catch(()=>({ok:false}));
   if(CL.openId!==id) return;
@@ -145,6 +146,7 @@ function renderClassDetail(){
   if(!d){ v.append(el('p',{class:'libempty',text:'กำลังโหลด…'})); loadClassDetail(); return; }
   if(d.error){ v.append(el('p',{class:'libempty',text:d.error})); return; }
   if(d.role==='teacher' && CL.report){ v.lastChild.remove(); renderReport(v,d); return; }
+  if(d.role==='teacher' && CL.test){ v.lastChild.remove(); renderClassTest(v,d); return; }
   if(d.role==='teacher') renderTeacher(v,d); else renderStudent(v,d);
 }
 // 🏆 leaderboard (rows: {rank, nickname, done, star, me})
@@ -195,6 +197,7 @@ function renderStudent(v,d){
     v.append(box);
     v.append(el('p',{class:'note small',text: fam ? 'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) · ความคืบหน้าจะส่งให้ผู้ปกครองอัตโนมัติ' : 'ฝึกด้วยโหมด ✍️ ทบทวน (พิมพ์) เพื่อให้ครูเห็นความคืบหน้า · ความคืบหน้าจะส่งให้ครูอัตโนมัติ'}));
   }
+  const mt=myTestsEl(d.id); if(mt) v.append(mt);
   if(Array.isArray(d.leaderboard)){
     v.append(el('div',{class:'hsec'}, el('h3',{text:'🏆 อันดับในห้อง'}), el('span',{class:'hint',style:'color:var(--muted);font-size:13px',text:'นับคำที่พิมพ์ตอบถูกในงานที่ครูมอบหมาย'})));
     v.append(boardEl(d.leaderboard));
@@ -281,6 +284,7 @@ function renderTeacher(v,d){
   } else if(d.members.length){
     v.append(el('p',{class:'note',text:'นักเรียนในห้อง: '+d.members.map(m=>m.nickname).join(', ')}));
   }
+  v.append(testsSection(d));
   v.append(el('div',{class:'clfoot'},
     el('button',{class:'linkbtn small',text:fam?'✏️ เปลี่ยนชื่อกลุ่ม':'✏️ เปลี่ยนชื่อห้อง',onclick:()=>deckNameDialog(fam?'เปลี่ยนชื่อกลุ่มครอบครัว':'เปลี่ยนชื่อห้องเรียน', d.name, 'บันทึก', async nm=>{ const r=await classApi('PATCH','/'+d.id,{name:nm}); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }, fam?'ชื่อกลุ่ม':'ชื่อห้องเรียน', 60)}),
     el('button',{class:'linkbtn small danger-link',text:fam?'🗑 ลบกลุ่มครอบครัว':'🗑 ลบห้องเรียน',onclick:async()=>{
@@ -560,4 +564,4 @@ function openStudentAccount(){
 }
 const classLinkCode=((/^\/c\/([A-Za-z2-9]{6})\/?$/.exec(location.pathname)||[])[1]||'').toUpperCase()||null;
 
-export { CL, classApi, classErr, classLinkCode, isStudent, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };
+export { CL, classApi, classErr, classLinkCode, isStudent, loadClasses, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };

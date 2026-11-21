@@ -616,6 +616,93 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   console.log('classroom tests passed');
 }
 
+// ---------- 📝 paper tests checked from a photo ----------
+{
+  const T = 'aaaaaaaa-3333-3333-3333-333333333333', S1 = 'bbbbbbbb-3333-3333-3333-333333333333', S2 = 'cccccccc-3333-3333-3333-333333333333', X = 'dddddddd-3333-3333-3333-333333333333';
+  const users = { pt: { id: T, email: 't@school.th' }, p1: { id: S1, is_anonymous: true }, p2: { id: S2, is_anonymous: true }, px: { id: X, email: 'x@x.th' } };
+  const db = { classes: [{ id: 'ClassTest01', code: 'ABCDEF', owner: T, name: 'ป.5/1', kind: 'class' }], class_members: [
+      { class_id: 'ClassTest01', user_id: S2, nickname: 'Beam' }, { class_id: 'ClassTest01', user_id: S1, nickname: 'Mint' }],   // as the database sorts them
+    class_items: [], class_progress: [], plans: [], class_tests: [], class_test_results: [], ai_usage: [] };
+  const keyCols = { class_tests: ['id'], class_test_results: ['test_id', 'user_id'], ai_usage: ['id'] };
+  const parseVal = v => v.startsWith('eq.') ? [v.slice(3)] : v.startsWith('in.(') ? v.slice(4, -1).split(',').map(x => x.replace(/^"|"$/g, '')) : null;
+  let aiCalls = [], aiPrompt = '', missing = false;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    if (u.pathname === '/auth/v1/user') { const t = (init.headers.authorization || '').slice(7); return users[t] ? new Response(JSON.stringify(users[t])) : new Response('{}', { status: 401 }); }
+    if (u.hostname === 'api.anthropic.com') { aiCalls.push('claude'); aiPrompt = JSON.parse(init.body).messages[0].content.find(c => c.type === 'text').text;
+      return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '[{"n":1,"a":"Kat","box":[100,200,400,260]},{"n":2,"a":"dog"},{"n":9,"a":"x"}]' }], usage: { input_tokens: 9, output_tokens: 9 } })); }
+    if (u.hostname.includes('generativelanguage')) { aiCalls.push('gemini'); return new Response('{}', { status: 500 }); }
+    const t = u.pathname.replace('/rest/v1/', '');
+    if (missing && t.startsWith('class_test')) return new Response('{"code":"PGRST205","message":"Could not find the table public.class_tests"}', { status: 404 });
+    assert.ok(db[t], 'table ' + t);
+    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict', 'limit'].includes(k)).map(([k, v]) => [k, parseVal(v)]);
+    const match = r => filters.every(([k, vals]) => vals.includes(String(r[k])));
+    const m = init.method || 'GET';
+    if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
+    if (m === 'DELETE') { const gone = db[t].filter(match); db[t] = db[t].filter(r => !match(r)); if (t === 'class_tests') db.class_test_results = db.class_test_results.filter(r => !gone.some(g => g.id === r.test_id)); return new Response(null, { status: 204 }); }
+    if (m === 'PATCH') { db[t].filter(match).forEach(r => Object.assign(r, JSON.parse(init.body))); return new Response(null, { status: 204 }); }
+    if (m === 'POST') {
+      for (const row of [].concat(JSON.parse(init.body))) {
+        const keys = keyCols[t], same = keys && db[t].find(r => keys.every(k => r[k] === row[k]));
+        if (same) Object.assign(same, row); else db[t].push({ reads: 0, created_at: '2026-11-21T05:00:00Z', ...row });
+      }
+      return new Response(null, { status: 201 });
+    }
+  };
+  const E = { SUPABASE_SECRET_KEY: 'sb_secret_x', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g', AI_PROVIDER: 'gemini,claude', ASSETS: assets };
+  const go = async (path, method = 'GET', body, tok, env = E) => { const r = await worker.fetch(new Request('https://piccab.com' + path, { method, headers: { 'content-type': 'application/json', ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body: body && JSON.stringify(body) }), env); return { status: r.status, j: await r.json().catch(() => null) }; };
+  const base = '/api/classes/ClassTest01/tests';
+  const words = [{ w: 'cat', th: 'แมว' }, { w: 'dog', th: 'หมา' }, { w: 'Cat', th: 'ซ้ำ' }, { w: 'ice cream', th: 'ไอศกรีม' }];
+  // only the teacher makes a test; the class list becomes its roster, each with an order of the 3 (unique) words
+  assert.equal((await go(base, 'POST', { name: 'Animals', words }, 'p1')).status, 403);
+  assert.equal((await go(base, 'POST', { name: 'Animals', words }, 'px')).status, 404);
+  let r = await go(base, 'POST', { name: ' Animals\n', words, q: 'th', hint: 'first', mix: true }, 'pt');
+  assert.equal(r.status, 200); const tid = r.j.id;
+  assert.deepEqual(r.j.words.map(w => w.w), ['cat', 'dog', 'ice cream']); assert.deepEqual(r.j.opts, { q: 'th', hint: 'first' });
+  assert.deepEqual(r.j.roster.map(x => x.n), ['Beam', 'Mint']); assert.ok(r.j.roster.every(x => [...x.o].sort().join() === '0,1,2'));
+  assert.ok(!JSON.stringify(r.j).includes(S1));                                                         // no user ids to the app
+  r = await go(base, 'POST', { name: 'Same order', words, mix: false }, 'pt'); assert.deepEqual(r.j.roster[0].o, [0, 1, 2]);
+  await go(`${base}/${r.j.id}`, 'DELETE', null, 'pt'); assert.equal(db.class_tests.length, 1);
+  // ✨ read a photo: Claude only (children's handwriting), the key is not in the prompt, misspellings kept
+  db.class_tests[0].roster[1].o = [1, 0, 2];                                                            // Mint's sheet: dog, cat, ice cream
+  r = await go(`${base}/${tid}/read`, 'POST', { image: img, k: 1, first: 1, last: 3 }, 'pt');
+  assert.equal(r.status, 200); assert.deepEqual(aiCalls, ['claude']);
+  assert.deepEqual(r.j.items, [{ n: 1, a: 'kat', box: [100, 200, 400, 260] }, { n: 2, a: 'dog' }, { n: 9, a: 'x' }]);
+  assert.match(aiPrompt, /from 1 to 3/); assert.match(aiPrompt, /Do NOT correct the spelling/); assert.doesNotMatch(aiPrompt, /ice cream|แมว/);
+  assert.equal(db.class_tests[0].reads, 1);
+  assert.equal((await go(`${base}/${tid}/read`, 'POST', { image: img, k: 5, first: 1, last: 3 }, 'pt')).status, 400);   // no such student
+  assert.equal((await go(`${base}/${tid}/read`, 'POST', { image: img, k: 0, first: 1, last: 9 }, 'pt')).status, 400);   // no question 9
+  assert.equal((await go(`${base}/${tid}/read`, 'POST', { image: img, k: 0, first: 1, last: 3 }, 'p1')).status, 403);
+  db.class_tests[0].reads = 99; assert.equal((await go(`${base}/${tid}/read`, 'POST', { image: img, k: 0, first: 1, last: 3 }, 'pt')).j.error, 'too_many_reads');
+  db.class_tests[0].reads = 1;
+  aiCalls = []; await go(`${base}/${tid}/read`, 'POST', { image: img, k: 0, first: 1, last: 3 }, 'pt', { ...E, ANTHROPIC_API_KEY: '' }); assert.ok(aiCalls.length && aiCalls.every(x => x === 'gemini'));   // no Claude key: Gemini
+  // ✓ save what the teacher checked (per word of the key); a student sees their score and the words to practise
+  assert.equal((await go(`${base}/${tid}/results/1`, 'PUT', { answers: [{ a: 'kat', ok: false }] }, 'pt')).status, 400);   // one per word
+  r = await go(`${base}/${tid}/results/1`, 'PUT', { answers: [{ a: 'kat', ok: false }, { a: 'dog', ok: true }, null] }, 'pt');
+  assert.equal(r.j.result.score, 1); assert.equal(r.j.result.total, 3);
+  r = await go(`${base}/${tid}/results/1`, 'PUT', { answers: [{ a: 'kat', ok: false }, { a: 'dog', ok: true }, { a: 'icecream', ok: true, extra: 1 }] }, 'pt');
+  assert.equal(r.j.result.score, 2); assert.equal(db.class_test_results.length, 1); assert.deepEqual(db.class_test_results[0].answers[2], { a: 'icecream', ok: true });
+  r = await go(`${base}/${tid}`, 'GET', null, 'pt');
+  assert.deepEqual(r.j.roster.map(x => x.result && x.result.score), [null, 2]); assert.equal(r.j.words.length, 3);
+  r = await go(base, 'GET', null, 'pt'); assert.deepEqual(r.j.tests.map(t => [t.name, t.total, t.students, t.checked, t.avg]), [['Animals', 3, 2, 1, 67]]);
+  r = await go('/api/classes/tests', 'GET', null, 'p1');
+  assert.deepEqual(r.j.tests.map(t => [t.name, t.class_id, t.class_name, t.score, t.total, t.wrong]), [['Animals', 'ClassTest01', 'ป.5/1', 2, 3, [{ w: 'cat', th: 'แมว' }]]]);
+  assert.deepEqual((await go('/api/classes/tests', 'GET', null, 'p2')).j.tests, []);
+  // learning report: the student's test scores
+  const { cleanReport, weekSummary } = await import('../src/worker.js');
+  const rep = cleanReport({ tests: [['Animals', 'ป.5/1', 2, 3, '2026-11-21'], ['bad', '', 9, 3, '2026-11-21'], ['', '', 1, 1, null]] });
+  assert.deepEqual(rep.tests, [['Animals', 'ป.5/1', 2, 3, '2026-11-21']]);
+  assert.deepEqual(weekSummary(rep, Date.parse('2026-11-22T10:00:00Z')).tests, [['Animals', 2, 3]]);
+  // all answers taken away → no result; deleting the test deletes its results
+  await go(`${base}/${tid}/results/1`, 'PUT', { answers: [null, null, null] }, 'pt'); assert.equal(db.class_test_results.length, 0);
+  await go(`${base}/${tid}/results/0`, 'PUT', { answers: [{ a: 'cat', ok: true }, null, null] }, 'pt');
+  await go(`${base}/${tid}`, 'DELETE', null, 'pt'); assert.equal(db.class_tests.length + db.class_test_results.length, 0);
+  // no students / no table yet
+  db.class_members = []; assert.equal((await go(base, 'POST', { name: 'x', words }, 'pt')).j.error, 'no_students');
+  missing = true; assert.equal((await go(base, 'GET', null, 'pt')).j.error, 'needs_tests_sql'); assert.deepEqual((await go('/api/classes/tests', 'GET', null, 'p1')).j.tests, []);
+  console.log('class test (paper) tests passed');
+}
+
 // ---------- class leaderboard ----------
 {
   const { leaderboard } = await import('../src/worker.js');

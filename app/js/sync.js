@@ -4,6 +4,7 @@ import { forgetSceneLocal, imgSaved, persistScenesQuiet, sigOf } from './progres
 import { refresh, renderScene } from './scene.js';
 import { renderGallery, sceneTime } from './home.js';
 import { deckSig, dsig, getDeck, SAVED_DECK } from './decks.js';
+import { checkMyTests } from './classtests.js';
 import { isList } from './sheets.js';
 import { sb, user } from './account.js';
 import { gsSync } from './gamesync.js';
@@ -44,6 +45,7 @@ async function syncNow(pull){
     await syncPush();
     SYNC.state='ok'; SYNC.at=Date.now();
     if(typeof gsSync==='function') gsSync();                 // 🎮 XP, streak, badges, stickers … (never holds up the rest)
+    if(typeof checkMyTests==='function') checkMyTests();     // 📝 a teacher checked a paper test: the words to practise
   }catch(e){
     console.warn('sync failed', e); SYNC.state='error';
     clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>syncNow(true), 30000);

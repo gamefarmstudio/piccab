@@ -1487,3 +1487,46 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
   #printSheet.tsprint .tspage:last-child{break-after:auto;page-break-after:auto}
   #printSheet.tsprint .tspage.key{height:auto;min-height:0}
 }
+/* 📝 class tests: the student's name + QR on each printed page */
+.tspage{position:relative}
+.tshead.hasqr{padding-right:21mm;min-height:17mm;box-sizing:border-box}
+.tsqr{position:absolute;top:2mm;right:1mm;width:18mm;display:flex;flex-direction:column;align-items:center;gap:0.4mm}
+.tsqr img{width:17mm;height:17mm;display:block}
+.tsqr small{font:500 6pt/1 'Fredoka',sans-serif;color:#666;white-space:nowrap}
+.tsqr.sample span{width:17mm;height:17mm;display:grid;place-items:center;border:0.4mm dashed #999;color:#999;font:600 9pt 'Fredoka',sans-serif}
+.tsf i{font-style:normal;font-weight:600;font-size:12pt;line-height:5mm;padding-left:1mm;overflow:hidden;white-space:nowrap}
+.tsfor{grid-column:2;max-width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
+/* 📝 class tests: the list, a test's scores, checking a sheet */
+.ctsec{margin-top:6px}
+.ctact{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
+.ctphoto{display:inline-flex;align-items:center;gap:6px}
+.ctlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.ctst{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line)}
+.ctst:first-child{border-top:0}
+.ctnick{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctscore{display:flex;align-items:center;gap:8px;min-width:120px}
+.ctscore .pbar{flex:1;height:7px;background:#eee6dc;border-radius:9px;overflow:hidden;display:block}
+.ctscore .pbar i{display:block;height:100%;background:var(--ok)}
+.ctscore.muted{color:var(--muted);font-size:14px}
+.ctwait{text-align:center;padding:18px 0}
+.ctthumb{display:block;max-width:100%;max-height:38vh;margin:6px auto;border-radius:10px}
+.ctwho{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.ctwho select{flex:1;min-width:140px;padding:8px;border-radius:10px;border:1px solid var(--line);font-size:15px}
+.ctreview{display:flex;flex-direction:column;max-height:calc(100vh - 32px)}
+.ctrhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ctrhead h3{margin:0}
+.ctsum{font:700 18px 'Fredoka','Sarabun',sans-serif;white-space:nowrap}
+.ctrows{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.ctrow{display:grid;grid-template-columns:28px minmax(0,1.2fr) minmax(0,1fr) 44px;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.ctrow:not(:has(.cthand)){grid-template-columns:28px minmax(0,1fr) 44px}
+.ctq{font:700 15px 'Fredoka',sans-serif;text-align:center}
+.cthand{width:100%;max-height:64px;object-fit:contain;background:#fafafa;border-radius:6px}
+.cthand.none{display:grid;place-items:center;height:40px;color:var(--muted)}
+.ctans{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ctans input{width:100%;min-width:0;padding:7px 9px;font:600 16px 'Fredoka','Sarabun',sans-serif;border:1px solid var(--line);border-radius:9px}
+.ctans small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctmark{width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;font-weight:700;border:2px solid}
+.ctmark.ok{background:#e5f5eb;border-color:var(--ok);color:var(--ok)}
+.ctmark.bad{background:#fdeaea;border-color:var(--bad);color:var(--bad)}
+@media (max-width:520px){ .ctrow{grid-template-columns:24px minmax(0,1fr) 44px} .ctrow .cthand{grid-column:2;grid-row:1} .ctrow .ctans{grid-column:2;grid-row:2} .ctrow .ctq{grid-row:1/3} .ctrow .ctmark{grid-column:3;grid-row:1/3} }
+.ctpick{max-height:60vh;overflow-y:auto}

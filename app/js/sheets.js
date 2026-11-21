@@ -465,4 +465,4 @@ $('#fileJson').addEventListener('change', e=>{
   const f=e.target.files[0]; e.target.value=''; importFile(f);
 });
 
-export { addSheetPics, aiAuth, deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, redrawPic, shareScene, svgUrl };
+export { addSheetPics, aiAuth, deleteScene, examIn, examLabel, isList, listStyle, openImport, openSheetMaker, redrawPic, saveWordSheet, shareScene, svgUrl };

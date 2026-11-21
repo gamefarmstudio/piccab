@@ -1,11 +1,11 @@
 # A tiny fake of Supabase (Auth + PostgREST + the RPCs Piccab uses) for the browser tests: python3 tests/fake_supabase.py 54321
 import http.server, json, sys, uuid, base64, time, urllib.parse, re, threading
 LOCK=threading.Lock()
-DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage','feedback','client_errors','usage_daily','gallery_categories','gallery_scenes','learner_reports','plans','game_state','email_prefs']}
+DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','class_members','class_items','class_progress','friend_profiles','friendships','friend_blocks','friend_events','friend_reports','ai_usage','feedback','client_errors','usage_daily','gallery_categories','gallery_scenes','learner_reports','plans','game_state','email_prefs','class_tests','class_test_results']}
 DB['gallery_categories']=[{'id':c,'name_th':th,'name_en':en,'emoji':e,'sort':n*10} for n,(c,th,en,e) in enumerate([('home','บ้าน','Home','🏠'),('school','โรงเรียน','School','🏫'),('food','อาหารและผลไม้','Food and fruit','🍎'),('animals','สัตว์','Animals','🐘')],1)]
 SEQ={'n':0}
 KEYS={'scenes':['user_id','id'],'progress':['user_id','scene_id'],'decks':['user_id','id'],'shares':['id'],'classes':['id'],
-      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email'],'game_state':['user_id'],'email_prefs':['user_id']}
+      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email'],'game_state':['user_id'],'email_prefs':['user_id'],'class_tests':['id'],'class_test_results':['test_id','user_id']}
 USERS={}   # uid -> user
 TOKENS={}  # token -> uid
 def tok_for(uid):
@@ -53,6 +53,8 @@ def cascade(t, rows):
             for tt in ['class_members','class_items','class_progress']: DB[tt]=[x for x in DB[tt] if x['class_id']!=r['id']]
         if t=='class_members': DB['class_progress']=[x for x in DB['class_progress'] if not (x['class_id']==r['class_id'] and x['user_id']==r['user_id'])]
         if t=='class_items': DB['class_progress']=[x for x in DB['class_progress'] if not (x['class_id']==r['class_id'] and x['share_id']==r['share_id'])]
+        if t=='classes': DB['class_tests']=[x for x in DB['class_tests'] if x['class_id']!=r['id']]
+        if t=='class_tests': DB['class_test_results']=[x for x in DB['class_test_results'] if x['test_id']!=r['id']]
         if t=='shares':
             DB['class_items']=[x for x in DB['class_items'] if x['share_id']!=r['id']]; DB['class_progress']=[x for x in DB['class_progress'] if x['share_id']!=r['id']]
 class H(http.server.BaseHTTPRequestHandler):
@@ -147,7 +149,7 @@ class H(http.server.BaseHTTPRequestHandler):
             if not mm: return self.send(404, {})
             t=mm.group(1); service=(self.headers.get('apikey','').startswith('sb_secret'))
             if t not in DB: return self.send(404, {'code':'PGRST205','message':'no table'})
-            if (t in ('shares','classes','class_members','class_items','class_progress','feedback','client_errors','usage_daily','learner_reports','plans','email_prefs') or t.startswith('friend') or t.startswith('gallery')) and not service: return self.send(401, {'message':'permission denied'})
+            if (t in ('shares','classes','class_members','class_items','class_progress','feedback','client_errors','usage_daily','learner_reports','plans','email_prefs','class_tests','class_test_results') or t.startswith('friend') or t.startswith('gallery')) and not service: return self.send(401, {'message':'permission denied'})
             uid=None if service else self.who()
             if not service and not uid: return self.send(401, {})
             rf=row_filter(qs)
@@ -169,6 +171,7 @@ class H(http.server.BaseHTTPRequestHandler):
                     if not service and 'user_id' in KEYS[t] and row.get('user_id')!=uid: return self.send(403, {})
                     if t=='classes' and any(c['code']==row['code'] for c in DB['classes']): return self.send(409, {'code':'23505'})
                     if t=='friend_profiles' and any(c['code']==row.get('code') and c['user_id']!=row['user_id'] for c in DB['friend_profiles']): return self.send(409, {'code':'23505'})
+                    if t=='class_tests': row={'reads':0,'created_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime()),**row}
                     if t=='ai_usage': SEQ['n']+=1; row={**row,'id':SEQ['n'],'created_at':row.get('created_at') or time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}
                     if t=='feedback': SEQ['n']+=1; row={'resolved_at':None,'note':None,**row,'id':SEQ['n'],'created_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}
                     if t in ('friend_events','friend_reports'): SEQ['n']+=1; row={**row,'id':SEQ['n'],'seen':row.get('seen',False),'created_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime())}

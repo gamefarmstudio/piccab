@@ -1329,6 +1329,8 @@ export function cleanReport(d) {
     scenes: arr(d.scenes, 15).map(x => [txt(x[0]), int(x[1], 10000), int(x[2], 10000)]).filter(x => x[0]),
     ach: d.ach && typeof d.ach === 'object' ? { lv: int(d.ach.lv, 999), xp: int(d.ach.xp, 100000000), place: int(d.ach.place, 50), n: int(d.ach.n, 500), total: int(d.ach.total, 500),
       recent: arr(d.ach.recent, 8).filter(x => /^[a-zA-Z0-9_]{1,24}$/.test(String(x[0]))).map(x => [String(x[0]), int(x[1], 1000000)]) } : null,
+    // 📝 paper tests a teacher checked: [name, class, score, total, day]
+    tests: arr(d.tests, 10).map(x => [txt(x[0], 80), txt(x[1]), int(x[2], 100), int(x[3], 100), day(x[4])]).filter(x => x[0] && x[3] && x[2] <= x[3]),
   };
 }
 // Pro plan: given per e-mail by an admin (plans table). PRO_REQUIRED=1 turns the lock on.
@@ -1426,6 +1428,7 @@ async function classes(request, env, url, ctx) {
       if (ok.length) await q(env, 'class_progress?on_conflict=class_id,share_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(ok) });
       return json({ ok: true, saved: ok.length });
     }
+    if (id === 'tests' && m === 'GET') return myTests(env, uid);
     if (!SHARE_ID.test(id)) return error('not_found', 404);
     const c = (await q(env, `classes?id=eq.${id}&select=*`) || [])[0];          // * : works before the leaderboard column exists
     if (!c) return error('not_found', 404);
@@ -1490,6 +1493,7 @@ async function classes(request, env, url, ctx) {
       return json({ nickname: mb.nickname, joined_at: mb.joined_at, updated_at: r ? r.updated_at : null, data: r ? r.data : null });
     }
     if (!teacher) return error('forbidden', 403);
+    if (sub === 'tests') return classTests(request, env, me, c, parts, m);
     if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
     if (!sub && m === 'PATCH') {
       const body = await request.json().catch(() => ({}));
@@ -1527,6 +1531,154 @@ async function classes(request, env, url, ctx) {
     return error('method_not_allowed', 405);
   } catch (e) {
     console.log('classes error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+// ---------- 📝 paper spelling tests, checked from a photo (supabase/2026-11-class-tests.sql) ----------
+// The teacher prints one sheet per student (name + QR code: test, student, page), photographs the sheets, AI copies
+// what each child wrote, the teacher checks it and saves. Photos are only read, never kept. The answer key is not
+// given to the AI, so it copies a misspelling as it is instead of "reading" the right word.
+const MAX_TESTS = 200;
+const TEST_QS = ['pic', 'th', 'both', 'listen'], TEST_HINTS = ['none', 'count', 'first'];
+const cleanLine = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
+export function cleanTestWords(arr) {
+  const seen = new Set(), out = [];
+  for (const x of (Array.isArray(arr) ? arr : [])) {
+    const w = cleanLine(x && x.w, 60);
+    if (!w || seen.has(w.toLowerCase())) continue;
+    seen.add(w.toLowerCase()); out.push({ w, th: cleanLine(x && x.th, 80) });
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+// what the teacher saved for one student: per word of the key, {a, ok} or null (not checked yet)
+export function cleanAnswers(arr, n) {
+  if (!Array.isArray(arr) || arr.length !== n) return null;
+  return arr.map(x => x && typeof x === 'object' ? { a: cleanLine(x.a, 60), ok: x.ok === true } : null);
+}
+const testsMissing = e => !!e && (e.status === 404 || /PGRST205|class_test/.test(String(e.body || '')) && e.status === 400);
+export function buildTestReadPrompt(first, last, provider) {
+  const gem = provider === 'gemini';
+  return `This is a photo of one page of a child's English spelling test, printed by a teacher in Thailand. Each question has a printed number (${first} to ${last} on this page), a picture and/or a Thai word (or nothing, when the teacher read the words aloud), and a space where the child wrote an English word by hand: on a line, or one letter in each box. A first letter may be printed in grey in the first box.
+
+For each question number from ${first} to ${last}, copy exactly what the child wrote. Do NOT correct the spelling and do not guess the intended word from the picture or the Thai word: the teacher is marking it, so a misspelled answer must stay misspelled. A first letter printed in the first box is part of the answer. Leave out letters the child crossed out. If the space is empty or cannot be read at all, give "".
+
+For each question give:
+- "n": the question number
+- "a": the child's answer as written, in lower case
+${gem
+  ? '- "box_2d": [ymin, xmin, ymax, xmax], a box around the handwritten answer (the line or the letter boxes), normalised to 0-1000'
+  : '- "box": [x0, y0, x1, y1], a box around the handwritten answer (the line or the letter boxes), normalised to 0-1000, where [0,0] is the top-left and [1000,1000] the bottom-right of the photo'}
+
+Ignore the names, class, date, score and anything else on the page. Reply with only a JSON array, for example:
+${gem ? '[{"n":1,"a":"cat","box_2d":[300,80,340,300]}]' : '[{"n":1,"a":"cat","box":[80,300,300,340]}]'}`;
+}
+export function parseTestRead(text) {
+  const s = String(text || ''), a = s.indexOf('['), b = s.lastIndexOf(']');
+  if (a < 0 || b <= a) return null;
+  let arr; try { arr = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  if (!Array.isArray(arr)) return null;
+  const out = [], seen = new Set();
+  for (const r of arr) {
+    const n = Math.round(Number(r && r.n));
+    if (!(n >= 1 && n <= 60) || seen.has(n)) continue;
+    seen.add(n);
+    let box = null;
+    if (Array.isArray(r.box) && r.box.length >= 4) box = r.box.slice(0, 4).map(Number);
+    else if (Array.isArray(r.box_2d) && r.box_2d.length >= 4) { const [y0, x0, y1, x1] = r.box_2d.slice(0, 4).map(Number); box = [x0, y0, x1, y1]; }
+    if (box && !box.every(v => Number.isFinite(v) && v >= 0 && v <= 1000)) box = null;
+    out.push({ n, a: String(r.a == null ? '' : r.a).toLowerCase().replace(/[^\p{L}\p{N} '\-.]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60), ...(box ? { box } : {}) });
+  }
+  return out.sort((x, y) => x.n - y.n);
+}
+async function classTests(request, env, me, c, parts, m) {
+  const tid = parts[4], act = parts[5];
+  try {
+    if (!tid && m === 'GET') {
+      const tests = await q(env, `class_tests?class_id=eq.${c.id}&select=id,name,created_at,words,roster&order=created_at.desc&limit=100`) || [];
+      const res = tests.length ? await q(env, `class_test_results?test_id=${inList(tests.map(t => t.id))}&select=test_id,score,total`) || [] : [];
+      return json({ tests: tests.map(t => { const r = res.filter(x => x.test_id === t.id);
+        return { id: t.id, name: t.name, created_at: t.created_at, total: (t.words || []).length, students: (t.roster || []).length, checked: r.length,
+          avg: r.length ? Math.round(r.reduce((s, x) => s + x.score / x.total, 0) / r.length * 100) : null }; }) });
+    }
+    if (!tid && m === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      const name = cleanLine(body.name, 80), words = cleanTestWords(body.words);
+      if (!name || !words.length) return error('bad_request', 400);
+      const opts = { q: TEST_QS.includes(body.q) ? body.q : 'pic', hint: TEST_HINTS.includes(body.hint) ? body.hint : 'none' };
+      const have = await q(env, `class_tests?class_id=eq.${c.id}&select=id`) || [];
+      if (have.length >= MAX_TESTS) return error('too_many_tests', 429);
+      const members = await q(env, `class_members?class_id=eq.${c.id}&select=user_id,nickname&order=nickname.asc`) || [];
+      if (!members.length) return error('no_students', 400);
+      const order = () => { const o = words.map((_, i) => i); if (body.mix) for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
+      const roster = members.slice(0, MAX_MEMBERS).map(x => ({ u: x.user_id, n: x.nickname, o: order() }));
+      const id = newShareId();
+      await q(env, 'class_tests', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ id, class_id: c.id, name, words, opts, roster }) });
+      return json({ id, name, words, opts, roster: roster.map(r => ({ n: r.n, o: r.o })) });
+    }
+    if (!SHARE_ID.test(tid || '')) return error('not_found', 404);
+    const t = (await q(env, `class_tests?id=eq.${tid}&class_id=eq.${c.id}&select=*`) || [])[0];
+    if (!t) return error('not_found', 404);
+    const roster = t.roster || [], words = t.words || [];
+    if (!act && m === 'GET') {
+      const res = await q(env, `class_test_results?test_id=eq.${tid}&select=user_id,answers,score,total,updated_at`) || [];
+      const by = new Map(res.map(r => [r.user_id, r]));
+      return json({ id: t.id, name: t.name, created_at: t.created_at, words, opts: t.opts || {},
+        roster: roster.map(r => { const x = by.get(r.u); return { n: r.n, o: r.o, result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
+    }
+    if (!act && m === 'DELETE') { await q(env, `class_tests?id=eq.${tid}`, { method: 'DELETE' }); return json({ ok: true }); }
+    // ✨ read one photographed page of one student's sheet: questions first..last
+    if (act === 'read' && m === 'POST') {
+      if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'test:' + me.uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }
+      const providers = env.ANTHROPIC_API_KEY ? ['claude'] : pickProviders(env);   // children's handwriting and names: not to a free tier that may keep it
+      if (!providers.length) return error('not_configured', 503);
+      const body = await request.json().catch(() => ({}));
+      const k = Number(body.k), first = Math.round(Number(body.first)), last = Math.round(Number(body.last));
+      if (!Number.isInteger(k) || !roster[k] || !(first >= 1 && last >= first && last <= words.length)) return error('bad_request', 400);
+      const mm = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+      if (!mm || !IMAGE_TYPES.includes(mm[1])) return error('bad_image', 400);
+      if (mm[2].length > MAX_IMAGE_BYTES) return error('image_too_large', 413);
+      const cap = roster.length * Math.ceil(words.length / 12) * 3 + 10;   // every page of every sheet, read up to 3 times
+      if ((t.reads || 0) >= cap) return error('too_many_reads', 429);
+      await q(env, `class_tests?id=eq.${tid}`, { method: 'PATCH', body: JSON.stringify({ reads: (t.reads || 0) + 1 }) });
+      const log = [];
+      const res = await runAI(env, providers, mm[1], mm[2], p => buildTestReadPrompt(first, last, p), parseTestRead, log);
+      await saveUsage(env, 'scan', log);
+      return res;
+    }
+    // ✓ save what the teacher checked for one student
+    if (act === 'results' && m === 'PUT') {
+      const k = Number(parts[6]);
+      if (!Number.isInteger(k) || !roster[k]) return error('bad_request', 400);
+      const body = await request.json().catch(() => ({}));
+      const answers = cleanAnswers(body.answers, words.length);
+      if (!answers) return error('bad_request', 400);
+      if (!answers.some(Boolean)) { await q(env, `class_test_results?test_id=eq.${tid}&user_id=eq.${roster[k].u}`, { method: 'DELETE' }); return json({ ok: true, result: null }); }
+      const score = answers.filter(x => x && x.ok).length, row = { test_id: tid, user_id: roster[k].u, answers, score, total: words.length, updated_at: new Date().toISOString() };
+      try { await q(env, 'class_test_results?on_conflict=test_id,user_id', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) }); }
+      catch (e) { if (e.status === 409) return error('not_found', 404); throw e; }   // the student's account was deleted
+      return json({ ok: true, result: { answers, score, total: words.length, at: row.updated_at } });
+    }
+    return error('method_not_allowed', 405);
+  } catch (e) {
+    if (testsMissing(e)) return error('needs_tests_sql', 503);
+    console.log('class tests error', e && e.message);
+    return error('db_error', 502);
+  }
+}
+// a student's own results (and the words they got wrong, to practise), newest first
+async function myTests(env, uid) {
+  try {
+    const res = await q(env, `class_test_results?user_id=eq.${uid}&select=test_id,answers,score,total,updated_at&order=updated_at.desc&limit=30`) || [];
+    if (!res.length) return json({ tests: [] });
+    const tests = new Map((await q(env, `class_tests?id=${inList(res.map(r => r.test_id))}&select=id,class_id,name,words`) || []).map(t => [t.id, t]));
+    const cls = new Map((await q(env, `classes?id=${inList([...new Set([...tests.values()].map(t => t.class_id))])}&select=id,name`) || []).map(x => [x.id, x.name]));
+    return json({ tests: res.filter(r => tests.has(r.test_id)).map(r => { const t = tests.get(r.test_id), w = t.words || [];
+      return { id: t.id, name: t.name, class_id: t.class_id, class_name: cls.get(t.class_id) || '', score: r.score, total: r.total, at: r.updated_at,
+        wrong: (r.answers || []).map((x, i) => x && !x.ok && w[i] ? w[i] : null).filter(Boolean) }; }) });
+  } catch (e) {
+    if (testsMissing(e)) return json({ tests: [] });
+    console.log('my tests error', e && e.message);
     return error('db_error', 502);
   }
 }
@@ -2037,6 +2189,7 @@ export function weekSummary(rep, now = Date.now()) {
     weak: ((rep && rep.weak) || []).slice(0, 5).map(x => [x[0], x[1]]),
     streak: recent ? (s.streak || 0) : 0, total: (rep && rep.words && rep.words.done) || 0,
     lv: ach && ach.lv ? ach.lv : 0, badges: ach ? [ach.n || 0, ach.total || 0] : null,
+    tests: ((rep && rep.tests) || []).filter(x => week.has(x[4])).slice(0, 3).map(x => [x[0], x[2], x[3]]),
   };
 }
 const DIGEST_TEXT = {
@@ -2044,12 +2197,12 @@ const DIGEST_TEXT = {
     days: (n) => `ฝึก ${n} จาก 7 วัน`, mins: n => `ประมาณ ${n} นาที`, ans: n => `ตอบ ${n} คำ`, streak: n => `🔥 ฝึกติดกัน ${n} วัน`, lv: n => `⭐ Lv.${n}`,
     badges: (a, b) => `🏅 ตรา ${a}/${b}`, total: n => `รู้แล้วทั้งหมด ${n} คำ`, learned: 'คำที่จำได้ใหม่', weak: 'คำที่ยังพลาดบ่อย — ลองฝึกด้วยกัน',
     none: 'สัปดาห์นี้ยังไม่ได้ฝึก ลองชวนฝึกสัก 5 นาทีด้วยกันนะ 🙂', noreport: 'ยังไม่มีข้อมูลการฝึก (ลูกต้องเปิด Piccab ในเครื่องของตัวเองก่อน)',
-    open: 'ดูรายงานเต็มใน Piccab', why: 'คุณได้รับอีเมลนี้เพราะเป็นผู้ปกครองในกลุ่มครอบครัวบน Piccab', off: 'เลิกรับอีเมลนี้', group: 'กลุ่ม' },
+    tests: 'ผลสอบจากครู', open: 'ดูรายงานเต็มใน Piccab', why: 'คุณได้รับอีเมลนี้เพราะเป็นผู้ปกครองในกลุ่มครอบครัวบน Piccab', off: 'เลิกรับอีเมลนี้', group: 'กลุ่ม' },
   en: { subject: n => n ? `${n}'s week of practice — Piccab` : 'This week of practice — Piccab', hi: 'Vocabulary practice over the last 7 days',
     days: (n) => `practised ${n} of 7 days`, mins: n => `about ${n} min`, ans: n => `${n} answers`, streak: n => `🔥 ${n}-day streak`, lv: n => `⭐ Lv.${n}`,
     badges: (a, b) => `🏅 badges ${a}/${b}`, total: n => `${n} words known in all`, learned: 'New words learned', weak: 'Words still tricky — practise them together',
     none: 'No practice this week yet — how about 5 minutes together? 🙂', noreport: 'No practice data yet (your child needs to open Piccab on their own device first)',
-    open: 'See the full report in Piccab', why: "You're getting this because you're a parent in a family group on Piccab", off: 'Stop these e-mails', group: 'Group' },
+    tests: 'Test results from the teacher', open: 'See the full report in Piccab', why: "You're getting this because you're a parent in a family group on Piccab", off: 'Stop these e-mails', group: 'Group' },
 };
 // kids: [{ nick, group, rep|null }]
 export function digestMail({ lang = 'th', kids, origin, unsub, now = Date.now() }) {
@@ -2067,6 +2220,7 @@ export function digestMail({ lang = 'th', kids, origin, unsub, now = Date.now() 
     if (!w.days) text.push('  ' + T.none);
     if (w.learned.length) text.push(`  ${T.learned}: ${w.learned.map(x => x[0]).join(', ')}`);
     if (w.weak.length) text.push(`  ${T.weak}: ${w.weak.map(x => x[0]).join(', ')}`);
+    if (w.tests.length) text.push(`  ${T.tests}: ${w.tests.map(x => `${x[0]} ${x[1]}/${x[2]}`).join(', ')}`);
     text.push('');
     return `<div style="border:1px solid #ece4d8;border-radius:14px;padding:14px 16px;margin:12px 0">
 <h3 style="margin:0 0 8px;font-size:17px;color:#2d2a5a">${esc(k.nick)}</h3>
@@ -2074,6 +2228,7 @@ export function digestMail({ lang = 'th', kids, origin, unsub, now = Date.now() 
 ${w.days ? '' : `<p style="margin:8px 0 0;color:#b4532a">${esc(T.none)}</p>`}
 ${w.learned.length ? `<p style="margin:10px 0 2px;font-size:13px;color:#1d7a4c;font-weight:600">✅ ${esc(T.learned)}</p><p style="margin:0">${words(w.learned)}</p>` : ''}
 ${w.weak.length ? `<p style="margin:10px 0 2px;font-size:13px;color:#b4532a;font-weight:600">💪 ${esc(T.weak)}</p><p style="margin:0">${words(w.weak)}</p>` : ''}
+${w.tests.length ? `<p style="margin:10px 0 2px;font-size:13px;color:#2d2a5a;font-weight:600">📝 ${esc(T.tests)}</p><p style="margin:0">${w.tests.map(x => `${esc(x[0])} <b>${x[1]}/${x[2]}</b>`).join(' · ')}</p>` : ''}
 </div>`;
   }).join('');
   const app = `${origin}/app${lang === 'en' ? '?hl=en' : ''}`;
