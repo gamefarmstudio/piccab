@@ -98,7 +98,7 @@ async def main():
     check('1/24 ★1' in out['table'][1] and 'มิ้นท์' in out['table'][1], "teacher sees the student's progress", out['table'])
     check(out['xlsx_name'].endswith('.xlsx') and out['csv_name'].endswith('.csv'), 'export to Excel and CSV', (out['xlsx_name'], out['csv_name']))
     check(out['board_off']==0 and out['teacher_board'][0].startswith('🥇') and '(ฉัน)' in out['student_board'][1], 'class ranking', (out['teacher_board'], out['student_board']))
-    check(out['db']=={'classes':1,'class_members':0,'class_items':2,'class_progress':0}, 'leaving / removing cleans up', out['db'])
+    check(out['db']=={'classes':1,'class_members':0,'class_items':2,'class_progress':0,'class_tests':0,'class_test_results':0}, 'leaving / removing cleans up', out['db'])
     check('บัญชีนักเรียนสร้างห้องเรียนไม่ได้' in out['s1_create'], "student accounts can't create classes", out['s1_create'])
     finish('classes', out, errs)
 asyncio.run(main())

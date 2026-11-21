@@ -6,6 +6,7 @@ import { el, ic, LANGS, LOC, S, store, tally } from './core.js';
 import { dueWords, wordStats } from './progress.js';
 import { closeModal, openModal } from './scene.js';
 import { allWords, days, dkey, openFeedback, streak } from './home.js';
+import { testsForReport } from './classtests.js';
 import { user } from './account.js';
 import { CL, classApi, classErr, renderClass } from './classes.js';
 import { CEFR_NAME, cefrRows, myStage, stageById, stageCefr, stageName } from './path.js';
@@ -60,6 +61,7 @@ function buildReport(){
     cefr:cefrRows().map(r=>[r.c, r.known, r.total]),
     scenes:scs.filter(r=>r[1]).concat(scs.filter(r=>!r[1])).slice(0,15),
     ach:achSummary(),
+    tests:testsForReport(),
   };
 }
 
@@ -134,6 +136,8 @@ function renderReport(v, d){
     statTile('task_alt', `${w.done||0}/${w.total||0}`, 'คำที่ผ่านแล้ว', 'ok'),
     statTile('star-fill', w.star||0, 'ตอบถูกเองโดยไม่ใช้ตัวช่วย', 'gold'),
     statTile('autorenew', w.due||0, 'คำที่ถึงรอบทบทวน')));
+  if((D.tests||[]).length) v.append(el('h3',{class:'psub',text:'📝 ผลสอบจากครู'}),
+    el('div',{class:'rbars'}, ...D.tests.map(([n,c,sc,t,dd])=>barRow(n+(c?' · '+c:'')+(dd?' · '+fmtDay(dd):''), sc, t, `${sc}/${t}`))));
   v.append(el('p',{class:'note small',text:`ฝึกล่าสุด: ${sinceText(s.last)}`+(D.lang && D.lang!=='en' && LANGS[D.lang] ? ` · ฝึกภาษา${LANGS[D.lang].name}` : '')}));
   // 🗺️ journey: level, place, badges
   if(D.ach && D.ach.lv){ const A=D.ach, P=ACH_PLACES[Math.min(A.place||0, ACH_PLACES.length-1)];
