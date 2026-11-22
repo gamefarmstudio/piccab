@@ -6,9 +6,9 @@ import { el, LANGS, S, shuffle, store, tally, toast } from './core.js';
 import { closeModal, openModal } from './scene.js';
 import { allWords } from './home.js';
 import { makeCards, printNow } from './cards.js';
-import { classTestPages, NAMES, namesFrom } from './classtests.js';
+import { classTestPages, NAMES, namesFrom, rosterEditor } from './classtests.js';
 import { user } from './account.js';
-import { CL, loadClasses } from './classes.js';
+import { CL, classApi, loadClasses } from './classes.js';
 
 var TS={ q:store.get('pv-ts-q','pic'), hint:store.get('pv-ts-hint','none'), mix:store.get('pv-ts-mix',true)!==false, key:store.get('pv-ts-key',true)!==false };
 const TS_PIC_PER=12, TS_ROW_FIRST=17, TS_ROW_PER=19;   // questions a page: 3 × 4 pictures, or rows of meanings
@@ -42,37 +42,52 @@ async function openTestSheet(sc, opts={}){
       ...classes().map(c=>el('option',{value:c.id,text:`${c.kind==='family'?'🏠':'🎓'} ${c.name} · ${c.members} คน (พิมพ์ชื่อและ QR ให้แต่ละคน)`})),
       el('option',{value:NAMES,text:'📝 พิมพ์รายชื่อเอง (ไม่ต้องมีบัญชีในแอป)'}));
       if(CL.list && !known(cls)) cls=''; forSel.value=known(cls) ? cls : ''; };
-    // the typed names, one per line (kept for next time)
-    const namesBox=el('textarea',{class:'tsnames',rows:'4','aria-label':'รายชื่อ',placeholder:'หนึ่งชื่อต่อบรรทัด เช่น\n1 สมชาย\n2 สมหญิง'});
-    namesBox.value=store.get('pv-ts-names','')||'';
-    const namesRow=el('div',{class:'tsnamesrow'}, namesBox, el('p',{class:'note small',text:'แต่ละคนได้แผ่นที่มีชื่อและ QR · ไม่ต้องมีบัญชีในแอป · เก็บแค่คะแนนไว้ให้ครู'}));
-    namesBox.addEventListener('input',()=>{ store.set('pv-ts-names', namesBox.value.slice(0,6000)); draw(); });
-    forSel.addEventListener('change',()=>{ cls=forSel.value; draw(); if(cls===NAMES) setTimeout(()=>namesBox.focus(),0); });
-    if(user){ fillFor(); if(!CL.list) loadClasses().then(()=>{ if(forSel.isConnected){ fillFor(); draw(); } }); }
+    // ✏️ the names on the sheets (classtests.js rosterEditor): a class's students (📱), with names changed / left out /
+    // people without the app added — or a typed list (kept for next time)
+    const namesRow=el('div',{class:'tsnamesrow'});
+    let ros=null, rosFor=null;
+    const members=new Map();   // class id → its students
+    const setRoster=async()=>{
+      if(rosFor===cls) return; rosFor=cls; ros=null; namesRow.replaceChildren();
+      if(cls===NAMES){
+        ros=rosterEditor(namesFrom(store.get('pv-ts-names','')||'').map(n=>({ n })), ()=>{ if(!ros) return; store.set('pv-ts-names', ros.names().join('\n').slice(0,6000)); draw(); });
+        namesRow.append(ros.el, el('p',{class:'note small',text:'ไม่ต้องมีบัญชีในแอป · เก็บแค่คะแนนไว้ให้ครู'}));
+        if(!ros.rows().length) setTimeout(()=>{ const a=namesRow.querySelector('.rtadd'); if(a) a.focus(); },0);
+      } else if(cls){
+        const want=cls; namesRow.append(el('p',{class:'note small',text:'กำลังโหลดรายชื่อ…'}));
+        if(!members.has(want)){ const r=await classApi('GET',`/${want}`).catch(()=>({ok:false})); members.set(want, r.ok ? (r.j.members||[]) : []); }
+        if(rosFor!==want) return;
+        ros=rosterEditor(members.get(want).map(mb=>({ u:mb.user_id, n:mb.nickname, app:true })), draw);
+        namesRow.replaceChildren(ros.el, el('p',{class:'note small',text:'📱 ได้คะแนนและคำที่ผิดไปฝึกในแอป · คนที่เพิ่มเองเก็บแค่คะแนน'}));
+      }
+      draw();
+    };
+    forSel.addEventListener('change',()=>{ cls=forSel.value; setRoster(); draw(); });
+    if(user){ fillFor(); if(!CL.list) loadClasses().then(()=>{ if(forSel.isConnected){ fillFor(); setRoster(); draw(); } }); }
     const printBtn=el('button',{class:'primary tsprint',text:'🖨️ พิมพ์ / บันทึก PDF'});
     const fit=()=>{ const p=prev.querySelector('.tspage'); if(!p || !prev.clientWidth) return; prev.style.zoom='';
       prev.style.zoom=String(Math.min(1, (prev.clientWidth-4)/p.offsetWidth)); };
     const draw=()=>{
       for(const [g,cur] of [[qSeg,TS.q],[hSeg,TS.hint]]) [...g.children].forEach(b=>{ const on=b.dataset.v===cur; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
-      const c=classes().find(x=>x.id===cls), names=cls===NAMES ? namesFrom(namesBox.value) : null;
-      namesRow.hidden=cls!==NAMES;
-      const who=c || names ? { name: names && names[0] ? names[0] : '(ชื่อนักเรียน)', sample:true } : {};
+      const c=classes().find(x=>x.id===cls), names=(c || cls===NAMES) && ros ? ros.rows().filter(r=>r.on).map(r=>String(r.n||'').trim()||r.orig) : (c || cls===NAMES) ? [] : null;
+      namesRow.hidden=!c && cls!==NAMES;
+      const who=names ? { name: names[0] || '(ชื่อนักเรียน)', sample:true } : {};
       const pages=testPages(sc, order, TS, who), qp=pages.filter(p=>!p.classList.contains('key')).length;
       prev.replaceChildren(...pages.map((p,i)=>el('div',{class:'tspagewrap'}, el('span',{class:'pcpn',text: p.classList.contains('key') ? 'เฉลย (สำหรับครู)' : c ? `ตัวอย่าง หน้า ${i+1}` : `หน้า ${i+1}`}), p)));
       const noPic=(TS.q==='pic' || TS.q==='both') ? order.filter(c=>!c.pic).length : 0;
-      const n=c ? c.members : names ? names.length : 0;
-      info.textContent= c || names ? `${order.length} ข้อ · ${n} คน คนละ ${qp} หน้า` : TS.key ? `${order.length} ข้อ · ${qp} หน้า + เฉลย 1 หน้า` : `${order.length} ข้อ · ${qp} หน้า`;
-      if(c || names) info.append(el('br'), 'ถ่ายรูปแผ่นที่ทำแล้วใน 🎓 ห้องเรียน ให้ AI ช่วยตรวจ');
-      printBtn.disabled=!!names && !names.length;
+      const n=names ? names.length : 0;
+      info.textContent= names ? `${order.length} ข้อ · ${n} คน คนละ ${qp} หน้า` : TS.key ? `${order.length} ข้อ · ${qp} หน้า + เฉลย 1 หน้า` : `${order.length} ข้อ · ${qp} หน้า`;
+      if(names) info.append(el('br'), 'ถ่ายรูปแผ่นที่ทำแล้วใน 🎓 ห้องเรียน ให้ AI ช่วยตรวจ');
       if(noPic) info.append(el('br'), `${noPic} คำไม่มีรูป จะแสดงคำแปลแทน`);
       fit();
     };
     printBtn.addEventListener('click',async()=>{
       printBtn.disabled=true; printBtn.textContent='กำลังเตรียม…';
       if(cls){
-        const names=cls===NAMES ? namesFrom(namesBox.value) : null;
-        if(names && !names.length){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; namesBox.focus(); return; }
-        const got=await classTestPages(names ? { names } : { class_id:cls }, sc, cards, TS);
+        const people=ros ? ros.people() : [];
+        if(!people.length){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; toast('เลือกอย่างน้อย 1 คน'); return; }
+        const names=cls===NAMES;
+        const got=await classTestPages(names ? { people } : { class_id:cls, people }, sc, cards, TS);
         if(!got){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; return; }
         await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages));
         closeModal(); tally('test_sheet');
@@ -84,16 +99,17 @@ async function openTestSheet(sc, opts={}){
     });
     m.append(el('div',{class:'pchead'}, el('h3',{text:'📝 แผ่นสอบเขียนคำศัพท์'}), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
       el('div',{class:'tsopts'},
-        user ? el('b',{text:'สำหรับ'}) : null, user ? forSel : null, user ? namesRow : null,
+        user ? el('b',{text:'สำหรับ'}) : null, user ? forSel : null,
         el('b',{text:'โจทย์'}), qSeg,
         el('b',{text:'ตัวช่วย'}), hSeg,
         el('div',{class:'tschk'},
           chk(TS.mix, 'สลับลำดับคำ', v=>{ TS.mix=v; store.set('pv-ts-mix',v); order=v ? shuffle(cards.slice()) : cards.slice(); }),
           chk(TS.key, 'พิมพ์หน้าเฉลย', v=>{ TS.key=v; store.set('pv-ts-key',v); }))),
+      user ? namesRow : null,
       prev,
       el('div',{class:'row pcfoot'}, info, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), printBtn),
       el('p',{class:'note small',text:'ในหน้าพิมพ์ เลือก “บันทึกเป็น PDF” ถ้าต้องการไฟล์ PDF'}));
-    draw();
+    setRoster(); draw();
     requestAnimationFrame(fit);
   });
 }

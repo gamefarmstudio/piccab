@@ -49,6 +49,7 @@ async def main():
         out['for'] = await T.evaluate("(()=>{ const s=document.querySelector('.tsfor'); return [s.value, s.options[s.selectedIndex].text]; })()")
         out['sample_qr'] = await T.locator('.tsprev .tsqr.sample').count()
         out['info'] = await T.inner_text('.tsinfo')
+        out['ros'] = await T.evaluate("[...document.querySelectorAll('.tsnamesrow .rtrow')].map(r=>[r.querySelector('.rtname').value, r.querySelector('.rtapp').textContent, r.querySelector('input').checked])")
         await T.uncheck('.tschk input >> nth=0'); await T.click('.tsseg button[data-v=count]'); await T.wait_for_timeout(200)
         await T.screenshot(path=shot('ct_print_opts.png'))
         await T.click('.tsbox .tsprint'); await T.wait_for_timeout(2500)
@@ -77,12 +78,16 @@ async def main():
         # 🖨️ on the right: print again, the same test (same QR), for one student
         printed0 = await T.evaluate('window.__printed||0')
         await T.click('.ctsec .cttest .ctprint'); await T.wait_for_timeout(1200)
-        out['rp_names'] = await T.locator('#mbox .wholist .chk').all_inner_texts()
-        await T.locator('#mbox .wholist .chk', has_text='บีม').locator('input').uncheck()
-        out['rp_count'] = await T.inner_text('#mbox .whohead .note')
+        out['rp_names'] = await T.evaluate("[...document.querySelectorAll('#mbox .rtrow .rtname')].map(i=>i.value)")
+        # only มิ้นท์, and นิว who doesn't use the app (added here)
+        await T.locator('#mbox .rtrow', has=T.locator('input[value="บีม"]')).locator('input[type=checkbox]').uncheck()
+        await T.fill('#mbox .rtadd', 'นิว'); await T.click('#mbox .rtaddrow .linkbtn')
+        out['rp_count'] = await T.inner_text('#mbox .rtcount')
+        await T.screenshot(path=shot('ct_reprint.png'))
         await T.click('#mbox .row button.primary'); await T.wait_for_timeout(2500)
         out['rp'] = [await T.evaluate('window.__printed||0') - printed0, await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts(),
-                     await T.locator('#printSheet .tsqr small').first.inner_text(), len(state()['class_tests'])]
+                     await T.locator('#printSheet .tsqr small').first.inner_text(), len(state()['class_tests']),
+                     [(r['n'], bool(r.get('u'))) for r in state()['class_tests'][0]['roster']], await T.locator('#printSheet .tsqr small').nth(1).inner_text()]
         await T.evaluate("document.getElementById('printSheet')?.remove(); document.body.classList.remove('printing')")
         await T.click('.ctsec .cttest'); await T.wait_for_timeout(1200)
         out['view'] = await T.inner_text('#classView .ghead')
@@ -138,8 +143,8 @@ async def main():
         out['names_sec'] = await T.inner_text('.ctsec.names')
         await T.click('.ctsec.names .hsec .linkbtn'); await T.wait_for_timeout(300)
         await T.locator('#mbox .ctpick .lrow', has_text=set_name).click(); await T.wait_for_timeout(1500)
-        out['n_for'] = await T.input_value('.tsfor'); out['n_box'] = await T.locator('.tsnamesrow:not([hidden]) textarea').count()
-        await T.fill('.tsnames', '1 สมชาย\n\n2 สมหญิง\n'); await T.wait_for_timeout(200)
+        out['n_for'] = await T.input_value('.tsfor'); out['n_box'] = await T.locator('.tsnamesrow:not([hidden]) .rtadd').count()
+        await T.fill('.tsnamesrow .rtadd', '1 สมชาย\n\n2 สมหญิง\n'); await T.click('.tsnamesrow .rtaddrow .linkbtn'); await T.wait_for_timeout(200)
         out['n_info'] = await T.inner_text('.tsinfo'); out['n_sample'] = await T.locator('.tsprev .tsf.wide i').first.inner_text()
         await T.uncheck('.tschk input >> nth=0'); await T.click('.tsbox .tsprint'); await T.wait_for_timeout(2500)
         out['n_names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
@@ -167,11 +172,13 @@ async def main():
     check('ยังไม่มี' not in out['empty'] and 'พิมพ์แผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
     check(out['for'][0] != '' and 'ป.5/1' in out['for'][1] and out['sample_qr'] >= 1 and '2 คน' in out['info'], 'the class is chosen: a sample with a QR, 2 students', (out['for'], out['sample_qr'], out['info']))
+    check(sorted(out['ros']) == [['บีม', '📱', True], ['มิ้นท์', '📱', True]], 'the names on the sheets: the class, 📱, all ticked', out['ros'])
     check(out['printed'] == 1 and out['pages'] == 3 and sorted(out['names']) == ['บีม', 'มิ้นท์'] and out['qrs'] == 2, 'one sheet per student with the name and a QR, + the answers', (out['printed'], out['pages'], out['names'], out['qrs']))
     check(out['db_test'] and out['db_test'][0][1] == 3 and sorted(out['db_test'][0][2]) == ['บีม', 'มิ้นท์'], 'the test is saved with the class list', out['db_test'])
-    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 2 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'พิมพ์' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
+    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 3 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'พิมพ์' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
     tid_ = out['db_tid']
-    check(sorted(out['rp_names']) == ['บีม', 'มิ้นท์'] and out['rp_count'] == '1/2 คน' and out['rp'][0] == 1 and out['rp'][1] == ['มิ้นท์'] and out['rp'][2].startswith(tid_) and out['rp'][3] == 1, 'print again: one student, the same test and QR, no new test', (out['rp_names'], out['rp_count'], out['rp']))
+    check(sorted(out['rp_names']) == ['บีม', 'มิ้นท์'] and out['rp_count'] == 'พิมพ์ 2/3 คน' and out['rp'][0] == 1 and out['rp'][1] == ['มิ้นท์', 'นิว'] and out['rp'][2].startswith(tid_) and out['rp'][3] == 1
+          and sorted(out['rp'][4]) == [('นิว', False), ('บีม', True), ('มิ้นท์', True)] and out['rp'][5].endswith('· 3'), 'print again: the same test and QR; someone without the app added (place 3), no new test', (out['rp_names'], out['rp_count'], out['rp']))
     check(len(out['reads']) == 2 and out['reads'][0] == {'k': mint, 'first': 1, 'last': 3, 'jpeg': True} and out['reads'][1]['k'] == beam, 'the QR says whose sheet it is; the other one was chosen by hand', out['reads'])
     check('มิ้นท์' in out['rv1_head'] and out['rv1_vals'] == ['kat', 'dog', 'ice cream'] and out['rv1_marks'] == ['✗', '✓', '✓'] and out['rv1_hand'] == 1, 'review: what AI read, marked against the key, the handwriting of question 1', (out['rv1_head'], out['rv1_vals'], out['rv1_marks'], out['rv1_hand']))
     check(out['fix_mark'] == '✓' and out['sum'] == 'ถูก 1/3', 'fixing a misread word re-marks it; ✓/✗ can be tapped', (out['fix_mark'], out['sum']))
