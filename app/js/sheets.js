@@ -355,7 +355,8 @@ function openSheetMaker(sc, opts={}){
       if(f.left) setTimeout(()=>picsToast(wds, f), 4200);
       closeModal();
       if(typeof renderClass==='function' && S.view==='class') renderClass();
-      if(sc){ if(S.view==='play') fullRender(); else renderGallery(); toast('บันทึกชุดคำแล้ว'); }
+      if(opts.onSaved){ toast('บันทึกชุดคำแล้ว'); opts.onSaved(s2); }   // e.g. back to making a test with it
+      else if(sc){ if(S.view==='play') fullRender(); else renderGallery(); toast('บันทึกชุดคำแล้ว'); }
       else { openScene(s2.id,'learn'); toast(`สร้างชุดคำ ${wds.length} คำแล้ว — แตะการ์ดเพื่อฟังคำ`, 4000); }
     });
     m.append(

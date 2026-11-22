@@ -13,7 +13,7 @@ import { allWords, renderGallery, sceneTime } from './home.js';
 import { openPreview } from './decks.js';
 import { loadImg, makeCards, printNow } from './cards.js';
 import { openTestSheet, pageRanges, testPages, TS } from './testsheet.js';
-import { isList, saveWordSheet } from './sheets.js';
+import { isList, openSheetMaker, saveWordSheet } from './sheets.js';
 import { user } from './account.js';
 import { CL, classApi, classErr, renderClass } from './classes.js';
 import { sendReportSoon } from './report.js';
@@ -193,16 +193,30 @@ function testsSection(d){
   return box;
 }
 // ➕ choose the word set (or scene) to test, then the usual 📝 test sheet screen with this class chosen
+// ➕ choose the word set to test (the word sets made in 🎓 ชุดคำศัพท์), then the usual 📝 test sheet screen with this
+// class chosen. Another set: make one here (typed or scanned) and carry on with it — or use a picture scene.
 function pickTestSet(d){
-  const list=scenes().filter(sc=>Object.values(sc.items||{}).some(it=>it && it.word)).sort((a,b)=>(isList(b)-isList(a)) || sceneTime(b)-sceneTime(a));
+  const cls={ cls: d ? d.id : NAMES }, go=sc=>{ closeModal(); openTestSheet(sc, cls); };
+  const words=sc=>Object.values(sc.items||{}).filter(it=>it && it.word).length;
+  const sets=scenes().filter(sc=>isList(sc) && words(sc)).sort((a,b)=>sceneTime(b)-sceneTime(a));
+  const pics=scenes().filter(sc=>!isList(sc) && words(sc)).sort((a,b)=>sceneTime(b)-sceneTime(a));
+  const row=(sc, icon)=>el('button',{class:'lrow',onclick:()=>go(sc)},
+    el('span',{class:'clic',text:icon}), el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:sc.name}), el('span',{class:'lm',text:`${words(sc)} คำ`})));
+  const make=o=>{ closeModal(); openSheetMaker(null, { ...o, onSaved:sc=>openTestSheet(sc, cls) }); };
   openModal(m=>{
     m.append(el('h3',{text:'📝 เลือกชุดคำที่จะสอบ'}));
-    if(!list.length) m.append(el('p',{class:'libempty',text:'ยังไม่มีชุดคำ'}));
     const box=el('div',{class:'liblist ctpick'});
-    list.slice(0,80).forEach(sc=>box.append(el('button',{class:'lrow',onclick:()=>{ closeModal(); openTestSheet(sc, { cls: d ? d.id : NAMES }); }},
-      el('span',{class:'clic',text:isList(sc)?'📚':'🖼️'}), el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:sc.name}),
-        el('span',{class:'lm',text:`${Object.values(sc.items||{}).filter(it=>it && it.word).length} คำ`})))));
-    m.append(box, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
+    if(sets.length) sets.slice(0,80).forEach(sc=>box.append(row(sc,'📚')));
+    else box.append(el('p',{class:'libempty',text:'ยังไม่มีชุดคำศัพท์ — สร้างใหม่ได้ด้านล่าง'}));
+    // 🖼️ a picture scene instead (shown on request, so the list stays the word sets)
+    const sceneBox=el('div',{class:'liblist ctpick ctscenes',hidden:''});
+    pics.slice(0,80).forEach(sc=>sceneBox.append(row(sc,'🖼️')));
+    const more=el('div',{class:'ctmore'},
+      el('span',{class:'note small',text:'ต้องการชุดอื่น?'}),
+      el('button',{class:'ctnewset',onclick:()=>make({})}, '✏️ ', el('span',{text:'สร้างชุดคำใหม่'})),
+      el('button',{class:'ctscanset',onclick:()=>make({ scan:true })}, '📷 ', el('span',{text:'สแกนชีทคำศัพท์'})),
+      pics.length ? el('button',{class:'ctpicscenes',onclick:e=>{ sceneBox.hidden=!sceneBox.hidden; e.currentTarget.classList.toggle('on',!sceneBox.hidden); }}, '🖼️ ', el('span',{text:'ใช้ฉากรูปภาพ'})) : null);
+    m.append(box, more, sceneBox, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
   });
 }
 const NAMES='__names';   // "for": a typed list of names
