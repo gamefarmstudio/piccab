@@ -8,7 +8,7 @@ import { allWords } from './home.js';
 import { makeCards, printNow } from './cards.js';
 import { classTestPages, NAMES, namesFrom, rosterEditor } from './classtests.js';
 import { user } from './account.js';
-import { CL, classApi, loadClasses } from './classes.js';
+import { CL, classApi, loadClasses, renderClass } from './classes.js';
 
 var TS={ q:store.get('pv-ts-q','pic'), hint:store.get('pv-ts-hint','none'), mix:store.get('pv-ts-mix',true)!==false, key:store.get('pv-ts-key',true)!==false };
 const TS_PIC_PER=12, TS_ROW_FIRST=17, TS_ROW_PER=19;   // questions a page: 3 × 4 pictures, or rows of meanings
@@ -91,6 +91,7 @@ async function openTestSheet(sc, opts={}){
         if(!got){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; return; }
         await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages));
         closeModal(); tally('test_sheet');
+        if(S.view==='class') renderClass();   // the new test shows in the list straight away
         toast(names ? 'บันทึกแผ่นสอบแล้ว — เมื่อทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบรายชื่อเอง' : 'บันทึกแผ่นสอบไว้ในห้องเรียนแล้ว — เมื่อนักเรียนทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบ', 7000);
         return;
       }

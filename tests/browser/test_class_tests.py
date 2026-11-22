@@ -57,6 +57,7 @@ async def main():
         out['pages'] = await T.locator('#printSheet .tspage').count()
         out['names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
         out['qrs'] = await T.locator('#printSheet .tsqr img').count()
+        out['list_now'] = await T.locator('.ctsec .cttest').count()   # shows at once, no reload
         st = state(); out['db_test'] = [(t['name'], len(t['words']), [r['n'] for r in t['roster']]) for t in st['class_tests']]
         tid = st['class_tests'][0]['id']; out['db_tid'] = tid; roster = [r['n'] for r in st['class_tests'][0]['roster']]
         mint = roster.index('มิ้นท์'); beam = roster.index('บีม'); fake_k = {'mint': mint}
@@ -89,6 +90,11 @@ async def main():
                      await T.locator('#printSheet .tsqr small').first.inner_text(), len(state()['class_tests']),
                      [(r['n'], bool(r.get('u'))) for r in state()['class_tests'][0]['roster']], await T.locator('#printSheet .tsqr small').nth(1).inner_text()]
         await T.evaluate("document.getElementById('printSheet')?.remove(); document.body.classList.remove('printing')")
+        # 👥 add a name and 💾 save it, without printing: the list shows it straight away
+        await T.click('.ctsec .cttest .ctprint'); await T.wait_for_timeout(1200)
+        await T.fill('#mbox .rtadd', 'แก้ม'); printed1 = await T.evaluate('window.__printed||0')
+        await T.click('#mbox .ctsave'); await T.wait_for_timeout(1500)
+        out['saved'] = [await T.evaluate('window.__printed||0') - printed1, await T.inner_text('.ctsec .cttest .ctto'), [r['n'] for r in state()['class_tests'][0]['roster']]]
         await T.click('.ctsec .cttest'); await T.wait_for_timeout(1200)
         out['view'] = await T.inner_text('#classView .ghead')
         out['todo'] = await T.locator('.ctst.todo').count()
@@ -173,9 +179,11 @@ async def main():
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
     check(out['for'][0] != '' and 'ป.5/1' in out['for'][1] and out['sample_qr'] >= 1 and '2 คน' in out['info'], 'the class is chosen: a sample with a QR, 2 students', (out['for'], out['sample_qr'], out['info']))
     check(sorted(out['ros']) == [['บีม', '📱', True], ['มิ้นท์', '📱', True]], 'the names on the sheets: the class, 📱, all ticked', out['ros'])
+    check(out['list_now'] == 1, 'the new test is in the list straight after printing', out['list_now'])
+    check(out['saved'][0] == 0 and 'แก้ม' in out['saved'][1] and out['saved'][2][-1] == 'แก้ม' and len(out['saved'][2]) == 4, '💾 save the names without printing; the list shows them at once', out['saved'])
     check(out['printed'] == 1 and out['pages'] == 3 and sorted(out['names']) == ['บีม', 'มิ้นท์'] and out['qrs'] == 2, 'one sheet per student with the name and a QR, + the answers', (out['printed'], out['pages'], out['names'], out['qrs']))
     check(out['db_test'] and out['db_test'][0][1] == 3 and sorted(out['db_test'][0][2]) == ['บีม', 'มิ้นท์'], 'the test is saved with the class list', out['db_test'])
-    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 3 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'พิมพ์' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
+    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 4 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'รายชื่อ' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
     tid_ = out['db_tid']
     check(sorted(out['rp_names']) == ['บีม', 'มิ้นท์'] and out['rp_count'] == 'พิมพ์ 2/3 คน' and out['rp'][0] == 1 and out['rp'][1] == ['มิ้นท์', 'นิว'] and out['rp'][2].startswith(tid_) and out['rp'][3] == 1
           and sorted(out['rp'][4]) == [('นิว', False), ('บีม', True), ('มิ้นท์', True)] and out['rp'][5].endswith('· 3'), 'print again: the same test and QR; someone without the app added (place 3), no new test', (out['rp_names'], out['rp_count'], out['rp']))

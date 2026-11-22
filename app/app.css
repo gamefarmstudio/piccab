@@ -1583,3 +1583,4 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox .rted .rtname{display:block;margin-top:0;padding:5px 8px;font-size:15px;border:1px solid transparent;background:transparent}
 .mbox .rted .rtname:hover,.mbox .rted .rtname:focus{border-color:var(--line);background:#fff}
 .mbox .rted input[type=checkbox],.mbox .tskeychk input{display:inline-block;width:18px;height:18px;margin:0;padding:0}
+.ctsave{font-weight:600}
