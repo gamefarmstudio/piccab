@@ -1549,3 +1549,12 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .whobtn{display:block;margin:3px auto 0;padding:2px 8px;font-size:12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
 .whobtn.some{border-color:var(--ink);color:var(--ink);font-weight:600}
 .cltable td.na{background:repeating-linear-gradient(135deg,#f6f2ec 0 6px,#fbf8f3 6px 12px)}
+/* 📝 tests list: who it went to, 🖨️ print on the right */
+.lrow.cttest{cursor:pointer}
+.cttest .lb{min-width:0}
+.cttest .ctto{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctprint{flex:none;display:inline-flex;align-items:center;gap:2px;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:14px;white-space:nowrap}
+.ctprint:hover{border-color:var(--ink)}
+.cttest .ctprint{margin-left:auto}
+.note.warn{color:#b4532a}
+.tskeychk{display:flex;align-items:center;gap:6px;margin:10px 0 4px;font-size:14px}

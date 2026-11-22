@@ -57,7 +57,7 @@ async def main():
         out['names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
         out['qrs'] = await T.locator('#printSheet .tsqr img').count()
         st = state(); out['db_test'] = [(t['name'], len(t['words']), [r['n'] for r in t['roster']]) for t in st['class_tests']]
-        tid = st['class_tests'][0]['id']; roster = [r['n'] for r in st['class_tests'][0]['roster']]
+        tid = st['class_tests'][0]['id']; out['db_tid'] = tid; roster = [r['n'] for r in st['class_tests'][0]['roster']]
         mint = roster.index('มิ้นท์'); beam = roster.index('บีม'); fake_k = {'mint': mint}
         # the "photo" of มิ้นท์'s sheet: her printed page, as an image
         await T.evaluate("""(k)=>{ const pg=document.querySelectorAll('#printSheet .tspage:not(.key)')[k].cloneNode(true); pg.id='photoPage';
@@ -73,6 +73,17 @@ async def main():
         await T.route('**/api/tests/*/read', fake_read)
         await T.click('#classView button[title="โหลดใหม่"]'); await T.wait_for_timeout(1500)
         out['list'] = await T.inner_text('.ctsec .cttest')
+        await T.locator('.ctsec').screenshot(path=shot('ct_list.png'))
+        # 🖨️ on the right: print again, the same test (same QR), for one student
+        printed0 = await T.evaluate('window.__printed||0')
+        await T.click('.ctsec .cttest .ctprint'); await T.wait_for_timeout(1200)
+        out['rp_names'] = await T.locator('#mbox .wholist .chk').all_inner_texts()
+        await T.locator('#mbox .wholist .chk', has_text='บีม').locator('input').uncheck()
+        out['rp_count'] = await T.inner_text('#mbox .whohead .note')
+        await T.click('#mbox .row button.primary'); await T.wait_for_timeout(2500)
+        out['rp'] = [await T.evaluate('window.__printed||0') - printed0, await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts(),
+                     await T.locator('#printSheet .tsqr small').first.inner_text(), len(state()['class_tests'])]
+        await T.evaluate("document.getElementById('printSheet')?.remove(); document.body.classList.remove('printing')")
         await T.click('.ctsec .cttest'); await T.wait_for_timeout(1200)
         out['view'] = await T.inner_text('#classView .ghead')
         out['todo'] = await T.locator('.ctst.todo').count()
@@ -158,7 +169,9 @@ async def main():
     check(out['for'][0] != '' and 'ป.5/1' in out['for'][1] and out['sample_qr'] >= 1 and '2 คน' in out['info'], 'the class is chosen: a sample with a QR, 2 students', (out['for'], out['sample_qr'], out['info']))
     check(out['printed'] == 1 and out['pages'] == 3 and sorted(out['names']) == ['บีม', 'มิ้นท์'] and out['qrs'] == 2, 'one sheet per student with the name and a QR, + the answers', (out['printed'], out['pages'], out['names'], out['qrs']))
     check(out['db_test'] and out['db_test'][0][1] == 3 and sorted(out['db_test'][0][2]) == ['บีม', 'มิ้นท์'], 'the test is saved with the class list', out['db_test'])
-    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 2, 'the test in the class: none marked yet', (out['list'], out['todo']))
+    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 2 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'พิมพ์' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
+    tid_ = out['db_tid']
+    check(sorted(out['rp_names']) == ['บีม', 'มิ้นท์'] and out['rp_count'] == '1/2 คน' and out['rp'][0] == 1 and out['rp'][1] == ['มิ้นท์'] and out['rp'][2].startswith(tid_) and out['rp'][3] == 1, 'print again: one student, the same test and QR, no new test', (out['rp_names'], out['rp_count'], out['rp']))
     check(len(out['reads']) == 2 and out['reads'][0] == {'k': mint, 'first': 1, 'last': 3, 'jpeg': True} and out['reads'][1]['k'] == beam, 'the QR says whose sheet it is; the other one was chosen by hand', out['reads'])
     check('มิ้นท์' in out['rv1_head'] and out['rv1_vals'] == ['kat', 'dog', 'ice cream'] and out['rv1_marks'] == ['✗', '✓', '✓'] and out['rv1_hand'] == 1, 'review: what AI read, marked against the key, the handwriting of question 1', (out['rv1_head'], out['rv1_vals'], out['rv1_marks'], out['rv1_hand']))
     check(out['fix_mark'] == '✓' and out['sum'] == 'ถูก 1/3', 'fixing a misread word re-marks it; ✓/✗ can be tapped', (out['fix_mark'], out['sum']))

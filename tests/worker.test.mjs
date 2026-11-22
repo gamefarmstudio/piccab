@@ -656,9 +656,11 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   // only the teacher makes a test; the class list becomes its roster, each with an order of the 3 (unique) words
   assert.equal((await go(base, 'POST', { name: 'Animals', words, class_id: 'ClassTest01' }, 'p1')).j.error, 'student_account');
   assert.equal((await go(base, 'POST', { name: 'Animals', words, class_id: 'ClassTest01' }, 'px')).status, 404);         // not their class
-  let r = await go(base, 'POST', { name: ' Animals\n', words, q: 'th', hint: 'first', mix: true, class_id: 'ClassTest01' }, 'pt');
+  let r = await go(base, 'POST', { name: ' Animals\n', words, q: 'th', hint: 'first', mix: true, class_id: 'ClassTest01', sc: 'w_ab-12' }, 'pt');
   assert.equal(r.status, 200); const tid = r.j.id;
-  assert.deepEqual(r.j.words.map(w => w.w), ['cat', 'dog', 'ice cream']); assert.deepEqual(r.j.opts, { q: 'th', hint: 'first' });
+  assert.deepEqual(r.j.words.map(w => w.w), ['cat', 'dog', 'ice cream']); assert.deepEqual(r.j.opts, { q: 'th', hint: 'first', sc: 'w_ab-12' });
+  assert.deepEqual((await go(base, 'POST', { name: 'x', words, class_id: 'ClassTest01', sc: '<bad>' }, 'pt')).j.opts, { q: 'pic', hint: 'none' });
+  db.class_tests.pop();
   assert.deepEqual(r.j.roster.map(x => [x.n, x.account]), [['Beam', true], ['Mint', true]]); assert.equal(db.class_tests[0].owner, T); assert.ok(r.j.roster.every(x => [...x.o].sort().join() === '0,1,2'));
   assert.ok(!JSON.stringify(r.j).includes(S1));                                                         // no user ids to the app
   r = await go(base, 'POST', { name: 'Same order', words, mix: false, class_id: 'ClassTest01' }, 'pt'); assert.deepEqual(r.j.roster[0].o, [0, 1, 2]);
@@ -684,7 +686,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal(r.j.result.score, 2); assert.equal(db.class_test_results.length, 1); assert.deepEqual(db.class_test_results[0].answers[2], { a: 'icecream', ok: true }); assert.deepEqual([db.class_test_results[0].k, db.class_test_results[0].user_id], [1, S1]);
   r = await go(`${base}/${tid}`, 'GET', null, 'pt');
   assert.deepEqual(r.j.roster.map(x => x.result && x.result.score), [null, 2]); assert.equal(r.j.words.length, 3);
-  r = await go(base + cls, 'GET', null, 'pt'); assert.deepEqual(r.j.tests.map(t => [t.name, t.total, t.students, t.checked, t.avg]), [['Animals', 3, 2, 1, 67]]);
+  r = await go(base + cls, 'GET', null, 'pt'); assert.deepEqual(r.j.tests.map(t => [t.name, t.total, t.students, t.checked, t.avg, t.names]), [['Animals', 3, 2, 1, 67, ['Beam', 'Mint']]]);
   assert.deepEqual((await go(base, 'GET', null, 'pt')).j.tests, []);                                     // no typed-list tests yet
   assert.equal((await go(base + cls, 'GET', null, 'px')).status, 404);
   r = await go('/api/classes/tests', 'GET', null, 'p1');

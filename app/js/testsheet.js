@@ -164,4 +164,4 @@ function answerEl(word, hint){
   return box;
 }
 
-export { openTestSheet, pageRanges, testPages };
+export { openTestSheet, pageRanges, testPages, TS };
