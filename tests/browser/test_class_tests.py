@@ -94,7 +94,7 @@ async def main():
         await T.click('.ctsec .cttest .ctprint'); await T.wait_for_timeout(1200)
         await T.fill('#mbox .rtadd', 'แก้ม'); printed1 = await T.evaluate('window.__printed||0')
         await T.click('#mbox .ctsave'); await T.wait_for_timeout(1500)
-        out['saved'] = [await T.evaluate('window.__printed||0') - printed1, await T.inner_text('.ctsec .cttest .ctto'), [r['n'] for r in state()['class_tests'][0]['roster']]]
+        out['saved'] = [await T.evaluate('window.__printed||0') - printed1, await T.inner_text('.ctsec .cttest .lm'), [r['n'] for r in state()['class_tests'][0]['roster']]]
         await T.click('.ctsec .cttest'); await T.wait_for_timeout(1200)
         out['view'] = await T.inner_text('#classView .ghead')
         out['todo'] = await T.locator('.ctst.todo').count()
@@ -152,7 +152,12 @@ async def main():
         out['n_for'] = await T.input_value('.tsfor'); out['n_box'] = await T.locator('.tsnamesrow:not([hidden]) .rtadd').count()
         await T.fill('.tsnamesrow .rtadd', '1 สมชาย\n\n2 สมหญิง\n'); await T.click('.tsnamesrow .rtaddrow .linkbtn'); await T.wait_for_timeout(200)
         out['n_info'] = await T.inner_text('.tsinfo'); out['n_sample'] = await T.locator('.tsprev .tsf.wide i').first.inner_text()
-        await T.uncheck('.tschk input >> nth=0'); await T.click('.tsbox .tsprint'); await T.wait_for_timeout(2500)
+        # 💾 save for later (no printing) — then print from 👥 Names
+        await T.uncheck('.tschk input >> nth=0'); n_pr = await T.evaluate('window.__printed||0')
+        await T.click('.tsbox .tssave'); await T.wait_for_timeout(1800)
+        out['n_saved'] = [await T.evaluate('window.__printed||0') - n_pr, await T.locator('.ctsec.names .cttest').count()]
+        await T.click('.ctsec.names .cttest .ctprint'); await T.wait_for_timeout(1200)
+        await T.click('#mbox .row button.primary'); await T.wait_for_timeout(2500)
         out['n_names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
         out['n_qrs'] = await T.locator('#printSheet .tsqr img').count()
         await T.evaluate("""()=>{ const pg=document.querySelectorAll('#printSheet .tspage:not(.key)')[1].cloneNode(true); pg.id='photoPage';
@@ -175,15 +180,15 @@ async def main():
         await T.screenshot(path=shot('ct_names.png'), full_page=True)
         st = state(); out['n_res'] = [(r['k'], r.get('user_id'), r['score']) for r in st['class_test_results'] if r['test_id'] == nt[0]['id']]
         await b.close()
-    check('ยังไม่มี' not in out['empty'] and 'พิมพ์แผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
+    check('ยังไม่มี' not in out['empty'] and 'เพิ่มแผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
     check(out['for'][0] != '' and 'ป.5/1' in out['for'][1] and out['sample_qr'] >= 1 and '2 คน' in out['info'], 'the class is chosen: a sample with a QR, 2 students', (out['for'], out['sample_qr'], out['info']))
     check(sorted(out['ros']) == [['บีม', '📱', True], ['มิ้นท์', '📱', True]], 'the names on the sheets: the class, 📱, all ticked', out['ros'])
     check(out['list_now'] == 1, 'the new test is in the list straight after printing', out['list_now'])
-    check(out['saved'][0] == 0 and 'แก้ม' in out['saved'][1] and out['saved'][2][-1] == 'แก้ม' and len(out['saved'][2]) == 4, '💾 save the names without printing; the list shows them at once', out['saved'])
+    check(out['saved'][0] == 0 and '0/4 คน' in out['saved'][1] and out['saved'][2][-1] == 'แก้ม' and len(out['saved'][2]) == 4, '💾 save the names without printing; the list shows them at once', out['saved'])
     check(out['printed'] == 1 and out['pages'] == 3 and sorted(out['names']) == ['บีม', 'มิ้นท์'] and out['qrs'] == 2, 'one sheet per student with the name and a QR, + the answers', (out['printed'], out['pages'], out['names'], out['qrs']))
     check(out['db_test'] and out['db_test'][0][1] == 3 and sorted(out['db_test'][0][2]) == ['บีม', 'มิ้นท์'], 'the test is saved with the class list', out['db_test'])
-    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 4 and '👥' in out['list'] and 'มิ้นท์' in out['list'] and 'บีม' in out['list'] and 'รายชื่อ' in out['list'], 'the test in the class: none marked yet; who it went to; 🖨️', (out['list'], out['todo']))
+    check('ตรวจแล้ว 0/2' in out['list'] and out['todo'] == 4 and 'มิ้นท์' not in out['list'] and 'รายชื่อ' in out['list'], 'the test in the class: none marked yet; no long list of names; 👥 Names', (out['list'], out['todo']))
     tid_ = out['db_tid']
     check(sorted(out['rp_names']) == ['บีม', 'มิ้นท์'] and out['rp_count'] == 'พิมพ์ 2/3 คน' and out['rp'][0] == 1 and out['rp'][1] == ['มิ้นท์', 'นิว'] and out['rp'][2].startswith(tid_) and out['rp'][3] == 1
           and sorted(out['rp'][4]) == [('นิว', False), ('บีม', True), ('มิ้นท์', True)] and out['rp'][5].endswith('· 3'), 'print again: the same test and QR; someone without the app added (place 3), no new test', (out['rp_names'], out['rp_count'], out['rp']))
@@ -199,6 +204,7 @@ async def main():
     check(out['s2_set'] == 1 and out['s2_mytests'] == [[2, 3, 1]], 'one missed word left for บีม (ice cream) — a set for it', (out['s2_set'], out['s2_mytests']))
     check('แผ่นสอบรายชื่อเอง' in out['names_sec'], 'the classes page has 📝 tests with typed names', out['names_sec'])
     check(out['n_for'] == '__names' and out['n_box'] == 1 and '2 คน' in out['n_info'] and out['n_sample'] == '1 สมชาย', 'for: typed names — a box for them, a sample with the first name', (out['n_for'], out['n_box'], out['n_info'], out['n_sample']))
+    check(out['n_saved'] == [0, 1], '💾 save for later: no printing, in the list at once', out['n_saved'])
     check(out['n_names'] == ['1 สมชาย', '2 สมหญิง'] and out['n_qrs'] == 2, 'one sheet per typed name, with a QR', (out['n_names'], out['n_qrs']))
     check(out['n_db'] == [(True, ['1 สมชาย', '2 สมหญิง'], False)], 'saved for the teacher, no class, no accounts', out['n_db'])
     check('รายชื่อนี้ไม่ได้ผูกกับบัญชี' in out['n_view'] and 'ห้องเรียนทั้งหมด' in out['n_view'], 'opened from the classes page; scores for the teacher only', out['n_view'])

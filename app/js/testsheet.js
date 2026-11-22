@@ -65,12 +65,13 @@ async function openTestSheet(sc, opts={}){
     forSel.addEventListener('change',()=>{ cls=forSel.value; setRoster(); draw(); });
     if(user){ fillFor(); if(!CL.list) loadClasses().then(()=>{ if(forSel.isConnected){ fillFor(); setRoster(); draw(); } }); }
     const printBtn=el('button',{class:'primary tsprint',text:'🖨️ พิมพ์ / บันทึก PDF'});
+    const saveBtn=el('button',{class:'tssave',text:'💾 บันทึกไว้ก่อน'});
     const fit=()=>{ const p=prev.querySelector('.tspage'); if(!p || !prev.clientWidth) return; prev.style.zoom='';
       prev.style.zoom=String(Math.min(1, (prev.clientWidth-4)/p.offsetWidth)); };
     const draw=()=>{
       for(const [g,cur] of [[qSeg,TS.q],[hSeg,TS.hint]]) [...g.children].forEach(b=>{ const on=b.dataset.v===cur; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
       const c=classes().find(x=>x.id===cls), names=(c || cls===NAMES) && ros ? ros.rows().filter(r=>r.on).map(r=>String(r.n||'').trim()||r.orig) : (c || cls===NAMES) ? [] : null;
-      namesRow.hidden=!c && cls!==NAMES;
+      namesRow.hidden=!c && cls!==NAMES; saveBtn.hidden=namesRow.hidden;
       const who=names ? { name: names[0] || '(ชื่อนักเรียน)', sample:true } : {};
       const pages=testPages(sc, order, TS, who), qp=pages.filter(p=>!p.classList.contains('key')).length;
       prev.replaceChildren(...pages.map((p,i)=>el('div',{class:'tspagewrap'}, el('span',{class:'pcpn',text: p.classList.contains('key') ? 'เฉลย (สำหรับครู)' : c ? `ตัวอย่าง หน้า ${i+1}` : `หน้า ${i+1}`}), p)));
@@ -81,20 +82,25 @@ async function openTestSheet(sc, opts={}){
       if(noPic) info.append(el('br'), `${noPic} คำไม่มีรูป จะแสดงคำแปลแทน`);
       fit();
     };
+    // 💾 save the test (for a class or typed names) to print later from 👥 Names — or 🖨️ save and print now
+    const makeTest=async(print)=>{
+      const btn=print ? printBtn : saveBtn, label=btn.textContent;
+      const people=ros ? ros.people() : [];
+      if(!people.length){ toast('เลือกอย่างน้อย 1 คน'); return; }
+      printBtn.disabled=saveBtn.disabled=true; btn.textContent= print ? 'กำลังเตรียม…' : 'กำลังบันทึก…';
+      const names=cls===NAMES;
+      const got=await classTestPages(names ? { people } : { class_id:cls, people }, sc, cards, TS, print);
+      if(!got){ printBtn.disabled=saveBtn.disabled=false; btn.textContent=label; return; }
+      if(print){ await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages)); tally('test_sheet'); }
+      closeModal();
+      if(S.view==='class') renderClass();   // the new test shows in the list straight away
+      toast(!print ? 'บันทึกแผ่นสอบแล้ว — กด 👥 รายชื่อ ที่แผ่นสอบเพื่อพิมพ์ทีหลัง'
+        : names ? 'บันทึกแผ่นสอบแล้ว — เมื่อทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบรายชื่อเอง' : 'บันทึกแผ่นสอบไว้ในห้องเรียนแล้ว — เมื่อนักเรียนทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบ', 7000);
+    };
+    saveBtn.addEventListener('click',()=>makeTest(false));
     printBtn.addEventListener('click',async()=>{
+      if(cls) return makeTest(true);
       printBtn.disabled=true; printBtn.textContent='กำลังเตรียม…';
-      if(cls){
-        const people=ros ? ros.people() : [];
-        if(!people.length){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; toast('เลือกอย่างน้อย 1 คน'); return; }
-        const names=cls===NAMES;
-        const got=await classTestPages(names ? { people } : { class_id:cls, people }, sc, cards, TS);
-        if(!got){ printBtn.disabled=false; printBtn.textContent='🖨️ พิมพ์ / บันทึก PDF'; return; }
-        await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages));
-        closeModal(); tally('test_sheet');
-        if(S.view==='class') renderClass();   // the new test shows in the list straight away
-        toast(names ? 'บันทึกแผ่นสอบแล้ว — เมื่อทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบรายชื่อเอง' : 'บันทึกแผ่นสอบไว้ในห้องเรียนแล้ว — เมื่อนักเรียนทำเสร็จ ถ่ายรูปที่ 🎓 ห้องเรียน → 📝 แผ่นสอบ', 7000);
-        return;
-      }
       await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...testPages(sc, order, TS)));
       closeModal(); tally('test_sheet');
     });
@@ -108,7 +114,7 @@ async function openTestSheet(sc, opts={}){
           chk(TS.key, 'พิมพ์หน้าเฉลย', v=>{ TS.key=v; store.set('pv-ts-key',v); }))),
       user ? namesRow : null,
       prev,
-      el('div',{class:'row pcfoot'}, info, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), printBtn),
+      el('div',{class:'row pcfoot'}, info, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), saveBtn, printBtn),
       el('p',{class:'note small',text:'ในหน้าพิมพ์ เลือก “บันทึกเป็น PDF” ถ้าต้องการไฟล์ PDF'}));
     setRoster(); draw();
     requestAnimationFrame(fit);
