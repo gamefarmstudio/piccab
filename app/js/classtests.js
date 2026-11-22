@@ -19,7 +19,7 @@ import { CL, classApi, classErr, renderClass } from './classes.js';
 import { sendReportSoon } from './report.js';
 import { accessToken } from './sync.js';
 
-var CT={ checking:false };
+var CT={ checking:false, lists:{} };   // lists: the tests shown per class ('_names': typed names), shown at once while they reload
 const QR_PREFIX='PCB1';
 const normAns=s=>String(s||'').toLowerCase().replace(/[’‘`´]/g,"'").replace(/[^\p{L}\p{N}' -]/gu,'').replace(/\s+/g,' ').trim();
 const isRight=(a, w)=>!!normAns(a) && normAns(a)===normAns(w);
@@ -52,6 +52,9 @@ async function classTestPages(target, sc, cards, o){
   if(!r.ok){ toast(testErr(r), 5000); return null; }
   const T=r.j;
   tally('class_test');
+  const lk=target.class_id || '_names';   // into the list at once, before it reloads
+  CT.lists[lk]=[{ id:T.id, name:T.name, created_at:new Date().toISOString(), total:T.words.length, students:T.roster.length, checked:0, avg:null, names:T.roster.slice(0,30).map(x=>x.n) },
+    ...(CT.lists[lk]||[]).filter(x=>x.id!==T.id)];
   return { pages:await sheetPages(T, sc, keyCards(T, words), o), test:T };
 }
 // the answer key as cards (pictures from the word set when it is on this device; the meaning when not)
@@ -103,7 +106,9 @@ function rosterEditor(rows, onChange){
     names:()=>R.map(name) };
 }
 // 🖨️ print a test again — the same QR codes and orders, so the photos still check against it. All, or some people.
-async function reprintTest(id){
+// 👥 The names of a test: change them or add people and 💾 save — print later — or 🖨️ print now (all, or the ones ticked).
+// The same QR codes and word order, so photos still check against it; places never move.
+async function openTestRoster(id){
   const r=await testApi('GET',`/${id}`).catch(()=>({ok:false}));
   if(!r.ok){ toast(testErr(r)); return; }
   const T=r.j, opts=T.opts||{}, q=opts.q||'pic';
@@ -112,33 +117,44 @@ async function reprintTest(id){
   const key=keyCards(T, cards), noPics=(q==='pic' || q==='both') && !key.some(c=>c.pic);
   openModal(m=>{
     m.classList.add('wide');
-    const go=el('button',{class:'primary',text:'🖨️ พิมพ์ / บันทึก PDF'}), err=el('p',{class:'err'});
-    const ros=rosterEditor(T.roster.map((st,k)=>({ k, n:st.n, app:!!st.account })), ()=>{ go.disabled=false; });
+    const go=el('button',{class:'primary',text:'🖨️ พิมพ์'}), save=el('button',{class:'ctsave',text:'💾 บันทึกรายชื่อ'}), err=el('p',{class:'err'});
+    const ros=rosterEditor(T.roster.map((st,k)=>({ k, n:st.n, app:!!st.account })), ()=>{ go.disabled=false; save.disabled=false; });
     const keyChk=el('input',{type:'checkbox'}); keyChk.checked=!!TS.key;
-    go.addEventListener('click',async()=>{
-      const people=ros.people(), rows=ros.rows();
-      if(!people.length && !keyChk.checked){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
-      go.disabled=true; go.textContent='กำลังเตรียม…'; err.textContent='';
-      // names changed or people added: saved to the test first (places don't move)
-      const before=T.roster.length, names=rows.filter(r=>r.k!=null).sort((a,b)=>a.k-b.k).map(r=>String(r.n||'').trim() || r.orig);
+    const busy=(on, b, label)=>{ go.disabled=save.disabled=on; b.textContent=on ? 'กำลังบันทึก…' : label; };
+    // names changed or people added → saved to the test (places don't move); new rows get their place
+    const store_=async()=>{
+      ros.flush();
+      const rows=ros.rows(), before=T.roster.length, names=rows.filter(r=>r.k!=null).sort((a,b)=>a.k-b.k).map(r=>String(r.n||'').trim() || r.orig);
       const added=rows.filter(r=>r.k==null && String(r.n||'').trim());
-      if(added.length || names.some((n,k)=>n!==T.roster[k].n)){
-        const x=await testApi('PATCH',`/${T.id}`,{ names, add:added.map(r=>r.n.trim()).join('\n') }).catch(()=>({ok:false}));
-        if(!x.ok){ go.disabled=false; go.textContent='🖨️ พิมพ์ / บันทึก PDF'; err.textContent=testErr(x); return; }
-        T.roster=x.j.roster;
-        added.forEach((r,i)=>{ r.k=before+i; });
-      }
-      const ks=rows.filter(r=>r.on && r.k!=null).map(r=>r.k);
+      if(!added.length && !names.some((n,k)=>n!==T.roster[k].n)) return true;
+      const x=await testApi('PATCH',`/${T.id}`,{ names, add:added.map(r=>r.n.trim()).join('\n') }).catch(()=>({ok:false}));
+      if(!x.ok){ err.textContent=testErr(x); return false; }
+      T.roster=x.j.roster; added.forEach((r,i)=>{ r.k=before+i; r.orig=r.n; });
+      for(const lk in CT.lists) CT.lists[lk]=CT.lists[lk].map(t=>t.id===T.id ? { ...t, students:T.roster.length, names:T.roster.slice(0,30).map(x=>x.n) } : t);
+      return true;
+    };
+    const after=()=>{ if(CL.test && CL.test.id===T.id) loadClassTest(); else if(S.view==='class') renderClass(); };
+    save.addEventListener('click',async()=>{
+      err.textContent=''; busy(true, save);
+      if(!(await store_())){ busy(false, save, '💾 บันทึกรายชื่อ'); return; }
+      closeModal(); toast('บันทึกรายชื่อแล้ว ✓'); after();
+    });
+    go.addEventListener('click',async()=>{
+      err.textContent='';
+      if(!ros.people().length && !keyChk.checked){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
+      busy(true, go);
+      if(!(await store_())){ busy(false, go, '🖨️ พิมพ์'); return; }
+      go.textContent='กำลังเตรียม…';
+      const ks=ros.rows().filter(r=>r.on && r.k!=null).map(r=>r.k);
       const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked }, ks);
       await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...pages));
-      closeModal(); tally('test_sheet');
-      if(CL.test && CL.test.id===T.id) loadClassTest(); else if(S.view==='class') renderClass();
+      closeModal(); tally('test_sheet'); after();
     });
-    m.append(el('h3',{}, '🖨️ ', el('span',{'data-noi18n':'',text:T.name})),
-      el('p',{class:'note small',text:'พิมพ์แผ่นเดิมอีกครั้ง — QR และลำดับคำเหมือนเดิม ถ่ายรูปตรวจได้ตามปกติ'}),
+    m.append(el('h3',{}, '👥 ', el('span',{'data-noi18n':'',text:T.name})),
+      el('p',{class:'note small',text:'เพิ่มหรือแก้ชื่อ แล้วบันทึกไว้พิมพ์ทีหลัง หรือพิมพ์เลย — QR และลำดับคำของแต่ละคนเหมือนเดิม ถ่ายรูปตรวจได้ตามปกติ'}),
       noPics ? el('p',{class:'note small warn',text:'ไม่พบชุดคำนี้ในเครื่องนี้ — จะพิมพ์คำแปลแทนรูป'}) : null,
       ros.el, el('label',{class:'chk tskeychk'}, keyChk, el('span',{text:'พิมพ์หน้าเฉลย'})),
-      err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
+      err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), save, go));
   });
 }
 
@@ -148,14 +164,13 @@ function testsSection(d){
   const box=el('div',{class:'ctsec'+(d?'':' names')});
   const head=el('div',{class:'hsec'}, el('h3',{text: d ? '📝 แผ่นสอบ' : '📝 แผ่นสอบรายชื่อเอง'}),
     el('button',{class:'linkbtn',text: d ? '➕ พิมพ์แผ่นสอบให้ห้องนี้' : '➕ พิมพ์แผ่นสอบ',onclick:()=>pickTestSet(d)}));
-  const body=el('div',{}, el('p',{class:'note small',text:'กำลังโหลด…'}));
+  const lk=d ? d.id : '_names', body=el('div',{});
   box.append(head, body);
-  testApi('GET', d ? `?class=${d.id}` : '').catch(()=>({ok:false})).then(r=>{
+  const show=tests=>{
     body.replaceChildren();
-    if(!r.ok){ body.append(el('p',{class:'note small',text: r.j && r.j.error==='needs_tests_sql' ? TEST_ERR.needs_tests_sql : 'โหลดแผ่นสอบไม่สำเร็จ'})); return; }
-    if(!r.j.tests.length){ body.append(el('p',{class:'note small',text: d ? 'พิมพ์แผ่นสอบที่มีชื่อนักเรียนแต่ละคน แล้วถ่ายรูปให้ AI ช่วยตรวจ' : 'สำหรับนักเรียนที่ไม่ได้ใช้แอป: พิมพ์รายชื่อเอง แล้วถ่ายรูปให้ AI ช่วยตรวจ'})); return; }
+    if(!tests.length){ body.append(el('p',{class:'note small',text: d ? 'พิมพ์แผ่นสอบที่มีชื่อนักเรียนแต่ละคน แล้วถ่ายรูปให้ AI ช่วยตรวจ' : 'สำหรับนักเรียนที่ไม่ได้ใช้แอป: พิมพ์รายชื่อเอง แล้วถ่ายรูปให้ AI ช่วยตรวจ'})); return; }
     const list=el('div',{class:'liblist'});
-    r.j.tests.forEach(t=>{
+    tests.forEach(t=>{
       const when=new Date(t.created_at).toLocaleString(LOC,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       const names=t.names||[], more=t.students-names.slice(0,6).length;
       const row=el('div',{class:'lrow cttest',role:'button',tabindex:'0','aria-label':t.name,onclick:()=>openClassTest(t.id),onkeydown:e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openClassTest(t.id); } }},
@@ -164,11 +179,17 @@ function testsSection(d){
           el('span',{class:'lm',text: t.avg!=null ? `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน · เฉลี่ย ${t.avg}%`
             : `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน`}),
           names.length ? el('span',{class:'lm ctto'}, '👥 ', el('span',{'data-noi18n':'',text:names.slice(0,6).join(', ')}), more>0 ? el('span',{}, ' ', el('span',{text:`และอีก ${more} คน`})) : null) : null),
-        el('button',{class:'ctprint',title:'พิมพ์แผ่นสอบนี้อีกครั้ง',onclick:e=>{ e.stopPropagation(); reprintTest(t.id); }}, '🖨️ ', el('span',{text:'พิมพ์'})),
+        el('button',{class:'ctprint',title:'รายชื่อบนแผ่นสอบ: เพิ่ม แก้ แล้วบันทึกหรือพิมพ์',onclick:e=>{ e.stopPropagation(); openTestRoster(t.id); }}, '👥 ', el('span',{text:'รายชื่อ'})),
         ic('chevron_right','chev'));
       list.append(row);
     });
     body.append(list);
+  };
+  if(CT.lists[lk]) show(CT.lists[lk]); else body.append(el('p',{class:'note small',text:'กำลังโหลด…'}));
+  testApi('GET', d ? `?class=${d.id}` : '').catch(()=>({ok:false})).then(r=>{
+    if(!r.ok){ if(!CT.lists[lk]) body.replaceChildren(el('p',{class:'note small',text: r.j && r.j.error==='needs_tests_sql' ? TEST_ERR.needs_tests_sql : 'โหลดแผ่นสอบไม่สำเร็จ'})); return; }
+    CT.lists[lk]=r.j.tests;
+    show(r.j.tests);
   });
   return box;
 }
@@ -216,10 +237,11 @@ function renderClassTest(v, d){
   file.addEventListener('change',()=>{ const fs=[...file.files]; file.value=''; if(fs.length) checkPhotos(t, fs); });
   v.append(file, el('div',{class:'ctact'},
     el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
-    el('button',{class:'ctprint',onclick:()=>reprintTest(t.id)}, '🖨️ ', el('span',{text:'พิมพ์อีกครั้ง'})),
+    el('button',{class:'ctprint',onclick:()=>openTestRoster(t.id)}, '👥 ', el('span',{text:'รายชื่อ / พิมพ์'})),
     el('button',{class:'danger ctdel',text:'🗑 ลบ',onclick:async()=>{
       if(!(await ask(`ลบแผ่นสอบ “${t.name}” และคะแนนทั้งหมด?`,'ลบ'))) return;
       const r=await testApi('DELETE',`/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }
+      for(const lk in CT.lists) CT.lists[lk]=CT.lists[lk].filter(x=>x.id!==t.id);
       CL.test=null; toast('ลบแล้ว'); renderClass(); }})),
     el('p',{class:'note small',text:'ถ่ายทีละแผ่นให้เห็นทั้งหน้าและ QR ที่มุมขวาบน เลือกหลายรูปพร้อมกันได้ · AI อ่านคำตอบ แล้วคุณตรวจทานก่อนบันทึก · รูปไม่ถูกเก็บไว้'}));
   // scores
