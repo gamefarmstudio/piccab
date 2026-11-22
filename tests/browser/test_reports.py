@@ -55,7 +55,7 @@ async def main():
         await C.click('#modes >> text=ทบทวน'); await C.wait_for_timeout(300)
         await C.click('#sub .listbtn'); await C.wait_for_timeout(300); await C.locator('.wlist .wrow').first.click(); await C.wait_for_timeout(400)
         await C.fill('#qin','3-tier cake stand'); await C.press('#qin','Enter')
-        for i in range(40):                                     # the report goes ~8s after an answer (slower on a busy machine)
+        for i in range(80):                                     # the report goes ~8s after an answer (much slower on a busy machine)
             await C.wait_for_timeout(500)
             if state()['db']['learner_reports'] and len(state()['db']['learner_reports'][0]['data'].get('days',[]))>=15 and any(d[0]==__import__('datetime').date.today().isoformat() for d in state()['db']['learner_reports'][0]['data']['days']): break
         st=state()['db']; out['reports_db']=len(st['learner_reports']); rep=(st['learner_reports'] or [{}])[0].get('data',{})

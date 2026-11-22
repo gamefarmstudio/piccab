@@ -29,7 +29,7 @@ async function classApi(method, path, body){
 }
 const classErr=(r)=>({ bad_code:'ไม่พบห้องเรียนนี้ ตรวจรหัส 6 ตัวอีกครั้ง', bad_nickname:'ใส่ชื่อเล่นก่อนนะ', own_class:'นี่คือห้องที่คุณสอนอยู่แล้ว',
   class_full:'ห้องนี้เต็มแล้ว (200 คน)', rate_limited:'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', student_account:'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ — ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google',
-  too_many_classes:'สร้างห้องเรียนและกลุ่มครอบครัวครบ 50 กลุ่มแล้ว', family_report:'กลุ่มครอบครัวแชร์รายงานกับผู้ปกครองเสมอ — ถ้าไม่ต้องการ ให้ออกจากกลุ่ม', not_shared:'ยังไม่ได้แชร์รายงาน', pro_required:'รายงานละเอียดเป็นฟีเจอร์ Pro', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ' }[r.j && r.j.error]
+  too_many_classes:'สร้างห้องเรียนและกลุ่มครอบครัวครบ 50 กลุ่มแล้ว', family_report:'กลุ่มครอบครัวแชร์รายงานกับผู้ปกครองเสมอ — ถ้าไม่ต้องการ ให้ออกจากกลุ่ม', not_shared:'ยังไม่ได้แชร์รายงาน', pro_required:'รายงานละเอียดเป็นฟีเจอร์ Pro', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ', needs_assign_sql:'ต้องรัน SQL 2026-11-assign-some.sql ใน Supabase ก่อน จึงจะเลือกนักเรียนได้', nobody:'เลือกอย่างน้อย 1 คน' }[r.j && r.j.error]
   || (r.status===401 ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง'));
 async function loadClasses(){
   if(!user){ CL.list={teaching:[],learning:[]}; return; }
@@ -255,6 +255,8 @@ function renderTeacher(v,d){
     const wrap=el('div',{class:'cltablewrap'}), tb=el('table',{class:'cltable'});
     const head=el('tr',{}, el('th',{text:fam?'ลูก':'นักเรียน'}));
     d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:(it.lang&&it.lang!=='en'&&LANGS[it.lang]?LANGS[it.lang].flag+' ':'')+it.total+' คำ'}),
+      d.members.length ? el('button',{class:'whobtn'+(it.only?' some':''),title:'เลือกว่าใครได้งานนี้',onclick:()=>openWhoFor(d,it),
+        text: it.only ? `👥 ${it.only.filter(u=>d.members.some(mb=>mb.user_id===u)).length}/${d.members.length} คน` : '👥 ทุกคน'}) : null,
       el('button',{class:'x',title:'เลิกมอบหมายงานนี้','aria-label':'เลิกมอบหมาย '+it.name,text:'✕',onclick:async()=>{
         if(!(await ask(`เลิกมอบหมาย “${it.name}”? ความคืบหน้าของงานนี้จะถูกลบ`,'เลิกมอบหมาย'))) return;
         const r=await classApi('DELETE',`/${d.id}/items/${it.share_id}`); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }}))));
@@ -265,6 +267,7 @@ function renderTeacher(v,d){
     d.members.forEach(mb=>{
       const tr=el('tr',{}, el('td',{class:'nick',text:mb.nickname}));
       d.items.forEach(it=>{
+        if(!gets(it, mb.user_id)){ tr.append(el('td',{class:'na',title:'ไม่ได้รับงานนี้','aria-label':'ไม่ได้รับงานนี้'})); return; }
         const p=pr.get(mb.user_id+'/'+it.share_id);
         if(!p){ tr.append(el('td',{class:'muted',text:'—'})); return; }
         const pct=p.total?Math.round(p.done/p.total*100):0;
@@ -354,6 +357,7 @@ function classExportData(d){
   const rows=students.map((mb,i)=>{
     let done=0, star=0, total=0, last=0; const cells=[], long=[];
     items.forEach(it=>{
+      if(!gets(it, mb.user_id)){ cells.push('', ''); return; }   // 👥 not given to this student: blank, not counted
       const p=pr.get(mb.user_id+'/'+it.share_id), t=(p&&p.total)||it.total||0, dn=p?Math.min(p.done||0,t||p.done||0):0, st=p?(p.star||0):0;
       const at=p && p.updated_at ? Date.parse(p.updated_at) : 0; if(at>last) last=at;
       done+=dn; star+=st; total+=t; cells.push(dn, st);
@@ -443,6 +447,44 @@ function exportClassXlsx(d){
   ];
   downloadBlob(zipStore(files), exportName(d,'xlsx'));
 }
+// 👥 who gets an assignment: everyone in the class (also those who join later), or the students ticked.
+// value(): null for everyone, or the chosen students' ids
+function whoPicker(d, only){
+  const fam=d.kind==='family';
+  let some=Array.isArray(only) && only.length>0;
+  const picked=new Set(some ? only : []);
+  const box=el('div',{class:'whobox'}), seg=el('div',{class:'seg whoseg',role:'radiogroup','aria-label':'ให้ใคร'});
+  const list=el('div',{class:'wholist'}), count=el('span',{class:'note small whocount'});
+  const upd=()=>{ count.textContent= some ? `เลือก ${picked.size}/${d.members.length} คน` : (fam ? 'ลูกทุกคน รวมถึงคนที่เข้ากลุ่มทีหลัง' : 'นักเรียนทุกคน รวมถึงคนที่เข้าห้องทีหลัง'); };
+  const draw=()=>{
+    seg.replaceChildren(...[[false, fam?'👨‍👩‍👧 ลูกทุกคน':'👥 ทุกคน'],[true, fam?'☑️ เลือกเอง':'☑️ เลือกนักเรียน']].map(([v,t])=>
+      el('button',{type:'button',role:'radio','aria-checked':String(some===v),class:some===v?'on':'',text:t,onclick:()=>{ some=v; draw(); }})));
+    list.hidden=!some; upd();
+  };
+  d.members.forEach(mb=>{ const c=el('input',{type:'checkbox'}); c.checked=picked.has(mb.user_id);
+    c.addEventListener('change',()=>{ if(c.checked) picked.add(mb.user_id); else picked.delete(mb.user_id); upd(); });
+    list.append(el('label',{class:'chk'}, c, el('span',{'data-noi18n':'',text:mb.nickname}))); });
+  box.append(el('div',{class:'whohead'}, el('b',{text:'ให้ใคร'}), seg, count), list);
+  draw();
+  return { el:box, value:()=>some ? d.members.map(mb=>mb.user_id).filter(u=>picked.has(u)) : null };
+}
+// change who gets an assignment already given (from the progress table's heading)
+function openWhoFor(d, it){
+  openModal(m=>{
+    const who=whoPicker(d, it.only), err=el('p',{class:'err'}), save=el('button',{class:'primary',text:'บันทึก'});
+    save.addEventListener('click',async()=>{
+      const only=who.value(); if(only && !only.length){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
+      save.disabled=true; err.textContent='';
+      const r=await classApi('PATCH',`/${d.id}/items/${it.share_id}`,{ only }).catch(()=>({ok:false}));
+      if(!r.ok){ save.disabled=false; err.textContent=classErr(r); return; }
+      closeModal(); toast('บันทึกแล้ว ✓'); CL.detail=null; renderClassDetail();
+    });
+    m.append(el('h3',{}, '👥 ', el('span',{'data-noi18n':'',text:it.name})), who.el,
+      el('p',{class:'note small',text:'คนที่ไม่ได้รับงานนี้จะไม่เห็นในแอป และความคืบหน้าของงานนี้ของเขาจะถูกลบ'}),
+      err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), save));
+  });
+}
+const gets=(it, uid)=>!it.only || it.only.includes(uid);
 // teacher: choose a scene or deck → (make / refresh its share link) → assign
 function openAssignPicker(d){
   const mine=G.customs.filter(sc=>Object.keys(sc.items).length);
@@ -475,9 +517,13 @@ function openAssignPicker(d){
     };
     const err=el('p',{class:'err'});
     if(Object.keys(LANGS).length>1) m.append(langSeg);
+    const who=d.members.length ? whoPicker(d, null) : null;   // 👥 everyone, or the students chosen
+    if(who) m.append(who.el);
     m.append(list, err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
     draw();
     const assign=async(t,btn)=>{
+      const only=who ? who.value() : null;
+      if(only && !only.length){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
       const lang=alang, all=m.querySelectorAll('.dk-list button, .aslang button'), lab=btn.querySelector('.dk-n');
       all.forEach(b=>b.disabled=true); lab.textContent='กำลังสร้าง…'; err.textContent='';
       const fail=msg=>{ err.textContent=msg; all.forEach(b=>b.disabled=false); lab.textContent='มอบหมาย ›'; };
@@ -493,7 +539,7 @@ function openAssignPicker(d){
       const r=await shareApi('POST','/api/share',body).catch(()=>({ok:false,status:0,j:{}}));
       if(!r.ok) return fail(shareErr(r.status,r.j));
       myShares[key]={ id:r.j.id, at:Date.now() }; store.set('pv-shares',myShares);
-      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id, ...(lang!=='en'?{lang}:{}) });
+      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id, ...(lang!=='en'?{lang}:{}), only });
       if(!a.ok) return fail(classErr(a));
       closeModal(); toast('มอบหมายงานแล้ว ✓'); CL.detail=null; renderClassDetail();
     };
