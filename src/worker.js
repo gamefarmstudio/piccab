@@ -1293,10 +1293,10 @@ async function classItems(env, cid, forUid = null) {
   const by = new Map(shares.map(x => [x.id, x]));
   return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id), lang = CLASS_LANGS.has(i.lang) ? i.lang : 'en';
     return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at,
-      ...(forUid ? {} : { only: Array.isArray(i.only) && i.only.length ? i.only : null }) }; });
+      ...(forUid ? {} : { only: Array.isArray(i.students) && i.students.length ? i.students : null }) }; });
 }
-// 👥 an assignment for everyone (only empty) or for the students chosen
-export const assignedTo = (item, uid) => !Array.isArray(item.only) || !item.only.length || item.only.includes(uid);
+// 👥 an assignment for everyone (students empty) or for the students chosen (column class_items.students; "only" in the API)
+export const assignedTo = (item, uid) => !Array.isArray(item.students) || !item.students.length || item.students.includes(uid);
 // the "only" a teacher sent: null (everyone) or the chosen students who are in the class; false when none of them is
 async function cleanOnly(env, cid, v) {
   if (v == null) return null;
@@ -1538,10 +1538,10 @@ async function classes(request, env, url, ctx) {
       const same = have.find(x => x.share_id === sid);
       if (same && (same.lang || 'en') !== lang) return error('other_lang', 409);           // already assigned in another language
       if (!same && have.length >= MAX_ITEMS) return error('too_many_items', 429);
-      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}), ...(only ? { only } : {}) }) }); }
+      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}), ...(only ? { students: only } : {}) }) }); }
       catch (e) { if (only && e.status === 400) return error('needs_assign_sql', 503); if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // only / lang column not added yet
-      if (same && JSON.stringify(same.only || null) !== JSON.stringify(only)) {                 // assigned again: to whom it says now
-        try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${sid}`, { method: 'PATCH', body: JSON.stringify({ only }) }); }
+      if (same && JSON.stringify(same.students || null) !== JSON.stringify(only)) {                 // assigned again: to whom it says now
+        try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${sid}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
         catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
       }
       return json({ ok: true, lang, only });
@@ -1552,7 +1552,7 @@ async function classes(request, env, url, ctx) {
       const only = await cleanOnly(env, id, body.only);
       if (only === false) return error('nobody', 400);
       if (!(await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}&select=share_id`) || []).length) return error('not_found', 404);
-      try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'PATCH', body: JSON.stringify({ only }) }); }
+      try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
       catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
       if (only) await q(env, `class_progress?class_id=eq.${id}&share_id=eq.${parts[4]}&user_id=not.in.(${only.join(',')})`, { method: 'DELETE' }).catch(() => {});   // no longer theirs
       return json({ ok: true, only });

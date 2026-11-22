@@ -739,7 +739,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
     const match = r => filters.every(([k, f]) => f.in ? f.in.includes(String(r[k])) : !f.out.includes(String(r[k])));
     const m = init.method || 'GET';
     const body = init.body ? JSON.parse(init.body) : null;
-    if (noOnly && t === 'class_items' && body && [].concat(body).some(r => 'only' in r)) return new Response('{"code":"PGRST204","message":"Could not find the only column"}', { status: 400 });
+    if (noOnly && t === 'class_items' && body && [].concat(body).some(r => 'students' in r)) return new Response('{"code":"PGRST204","message":"Could not find the only column"}', { status: 400 });
     if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
     if (m === 'DELETE') { db[t] = db[t].filter(r => !match(r)); return new Response(null, { status: 204 }); }
     if (m === 'PATCH') { db[t].filter(match).forEach(r => Object.assign(r, body)); return new Response(null, { status: 204 }); }
@@ -754,7 +754,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareAll001' }, 'at')).status, 200);
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [X] }, 'at')).j.error, 'nobody');
   let r = await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [S1, X, 'junk'] }, 'at');
-  assert.deepEqual(r.j.only, [S1]); assert.deepEqual(db.class_items.find(i => i.share_id === 'ShareSome01').only, [S1]);
+  assert.deepEqual(r.j.only, [S1]); assert.deepEqual(db.class_items.find(i => i.share_id === 'ShareSome01').students, [S1]);
   // the teacher sees who gets what; each student sees only theirs
   r = await go(C, 'GET', null, 'at'); assert.deepEqual(r.j.items.map(i => [i.name, i.only]), [['All', null], ['Some', [S1]]]);
   r = await go(C, 'GET', null, 'a1'); assert.deepEqual(r.j.items.map(i => i.name), ['All', 'Some']); assert.ok(r.j.items.every(i => !('only' in i)));
@@ -768,7 +768,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   // change who gets it: B too, then everyone, then B only (A's progress on it goes)
   r = await go(C + '/items/ShareSome01', 'PATCH', { only: [S1, S2] }, 'at'); assert.deepEqual(r.j.only, [S1, S2]);
   assert.deepEqual((await go(C, 'GET', null, 'a2')).j.items.map(i => i.name), ['All', 'Some']);
-  r = await go(C + '/items/ShareSome01', 'PATCH', { only: null }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').only, null);
+  r = await go(C + '/items/ShareSome01', 'PATCH', { only: null }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').students, null);
   r = await go(C + '/items/ShareSome01', 'PATCH', { only: [S2] }, 'at');
   assert.deepEqual(db.class_progress.filter(p => p.share_id === 'ShareSome01').map(p => p.user_id), []);   // A had 3/6: no longer A's
   assert.deepEqual((await go(C, 'GET', null, 'a1')).j.items.map(i => i.name), ['All']);
@@ -776,7 +776,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal((await go(C + '/items/ShareNone01', 'PATCH', { only: null }, 'at')).status, 404);
   assert.equal((await go(C + '/items/ShareSome01', 'PATCH', { only: null }, 'a1')).status, 403);
   // assigning it again from the picker sets who gets it again
-  r = await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').only, null);
+  r = await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').students, null);
   // before the SQL: choosing students says to run it; everyone still works
   noOnly = true;
   assert.equal((await go(C + '/items/ShareSome01', 'PATCH', { only: [S1] }, 'at')).j.error, 'needs_assign_sql');
@@ -784,7 +784,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [S1] }, 'at')).j.error, 'needs_assign_sql');
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at')).status, 200);
   const { assignedTo } = await import('../src/worker.js');
-  assert.ok(assignedTo({}, S1) && assignedTo({ only: null }, S1) && assignedTo({ only: [] }, S1) && assignedTo({ only: [S1] }, S1) && !assignedTo({ only: [S2] }, S1));
+  assert.ok(assignedTo({}, S1) && assignedTo({ students: null }, S1) && assignedTo({ students: [] }, S1) && assignedTo({ students: [S1] }, S1) && !assignedTo({ students: [S2] }, S1));
   console.log('assign to some students tests passed');
 }
 

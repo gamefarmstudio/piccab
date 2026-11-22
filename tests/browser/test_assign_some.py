@@ -59,7 +59,7 @@ async def main():
         out['count'] = await T.inner_text('#mbox .whocount')
         await T.screenshot(path=shot('as_pick.png'))
         await T.locator('#mbox .asrow', has_text=set_name).click(); await T.wait_for_timeout(2500)
-        st = state(); out['db_only'] = sorted((i['share_id'] != '' , len(i.get('only') or [])) for i in st['class_items'])
+        st = state(); out['db_only'] = sorted((i['share_id'] != '' , len(i.get('students') or [])) for i in st['class_items'])
         out['who_btns'] = await T.locator('.cltable .whobtn').all_inner_texts()
         out['na_rows'] = [await T.locator('.cltable tr', has_text=n).locator('td.na').count() for n in ('เอ', 'บี')]
         await T.screenshot(path=shot('as_table.png'), full_page=True)

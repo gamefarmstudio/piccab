@@ -167,9 +167,9 @@ create table if not exists public.class_items (
   class_id    text not null references public.classes on delete cascade,
   share_id    text not null references public.shares on delete cascade,
   added_at    timestamptz not null default now(),
-  only        uuid[],                -- 👥 the students who get it; null = everyone (also in 2026-11-assign-some.sql)
+  students    uuid[],                -- 👥 the students who get it; null = everyone (also in 2026-11-assign-some.sql)
   primary key (class_id, share_id),
-  constraint class_items_only_size check (only is null or cardinality(only) between 1 and 200)
+  constraint class_items_students_size check (students is null or cardinality(students) between 1 and 200)
 );
 
 create table if not exists public.class_progress (
