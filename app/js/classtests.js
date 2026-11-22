@@ -9,10 +9,10 @@
 // 5. Each student gets the words they got wrong as a word set to practise; their score goes in their learning report.
 import { G, el, ic, LOC, S, scenes, store, tally, toast } from './core.js';
 import { ask, closeModal, openModal } from './scene.js';
-import { renderGallery, sceneTime } from './home.js';
+import { allWords, renderGallery, sceneTime } from './home.js';
 import { openPreview } from './decks.js';
-import { loadImg } from './cards.js';
-import { openTestSheet, pageRanges, testPages } from './testsheet.js';
+import { loadImg, makeCards, printNow } from './cards.js';
+import { openTestSheet, pageRanges, testPages, TS } from './testsheet.js';
 import { isList, saveWordSheet } from './sheets.js';
 import { user } from './account.js';
 import { CL, classApi, classErr, renderClass } from './classes.js';
@@ -48,18 +48,58 @@ async function qrUrl(text){
 // target: {class_id} or {names: [...]}
 async function classTestPages(target, sc, cards, o){
   const seen=new Set(), words=cards.filter(c=>{ const k=c.word.trim().toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,60);
-  const r=await testApi('POST','',{ ...target, name:sc.name, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
+  const r=await testApi('POST','',{ ...target, name:sc.name, sc:sc.id, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
   if(!r.ok){ toast(testErr(r), 5000); return null; }
-  const T=r.j, byWord=new Map(words.map(c=>[c.word.trim().toLowerCase(), c]));
-  const key=T.words.map(w=>byWord.get(w.w.trim().toLowerCase()) || { word:w.w, mean:w.th, pic:'' });
-  const pages=[], ranges=pageRanges(key.length, o.q);
+  const T=r.j;
+  tally('class_test');
+  return { pages:await sheetPages(T, sc, keyCards(T, words), o), test:T };
+}
+// the answer key as cards (pictures from the word set when it is on this device; the meaning when not)
+const keyCards=(T, cards)=>{ const by=new Map(cards.map(c=>[c.word.trim().toLowerCase(), c])); return T.words.map(w=>by.get(w.w.trim().toLowerCase()) || { word:w.w, mean:w.th, pic:'' }); };
+// One sheet for each person on a test (or only places ks), each in their own order with their QR codes, then the answers.
+async function sheetPages(T, sc, key, o, ks=null){
+  const pages=[], ranges=pageRanges(key.length, o.q), mixed=T.roster.some(st=>st.o.some((v,i)=>v!==i));
   for(const [k, st] of T.roster.entries()){
+    if(ks && !ks.includes(k)) continue;
     const qrs=await Promise.all(ranges.map((_,p)=>qrUrl(`${QR_PREFIX}.${T.id}.${k}.${p}`)));
     pages.push(...testPages(sc, st.o.map(i=>key[i]), { ...o, key:false }, { name:st.n, qrs, code:`${T.id} · ${k+1}` }));
   }
-  if(o.key) pages.push(...testPages(sc, key, { ...o, key:true }, { keyOnly:true, mixed:!!o.mix }));
-  tally('class_test');
-  return { pages, test:T };
+  if(o.key) pages.push(...testPages(sc, key, { ...o, key:true }, { keyOnly:true, mixed }));
+  return pages;
+}
+// 🖨️ print a test again — the same QR codes and orders, so the photos still check against it. All, or some people.
+async function reprintTest(id){
+  const r=await testApi('GET',`/${id}`).catch(()=>({ok:false}));
+  if(!r.ok){ toast(testErr(r)); return; }
+  const T=r.j, opts=T.opts||{}, q=opts.q||'pic';
+  const sc=scenes().find(x=>x.id===opts.sc) || scenes().find(x=>x.name===T.name) || null;
+  const cards=sc ? await makeCards(sc, allWords().filter(w=>w.sc===sc)) : [];
+  const key=keyCards(T, cards), noPics=(q==='pic' || q==='both') && !key.some(c=>c.pic);
+  openModal(m=>{
+    const picked=new Set(T.roster.map((_,k)=>k)), count=el('span',{class:'note small'});
+    const upd=()=>{ count.textContent=`${picked.size}/${T.roster.length} คน`; go.disabled=!picked.size && !keyChk.checked; };
+    const list=el('div',{class:'wholist'});
+    const boxes=T.roster.map((st,k)=>{ const c=el('input',{type:'checkbox'}); c.checked=true;
+      c.addEventListener('change',()=>{ if(c.checked) picked.add(k); else picked.delete(k); upd(); });
+      list.append(el('label',{class:'chk'}, c, el('span',{'data-noi18n':'',text:st.n}))); return c; });
+    const all=on=>{ boxes.forEach((c,k)=>{ c.checked=on; if(on) picked.add(k); else picked.delete(k); }); upd(); };
+    const keyChk=el('input',{type:'checkbox'}); keyChk.checked=!!TS.key; keyChk.addEventListener('change',upd);
+    const go=el('button',{class:'primary',text:'🖨️ พิมพ์ / บันทึก PDF'});
+    go.addEventListener('click',async()=>{
+      go.disabled=true; go.textContent='กำลังเตรียม…';
+      const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked }, [...picked]);
+      await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...pages));
+      closeModal(); tally('test_sheet');
+    });
+    m.append(el('h3',{}, '🖨️ ', el('span',{'data-noi18n':'',text:T.name})),
+      el('p',{class:'note small',text:'พิมพ์แผ่นเดิมอีกครั้ง — QR และลำดับคำเหมือนเดิม ถ่ายรูปตรวจได้ตามปกติ'}),
+      noPics ? el('p',{class:'note small warn',text:'ไม่พบชุดคำนี้ในเครื่องนี้ — จะพิมพ์คำแปลแทนรูป'}) : null,
+      el('div',{class:'whohead'}, el('b',{text:'พิมพ์ให้'}), count, el('span',{class:'sp'}),
+        el('button',{class:'linkbtn',text:'เลือกทั้งหมด',onclick:()=>all(true)}), el('button',{class:'linkbtn',text:'ไม่เลือกเลย',onclick:()=>all(false)})),
+      list, el('label',{class:'chk tskeychk'}, keyChk, 'พิมพ์หน้าเฉลย'),
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
+    upd();
+  });
 }
 
 // ---------- the tests of a class (teacher) ----------
@@ -75,12 +115,19 @@ function testsSection(d){
     if(!r.ok){ body.append(el('p',{class:'note small',text: r.j && r.j.error==='needs_tests_sql' ? TEST_ERR.needs_tests_sql : 'โหลดแผ่นสอบไม่สำเร็จ'})); return; }
     if(!r.j.tests.length){ body.append(el('p',{class:'note small',text: d ? 'พิมพ์แผ่นสอบที่มีชื่อนักเรียนแต่ละคน แล้วถ่ายรูปให้ AI ช่วยตรวจ' : 'สำหรับนักเรียนที่ไม่ได้ใช้แอป: พิมพ์รายชื่อเอง แล้วถ่ายรูปให้ AI ช่วยตรวจ'})); return; }
     const list=el('div',{class:'liblist'});
-    r.j.tests.forEach(t=>list.append(el('button',{class:'lrow cttest',onclick:()=>openClassTest(t.id)},
-      el('span',{class:'clic',text:'📝'}),
-      el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:t.name}),
-        el('span',{class:'lm',text: t.avg!=null ? `${new Date(t.created_at).toLocaleDateString(LOC,{day:'numeric',month:'short'})} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน · เฉลี่ย ${t.avg}%`
-          : `${new Date(t.created_at).toLocaleDateString(LOC,{day:'numeric',month:'short'})} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน`})),
-      ic('chevron_right','chev'))));
+    r.j.tests.forEach(t=>{
+      const when=new Date(t.created_at).toLocaleString(LOC,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const names=t.names||[], more=t.students-names.slice(0,6).length;
+      const row=el('div',{class:'lrow cttest',role:'button',tabindex:'0','aria-label':t.name,onclick:()=>openClassTest(t.id),onkeydown:e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openClassTest(t.id); } }},
+        el('span',{class:'clic',text:'📝'}),
+        el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:t.name}),
+          el('span',{class:'lm',text: t.avg!=null ? `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน · เฉลี่ย ${t.avg}%`
+            : `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน`}),
+          names.length ? el('span',{class:'lm ctto'}, '👥 ', el('span',{'data-noi18n':'',text:names.slice(0,6).join(', ')}), more>0 ? el('span',{}, ' ', el('span',{text:`และอีก ${more} คน`})) : null) : null),
+        el('button',{class:'ctprint',title:'พิมพ์แผ่นสอบนี้อีกครั้ง',onclick:e=>{ e.stopPropagation(); reprintTest(t.id); }}, '🖨️ ', el('span',{text:'พิมพ์'})),
+        ic('chevron_right','chev'));
+      list.append(row);
+    });
     body.append(list);
   });
   return box;
@@ -129,6 +176,7 @@ function renderClassTest(v, d){
   file.addEventListener('change',()=>{ const fs=[...file.files]; file.value=''; if(fs.length) checkPhotos(t, fs); });
   v.append(file, el('div',{class:'ctact'},
     el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
+    el('button',{class:'ctprint',onclick:()=>reprintTest(t.id)}, '🖨️ ', el('span',{text:'พิมพ์อีกครั้ง'})),
     el('button',{class:'danger ctdel',text:'🗑 ลบ',onclick:async()=>{
       if(!(await ask(`ลบแผ่นสอบ “${t.name}” และคะแนนทั้งหมด?`,'ลบ'))) return;
       const r=await testApi('DELETE',`/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }

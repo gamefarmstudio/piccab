@@ -1647,13 +1647,15 @@ async function tests(request, env, url) {
       const res = list.length ? await q(env, `class_test_results?test_id=${inList(list.map(t => t.id))}&select=test_id,score,total`) || [] : [];
       return json({ tests: list.map(t => { const r = res.filter(x => x.test_id === t.id);
         return { id: t.id, name: t.name, created_at: t.created_at, total: (t.words || []).length, students: (t.roster || []).length, checked: r.length,
+          names: (t.roster || []).slice(0, 30).map(x => x.n),   // who it was printed for
           avg: r.length ? Math.round(r.reduce((s, x) => s + x.score / x.total, 0) / r.length * 100) : null }; }) });
     }
     if (!tid && m === 'POST') {
       const body = await request.json().catch(() => ({}));
       const name = cleanLine(body.name, 80), words = cleanTestWords(body.words);
       if (!name || !words.length) return error('bad_request', 400);
-      const opts = { q: TEST_QS.includes(body.q) ? body.q : 'pic', hint: TEST_HINTS.includes(body.hint) ? body.hint : 'none' };
+      const opts = { q: TEST_QS.includes(body.q) ? body.q : 'pic', hint: TEST_HINTS.includes(body.hint) ? body.hint : 'none',
+        ...(/^[A-Za-z0-9_-]{1,40}$/.test(String(body.sc || '')) ? { sc: String(body.sc) } : {}) };   // the word set it came from (to print it again)
       let people, cid = null;
       if (body.class_id) {
         if (!(await ownClass(body.class_id))) return error('not_found', 404);
