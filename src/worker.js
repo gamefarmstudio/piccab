@@ -1626,6 +1626,20 @@ export function parseTestRead(text) {
   return out.sort((x, y) => x.n - y.n);
 }
 const MAX_OWNER_TESTS = 500;
+// the order of the words on one sheet: as in the set, or mixed up
+const wordOrder = (n, mix) => { const o = [...Array(n).keys()]; if (mix) for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
+// the list a teacher edited before printing: [{u: a class member's id (stays linked to their account), n: the name to print}]
+// — u only for members of the class; a typed name has no u. A member without a name gets their nickname.
+export function cleanPeople(list, members) {
+  const byU = new Map(members.map(x => [x.user_id, x])), seen = new Set(), out = [];
+  for (const p of list) {
+    if (!p || typeof p !== 'object') continue;
+    if (p.u) { const mb = byU.get(String(p.u)); if (!mb || seen.has(mb.user_id)) continue; seen.add(mb.user_id); out.push({ u: mb.user_id, n: cleanLine(p.n, 40) || mb.nickname }); }
+    else { const n = cleanLine(p.n, 40); if (n) out.push({ n }); }
+    if (out.length >= MAX_MEMBERS) break;
+  }
+  return out;
+}
 // the names a teacher typed for a test (people without an account): one per line
 export function cleanNames(arr) {
   return (Array.isArray(arr) ? arr : String(arr || '').split(/\r?\n/)).map(x => cleanLine(x, 40)).filter(Boolean).slice(0, MAX_MEMBERS);
@@ -1661,14 +1675,14 @@ async function tests(request, env, url) {
         if (!(await ownClass(body.class_id))) return error('not_found', 404);
         cid = body.class_id;
         if ((await q(env, `class_tests?class_id=eq.${cid}&select=id`) || []).length >= MAX_TESTS) return error('too_many_tests', 429);
-        people = (await q(env, `class_members?class_id=eq.${cid}&select=user_id,nickname&order=nickname.asc`) || []).map(x => ({ u: x.user_id, n: x.nickname }));
+        const members = await q(env, `class_members?class_id=eq.${cid}&select=user_id,nickname&order=nickname.asc`) || [];
+        people = Array.isArray(body.people) ? cleanPeople(body.people, members) : members.map(x => ({ u: x.user_id, n: x.nickname }));
       } else {
-        people = cleanNames(body.names).map(n => ({ n }));
+        people = Array.isArray(body.people) ? cleanPeople(body.people, []) : cleanNames(body.names).map(n => ({ n }));
       }
       if (!people.length) return error('no_students', 400);
       if ((await q(env, `class_tests?owner=eq.${uid}&select=id`) || []).length >= MAX_OWNER_TESTS) return error('too_many_tests', 429);
-      const order = () => { const o = words.map((_, i) => i); if (body.mix) for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
-      const roster = people.slice(0, MAX_MEMBERS).map(p => ({ ...p, o: order() }));
+      const roster = people.slice(0, MAX_MEMBERS).map(p => ({ ...p, o: wordOrder(words.length, body.mix) }));
       const id = newShareId();
       await q(env, 'class_tests', { method: 'POST', headers: { prefer: 'return=minimal' }, body: JSON.stringify({ id, owner: uid, class_id: cid, name, words, opts, roster }) });
       return json({ id, name, words, opts, class_id: cid, roster: roster.map(r => ({ n: r.n, o: r.o, account: !!r.u })) });
@@ -1684,6 +1698,22 @@ async function tests(request, env, url) {
         roster: roster.map((r, k) => { const x = by.get(k); return { n: r.n, o: r.o, account: !!r.u, result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
     }
     if (!act && m === 'DELETE') { await q(env, `class_tests?id=eq.${tid}`, { method: 'DELETE' }); return json({ ok: true }); }
+    // ✏️ the names on the sheets: rename (a student with an account stays linked to it), add people. Places never move,
+    // so the QR codes already printed still point to the same person.
+    if (!act && m === 'PATCH') {
+      const body = await request.json().catch(() => ({}));
+      const ro = roster.map(r => ({ ...r }));
+      if (body.names !== undefined) {
+        if (!Array.isArray(body.names) || body.names.length !== ro.length) return error('bad_request', 400);
+        body.names.forEach((n, i) => { const c = cleanLine(n, 40); if (c) ro[i].n = c; });
+      }
+      const add = cleanNames(body.add);
+      if (ro.length + add.length > MAX_MEMBERS) return error('too_many_people', 400);
+      const mixed = ro.some(r => (r.o || []).some((v, i) => v !== i));
+      add.forEach(n => ro.push({ n, o: wordOrder(words.length, mixed) }));
+      await q(env, `class_tests?id=eq.${tid}`, { method: 'PATCH', body: JSON.stringify({ roster: ro }) });
+      return json({ roster: ro.map(r => ({ n: r.n, o: r.o, account: !!r.u })) });
+    }
     // ✨ read one photographed page of one person's sheet: questions first..last
     if (act === 'read' && m === 'POST') {
       if (env.SCAN_LIMITER) { try { const { success } = await env.SCAN_LIMITER.limit({ key: 'test:' + uid }); if (!success) return error('rate_limited', 429); } catch (e) {} }

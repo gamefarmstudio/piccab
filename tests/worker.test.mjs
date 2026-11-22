@@ -701,6 +701,18 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   await go(`${base}/${tid}/results/1`, 'PUT', { answers: [null, null, null] }, 'pt'); assert.equal(db.class_test_results.length, 0);
   await go(`${base}/${tid}/results/0`, 'PUT', { answers: [{ a: 'cat', ok: true }, null, null] }, 'pt');
   await go(`${base}/${tid}`, 'DELETE', null, 'pt'); assert.equal(db.class_tests.length + db.class_test_results.length, 0);
+  // ✏️ the list edited before printing: a member renamed (still linked), one left out, someone without the app added
+  r = await go(base, 'POST', { name: 'Mixed', words, class_id: 'ClassTest01', people: [{ u: S1, n: 'ด.ญ. มินตรา' }, { n: 'นิว (ไม่มีแอป)' }, { u: X, n: 'not in class' }, { u: S1, n: 'twice' }, { n: ' ' }] }, 'pt');
+  assert.deepEqual(r.j.roster.map(x => [x.n, x.account]), [['ด.ญ. มินตรา', true], ['นิว (ไม่มีแอป)', false]]);
+  const mid = r.j.id; assert.deepEqual(db.class_tests.find(t => t.id === mid).roster.map(x => x.u || null), [S1, null]);
+  // rename and add after printing: places stay, so printed QR codes still match
+  assert.equal((await go(`${base}/${mid}`, 'PATCH', { names: ['x'] }, 'pt')).status, 400);                 // one name per place
+  r = await go(`${base}/${mid}`, 'PATCH', { names: ['มินตรา', ''], add: 'เก่ง\n\nแก้ม' }, 'pt');
+  assert.deepEqual(r.j.roster.map(x => [x.n, x.account]), [['มินตรา', true], ['นิว (ไม่มีแอป)', false], ['เก่ง', false], ['แก้ม', false]]);
+  assert.ok(r.j.roster.every(x => x.o.length === 3));
+  assert.deepEqual(db.class_tests.find(t => t.id === mid).roster[0].u, S1);
+  assert.equal((await go(`${base}/${mid}`, 'PATCH', { add: 'x' }, 'px')).status, 404);
+  await go(`${base}/${mid}`, 'DELETE', null, 'pt');
   // a typed list of names: no class, no accounts — marked the same way, nothing goes to any student
   assert.equal((await go(base, 'POST', { name: 'x', words, names: ' \n ' }, 'pt')).j.error, 'no_students');
   r = await go(base, 'POST', { name: 'Spelling', words, names: '1. สมชาย\n\n  ด.ญ. สมหญิง  \n' + 'x'.repeat(60), mix: false }, 'pt');

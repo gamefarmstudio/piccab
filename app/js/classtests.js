@@ -67,6 +67,41 @@ async function sheetPages(T, sc, key, o, ks=null){
   if(o.key) pages.push(...testPages(sc, key, { ...o, key:true }, { keyOnly:true, mixed }));
   return pages;
 }
+// ✏️ The names on the sheets, as a list the teacher edits before printing: tick who gets a sheet, change the name printed
+// (a student with an account stays linked to it — 📱), add people who don't use the app (several lines at once).
+// rows: [{n, u?: account id, app?: true, k?: place on a test already made}]
+// → {el, people(): the ticked ones [{u?, n, k?}] (text still in the add box is added first), rows()}
+function rosterEditor(rows, onChange){
+  const R=rows.map(r=>({ ...r, orig:r.n, on:r.on!==false }));
+  const box=el('div',{class:'rted'}), list=el('div',{class:'rtlist'}), count=el('span',{class:'note small rtcount'});
+  const allChk=el('input',{type:'checkbox','aria-label':'เลือกทั้งหมด'});
+  const changed=()=>{ count.textContent=`พิมพ์ ${R.filter(r=>r.on).length}/${R.length} คน`; allChk.checked=R.length>0 && R.every(r=>r.on); if(onChange) onChange(); };
+  const draw=()=>{
+    list.replaceChildren(...R.map((r,i)=>{
+      const c=el('input',{type:'checkbox','aria-label':'พิมพ์ให้คนนี้'}); c.checked=r.on;
+      const row=el('div',{class:'rtrow'+(r.on?'':' off')});
+      c.addEventListener('change',()=>{ r.on=c.checked; row.classList.toggle('off',!r.on); changed(); });
+      const inp=el('input',{class:'rtname',value:r.n,maxlength:'40','aria-label':'ชื่อบนแผ่นสอบ'});
+      inp.addEventListener('input',()=>{ r.n=inp.value; changed(); });
+      row.append(c, el('span',{class:'rtno',text:String(i+1)}), inp,
+        r.app ? el('span',{class:'rtapp',title:'ใช้แอป: ได้คะแนนและคำที่ผิดไปฝึกในแอป',text:'📱'}) : el('span',{class:'rtapp'}),
+        r.k==null && !r.u ? el('button',{type:'button',class:'rtdel','aria-label':'เอาชื่อนี้ออก',text:'✕',onclick:()=>{ R.splice(i,1); draw(); changed(); }}) : el('span',{class:'rtdel'}));
+      return row;
+    }));
+    changed();
+  };
+  allChk.addEventListener('change',()=>{ R.forEach(r=>{ r.on=allChk.checked; }); draw(); });
+  const add=el('textarea',{class:'rtadd',rows:'2','aria-label':'เพิ่มชื่อ',placeholder:'เพิ่มชื่อนักเรียนที่ไม่ได้ใช้แอป — บรรทัดละคน (วางทั้งคอลัมน์จาก Excel ได้)'});
+  const flush=()=>{ const ns=namesFrom(add.value); if(!ns.length) return false; ns.forEach(n=>R.push({ n, orig:n, on:true })); add.value=''; draw(); return true; };
+  box.append(el('div',{class:'rthead'}, el('label',{class:'chk'}, allChk, el('b',{text:'รายชื่อบนแผ่นสอบ'})), count,
+      el('span',{class:'note small rtlegend',text:'✏️ แตะชื่อเพื่อแก้ · 📱 = ใช้แอป'})),
+    list, el('div',{class:'rtaddrow'}, add, el('button',{type:'button',class:'linkbtn',text:'➕ เพิ่มชื่อ',onclick:()=>{ flush(); }})));
+  draw();
+  const name=r=>String(r.n||'').replace(/\s+/g,' ').trim().slice(0,40) || r.orig;
+  return { el:box, rows:()=>R, flush,
+    people:()=>{ flush(); return R.filter(r=>r.on && name(r)).map(r=>({ ...(r.u?{u:r.u}:{}), ...(r.k!=null?{k:r.k}:{}), n:name(r) })); },
+    names:()=>R.map(name) };
+}
 // 🖨️ print a test again — the same QR codes and orders, so the photos still check against it. All, or some people.
 async function reprintTest(id){
   const r=await testApi('GET',`/${id}`).catch(()=>({ok:false}));
@@ -76,29 +111,34 @@ async function reprintTest(id){
   const cards=sc ? await makeCards(sc, allWords().filter(w=>w.sc===sc)) : [];
   const key=keyCards(T, cards), noPics=(q==='pic' || q==='both') && !key.some(c=>c.pic);
   openModal(m=>{
-    const picked=new Set(T.roster.map((_,k)=>k)), count=el('span',{class:'note small'});
-    const upd=()=>{ count.textContent=`${picked.size}/${T.roster.length} คน`; go.disabled=!picked.size && !keyChk.checked; };
-    const list=el('div',{class:'wholist'});
-    const boxes=T.roster.map((st,k)=>{ const c=el('input',{type:'checkbox'}); c.checked=true;
-      c.addEventListener('change',()=>{ if(c.checked) picked.add(k); else picked.delete(k); upd(); });
-      list.append(el('label',{class:'chk'}, c, el('span',{'data-noi18n':'',text:st.n}))); return c; });
-    const all=on=>{ boxes.forEach((c,k)=>{ c.checked=on; if(on) picked.add(k); else picked.delete(k); }); upd(); };
-    const keyChk=el('input',{type:'checkbox'}); keyChk.checked=!!TS.key; keyChk.addEventListener('change',upd);
-    const go=el('button',{class:'primary',text:'🖨️ พิมพ์ / บันทึก PDF'});
+    m.classList.add('wide');
+    const go=el('button',{class:'primary',text:'🖨️ พิมพ์ / บันทึก PDF'}), err=el('p',{class:'err'});
+    const ros=rosterEditor(T.roster.map((st,k)=>({ k, n:st.n, app:!!st.account })), ()=>{ go.disabled=false; });
+    const keyChk=el('input',{type:'checkbox'}); keyChk.checked=!!TS.key;
     go.addEventListener('click',async()=>{
-      go.disabled=true; go.textContent='กำลังเตรียม…';
-      const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked }, [...picked]);
+      const people=ros.people(), rows=ros.rows();
+      if(!people.length && !keyChk.checked){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
+      go.disabled=true; go.textContent='กำลังเตรียม…'; err.textContent='';
+      // names changed or people added: saved to the test first (places don't move)
+      const before=T.roster.length, names=rows.filter(r=>r.k!=null).sort((a,b)=>a.k-b.k).map(r=>String(r.n||'').trim() || r.orig);
+      const added=rows.filter(r=>r.k==null && String(r.n||'').trim());
+      if(added.length || names.some((n,k)=>n!==T.roster[k].n)){
+        const x=await testApi('PATCH',`/${T.id}`,{ names, add:added.map(r=>r.n.trim()).join('\n') }).catch(()=>({ok:false}));
+        if(!x.ok){ go.disabled=false; go.textContent='🖨️ พิมพ์ / บันทึก PDF'; err.textContent=testErr(x); return; }
+        T.roster=x.j.roster;
+        added.forEach((r,i)=>{ r.k=before+i; });
+      }
+      const ks=rows.filter(r=>r.on && r.k!=null).map(r=>r.k);
+      const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked }, ks);
       await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...pages));
       closeModal(); tally('test_sheet');
+      if(CL.test && CL.test.id===T.id) loadClassTest(); else if(S.view==='class') renderClass();
     });
     m.append(el('h3',{}, '🖨️ ', el('span',{'data-noi18n':'',text:T.name})),
       el('p',{class:'note small',text:'พิมพ์แผ่นเดิมอีกครั้ง — QR และลำดับคำเหมือนเดิม ถ่ายรูปตรวจได้ตามปกติ'}),
       noPics ? el('p',{class:'note small warn',text:'ไม่พบชุดคำนี้ในเครื่องนี้ — จะพิมพ์คำแปลแทนรูป'}) : null,
-      el('div',{class:'whohead'}, el('b',{text:'พิมพ์ให้'}), count, el('span',{class:'sp'}),
-        el('button',{class:'linkbtn',text:'เลือกทั้งหมด',onclick:()=>all(true)}), el('button',{class:'linkbtn',text:'ไม่เลือกเลย',onclick:()=>all(false)})),
-      list, el('label',{class:'chk tskeychk'}, keyChk, 'พิมพ์หน้าเฉลย'),
-      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
-    upd();
+      ros.el, el('label',{class:'chk tskeychk'}, keyChk, el('span',{text:'พิมพ์หน้าเฉลย'})),
+      err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), go));
   });
 }
 
@@ -373,4 +413,4 @@ function myTestsEl(classId){
 // for the learning report: [name, class, score, total, day]
 const testsForReport=()=>myTests().slice(0,10).map(t=>[t.name||'', t.cls||'', t.score|0, t.total|0, String(t.at||'').slice(0,10)]);
 
-export { checkMyTests, classTestPages, myTestsEl, NAMES, namesFrom, renderClassTest, testsForReport, testsSection };
+export { checkMyTests, classTestPages, myTestsEl, NAMES, namesFrom, renderClassTest, rosterEditor, testsForReport, testsSection };
