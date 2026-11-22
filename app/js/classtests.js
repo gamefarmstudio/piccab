@@ -46,7 +46,7 @@ async function qrUrl(text){
 // Make the test (for a class the server takes the class list; or the typed names) — each person gets their order —
 // then the pages: each person's sheet, then one answer page in the word set's order.
 // target: {class_id} or {names: [...]}
-async function classTestPages(target, sc, cards, o){
+async function classTestPages(target, sc, cards, o, print=true){
   const seen=new Set(), words=cards.filter(c=>{ const k=c.word.trim().toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,60);
   const r=await testApi('POST','',{ ...target, name:sc.name, sc:sc.id, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
   if(!r.ok){ toast(testErr(r), 5000); return null; }
@@ -55,7 +55,7 @@ async function classTestPages(target, sc, cards, o){
   const lk=target.class_id || '_names';   // into the list at once, before it reloads
   CT.lists[lk]=[{ id:T.id, name:T.name, created_at:new Date().toISOString(), total:T.words.length, students:T.roster.length, checked:0, avg:null, names:T.roster.slice(0,30).map(x=>x.n) },
     ...(CT.lists[lk]||[]).filter(x=>x.id!==T.id)];
-  return { pages:await sheetPages(T, sc, keyCards(T, words), o), test:T };
+  return { pages: print ? await sheetPages(T, sc, keyCards(T, words), o) : [], test:T };
 }
 // the answer key as cards (pictures from the word set when it is on this device; the meaning when not)
 const keyCards=(T, cards)=>{ const by=new Map(cards.map(c=>[c.word.trim().toLowerCase(), c])); return T.words.map(w=>by.get(w.w.trim().toLowerCase()) || { word:w.w, mean:w.th, pic:'' }); };
@@ -163,7 +163,7 @@ async function openTestRoster(id){
 function testsSection(d){
   const box=el('div',{class:'ctsec'+(d?'':' names')});
   const head=el('div',{class:'hsec'}, el('h3',{text: d ? '📝 แผ่นสอบ' : '📝 แผ่นสอบรายชื่อเอง'}),
-    el('button',{class:'linkbtn',text: d ? '➕ พิมพ์แผ่นสอบให้ห้องนี้' : '➕ พิมพ์แผ่นสอบ',onclick:()=>pickTestSet(d)}));
+    el('button',{class:'linkbtn',text:'➕ เพิ่มแผ่นสอบ',onclick:()=>pickTestSet(d)}));
   const lk=d ? d.id : '_names', body=el('div',{});
   box.append(head, body);
   const show=tests=>{
@@ -172,13 +172,12 @@ function testsSection(d){
     const list=el('div',{class:'liblist'});
     tests.forEach(t=>{
       const when=new Date(t.created_at).toLocaleString(LOC,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      const names=t.names||[], more=t.students-names.slice(0,6).length;
       const row=el('div',{class:'lrow cttest',role:'button',tabindex:'0','aria-label':t.name,onclick:()=>openClassTest(t.id),onkeydown:e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openClassTest(t.id); } }},
         el('span',{class:'clic',text:'📝'}),
         el('span',{class:'lb'}, el('b',{'data-noi18n':'',text:t.name}),
           el('span',{class:'lm',text: t.avg!=null ? `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน · เฉลี่ย ${t.avg}%`
             : `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน`}),
-          names.length ? el('span',{class:'lm ctto'}, '👥 ', el('span',{'data-noi18n':'',text:names.slice(0,6).join(', ')}), more>0 ? el('span',{}, ' ', el('span',{text:`และอีก ${more} คน`})) : null) : null),
+          ),   // who it went to: in 👥 Names (a list of 50 would crowd this)
         el('button',{class:'ctprint',title:'รายชื่อบนแผ่นสอบ: เพิ่ม แก้ แล้วบันทึกหรือพิมพ์',onclick:e=>{ e.stopPropagation(); openTestRoster(t.id); }}, '👥 ', el('span',{text:'รายชื่อ'})),
         ic('chevron_right','chev'));
       list.append(row);
