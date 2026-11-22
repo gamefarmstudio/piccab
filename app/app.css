@@ -1535,3 +1535,17 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .tsnames{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:15px/1.5 'Sarabun',sans-serif;resize:vertical}
 .tsnamesrow .note{margin:0}
 @media (max-width:520px){ .tsopts{grid-template-columns:1fr} .tsfor,.tsnamesrow{grid-column:1} }
+/* 👥 who gets an assignment */
+.whobox{margin:6px 0 10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.whohead{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.whohead b{font-size:14px}
+.whoseg button{padding:6px 12px;font-size:14px}
+.whocount{margin:0}
+.wholist{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px 12px;margin-top:8px;max-height:30vh;overflow-y:auto}
+.wholist[hidden]{display:none}
+.wholist .chk{display:flex;align-items:center;gap:6px;font-size:14px;margin:0;min-width:0}
+.wholist .chk span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wholist .chk input{width:18px;height:18px;flex:none;accent-color:var(--ink)}
+.whobtn{display:block;margin:3px auto 0;padding:2px 8px;font-size:12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.whobtn.some{border-color:var(--ink);color:var(--ink);font-weight:600}
+.cltable td.na{background:repeating-linear-gradient(135deg,#f6f2ec 0 6px,#fbf8f3 6px 12px)}

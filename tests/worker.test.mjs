@@ -718,6 +718,76 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   console.log('class test (paper) tests passed');
 }
 
+// ---------- 👥 assignments for some students only ----------
+{
+  const T = 'aaaaaaaa-4444-4444-4444-444444444444', S1 = 'bbbbbbbb-4444-4444-4444-444444444444', S2 = 'cccccccc-4444-4444-4444-444444444444', X = 'dddddddd-4444-4444-4444-444444444444';
+  const users = { at: { id: T, email: 't@school.th' }, a1: { id: S1, is_anonymous: true }, a2: { id: S2, is_anonymous: true } };
+  const sc = n => ({ scenes: [{ id: 's', items: Object.fromEntries([...Array(n)].map((_, i) => ['i' + i, { word: 'w' + i }])) }] });
+  const db = { classes: [{ id: 'ClassSome01', code: 'SOMEAA', owner: T, name: 'ป.4', kind: 'class', leaderboard: true }],
+    class_members: [{ class_id: 'ClassSome01', user_id: S1, nickname: 'A' }, { class_id: 'ClassSome01', user_id: S2, nickname: 'B' }],
+    class_items: [], class_progress: [], plans: [], learner_reports: [],
+    shares: [{ id: 'ShareAll001', owner: T, kind: 'scene', name: 'All', data: sc(4) }, { id: 'ShareSome01', owner: T, kind: 'scene', name: 'Some', data: sc(6) }] };
+  const keyCols = { class_items: ['class_id', 'share_id'], class_progress: ['class_id', 'share_id', 'user_id'] };
+  const list = v => v.split(',').map(x => x.replace(/^"|"$/g, ''));
+  const parseVal = v => v.startsWith('eq.') ? { in: [v.slice(3)] } : v.startsWith('in.(') ? { in: list(v.slice(4, -1)) } : v.startsWith('not.in.(') ? { out: list(v.slice(8, -1)) } : null;
+  let noOnly = false;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    if (u.pathname === '/auth/v1/user') { const t = (init.headers.authorization || '').slice(7); return users[t] ? new Response(JSON.stringify(users[t])) : new Response('{}', { status: 401 }); }
+    const t = u.pathname.replace('/rest/v1/', ''); assert.ok(db[t], 'table ' + t);
+    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict', 'limit'].includes(k)).map(([k, v]) => [k, parseVal(v)]);
+    const match = r => filters.every(([k, f]) => f.in ? f.in.includes(String(r[k])) : !f.out.includes(String(r[k])));
+    const m = init.method || 'GET';
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (noOnly && t === 'class_items' && body && [].concat(body).some(r => 'students' in r)) return new Response('{"code":"PGRST204","message":"Could not find the only column"}', { status: 400 });
+    if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
+    if (m === 'DELETE') { db[t] = db[t].filter(r => !match(r)); return new Response(null, { status: 204 }); }
+    if (m === 'PATCH') { db[t].filter(match).forEach(r => Object.assign(r, body)); return new Response(null, { status: 204 }); }
+    for (const row of [].concat(body)) { const same = keyCols[t] && db[t].find(r => keyCols[t].every(k => r[k] === row[k]));
+      if (same) { if (!/ignore-duplicates/.test(init.headers.prefer || '')) Object.assign(same, row); } else db[t].push({ added_at: new Date().toISOString(), ...row }); }
+    return new Response(null, { status: 201 });
+  };
+  const E = { SUPABASE_SECRET_KEY: 'sb_secret_x', ASSETS: assets };
+  const go = async (path, method = 'GET', body, tok) => { const r = await worker.fetch(new Request('https://piccab.com' + path, { method, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok }, body: body && JSON.stringify(body) }), E); return { status: r.status, j: await r.json().catch(() => null) }; };
+  const C = '/api/classes/ClassSome01';
+  // everyone (as before) and one for A only; someone not in the class is dropped from the list
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareAll001' }, 'at')).status, 200);
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [X] }, 'at')).j.error, 'nobody');
+  let r = await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [S1, X, 'junk'] }, 'at');
+  assert.deepEqual(r.j.only, [S1]); assert.deepEqual(db.class_items.find(i => i.share_id === 'ShareSome01').students, [S1]);
+  // the teacher sees who gets what; each student sees only theirs
+  r = await go(C, 'GET', null, 'at'); assert.deepEqual(r.j.items.map(i => [i.name, i.only]), [['All', null], ['Some', [S1]]]);
+  r = await go(C, 'GET', null, 'a1'); assert.deepEqual(r.j.items.map(i => i.name), ['All', 'Some']); assert.ok(r.j.items.every(i => !('only' in i)));
+  r = await go(C, 'GET', null, 'a2'); assert.deepEqual(r.j.items.map(i => i.name), ['All']);
+  // progress is kept only for one's own work
+  r = await go('/api/classes/progress', 'POST', { rows: [{ class_id: 'ClassSome01', share_id: 'ShareSome01', total: 6, done: 2 }, { class_id: 'ClassSome01', share_id: 'ShareAll001', total: 4, done: 4 }] }, 'a2');
+  assert.equal(r.j.saved, 1);
+  r = await go('/api/classes/progress', 'POST', { rows: [{ class_id: 'ClassSome01', share_id: 'ShareSome01', total: 6, done: 3 }] }, 'a1'); assert.equal(r.j.saved, 1);
+  // the leaderboard still counts all of the class's work
+  r = await go(C, 'GET', null, 'a2'); assert.deepEqual(r.j.leaderboard.map(x => [x.nickname, x.done]), [['B', 4], ['A', 3]]);
+  // change who gets it: B too, then everyone, then B only (A's progress on it goes)
+  r = await go(C + '/items/ShareSome01', 'PATCH', { only: [S1, S2] }, 'at'); assert.deepEqual(r.j.only, [S1, S2]);
+  assert.deepEqual((await go(C, 'GET', null, 'a2')).j.items.map(i => i.name), ['All', 'Some']);
+  r = await go(C + '/items/ShareSome01', 'PATCH', { only: null }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').students, null);
+  r = await go(C + '/items/ShareSome01', 'PATCH', { only: [S2] }, 'at');
+  assert.deepEqual(db.class_progress.filter(p => p.share_id === 'ShareSome01').map(p => p.user_id), []);   // A had 3/6: no longer A's
+  assert.deepEqual((await go(C, 'GET', null, 'a1')).j.items.map(i => i.name), ['All']);
+  assert.equal((await go(C + '/items/ShareSome01', 'PATCH', { only: [] }, 'at')).j.error, 'nobody');
+  assert.equal((await go(C + '/items/ShareNone01', 'PATCH', { only: null }, 'at')).status, 404);
+  assert.equal((await go(C + '/items/ShareSome01', 'PATCH', { only: null }, 'a1')).status, 403);
+  // assigning it again from the picker sets who gets it again
+  r = await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareSome01').students, null);
+  // before the SQL: choosing students says to run it; everyone still works
+  noOnly = true;
+  assert.equal((await go(C + '/items/ShareSome01', 'PATCH', { only: [S1] }, 'at')).j.error, 'needs_assign_sql');
+  db.class_items = db.class_items.filter(i => i.share_id !== 'ShareSome01');
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [S1] }, 'at')).j.error, 'needs_assign_sql');
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at')).status, 200);
+  const { assignedTo } = await import('../src/worker.js');
+  assert.ok(assignedTo({}, S1) && assignedTo({ students: null }, S1) && assignedTo({ students: [] }, S1) && assignedTo({ students: [S1] }, S1) && !assignedTo({ students: [S2] }, S1));
+  console.log('assign to some students tests passed');
+}
+
 // ---------- class leaderboard ----------
 {
   const { leaderboard } = await import('../src/worker.js');

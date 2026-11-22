@@ -1284,13 +1284,28 @@ export function shareTotal(sh, lang = 'en') {
 }
 // Languages a class assignment can be practised in (English + those the AI can add)
 const CLASS_LANGS = new Set(['en', ...Object.keys(AI_LANGS)]);
-async function classItems(env, cid) {
-  const items = await q(env, `class_items?class_id=eq.${cid}&select=*&order=added_at.asc`) || [];   // * : works before the lang column exists
+// forUid: a student — only the assignments they get (everyone's, or ones the teacher chose them for), without "only"
+async function classItems(env, cid, forUid = null) {
+  let items = await q(env, `class_items?class_id=eq.${cid}&select=*&order=added_at.asc`) || [];   // * : works before the lang / only columns exist
+  if (forUid) items = items.filter(i => assignedTo(i, forUid));
   if (!items.length) return [];
   const shares = await q(env, `shares?id=${inList(items.map(i => i.share_id))}&select=id,kind,name,data`) || [];
   const by = new Map(shares.map(x => [x.id, x]));
   return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id), lang = CLASS_LANGS.has(i.lang) ? i.lang : 'en';
-    return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at }; });
+    return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at,
+      ...(forUid ? {} : { only: Array.isArray(i.students) && i.students.length ? i.students : null }) }; });
+}
+// 👥 an assignment for everyone (students empty) or for the students chosen (column class_items.students; "only" in the API)
+export const assignedTo = (item, uid) => !Array.isArray(item.students) || !item.students.length || item.students.includes(uid);
+// the "only" a teacher sent: null (everyone) or the chosen students who are in the class; false when none of them is
+async function cleanOnly(env, cid, v) {
+  if (v == null) return null;
+  if (!Array.isArray(v)) return false;
+  const want = new Set(v.map(String).filter(x => /^[0-9a-f-]{36}$/i.test(x)));
+  if (!want.size) return false;
+  const members = await q(env, `class_members?class_id=eq.${cid}&select=user_id`) || [];
+  const only = members.map(x => x.user_id).filter(u => want.has(u)).slice(0, MAX_MEMBERS);
+  return only.length ? only : false;
 }
 // Ranks by words passed (then ★), ties share a rank; only nicknames and scores, plus which row is "me".
 export function leaderboard(members, progress, itemIds, me) {
@@ -1422,7 +1437,7 @@ async function classes(request, env, url, ctx) {
       if (!rows.length) return json({ ok: true, saved: 0 });
       const cids = [...new Set(rows.map(r => r.class_id))];
       const mem = new Set((await q(env, `class_members?user_id=eq.${uid}&class_id=${inList(cids)}&select=class_id`) || []).map(x => x.class_id));
-      const items = new Set((await q(env, `class_items?class_id=${inList(cids)}&select=class_id,share_id`) || []).map(x => x.class_id + '/' + x.share_id));
+      const items = new Set((await q(env, `class_items?class_id=${inList(cids)}&select=*`) || []).filter(x => assignedTo(x, uid)).map(x => x.class_id + '/' + x.share_id));
       const n = v => Math.max(0, Math.min(10000, Math.round(+v || 0)));
       const ok = rows.filter(r => mem.has(r.class_id) && items.has(r.class_id + '/' + r.share_id))
         .map(r => { const total = n(r.total); return { class_id: r.class_id, share_id: r.share_id, user_id: uid, total, done: Math.min(n(r.done), total), star: Math.min(n(r.star), total), updated_at: new Date().toISOString() }; });
@@ -1438,7 +1453,7 @@ async function classes(request, env, url, ctx) {
     if (!teacher && !membership) return error('not_found', 404);
     const sub = parts[3];
     if (!sub && m === 'GET') {
-      const items = await classItems(env, id);
+      const items = await classItems(env, id, teacher ? null : uid);
       if (teacher) {
         const members = (await q(env, `class_members?class_id=eq.${id}&select=*&order=nickname.asc`) || [])
           .map(x => ({ user_id: x.user_id, nickname: x.nickname, joined_at: x.joined_at, report: !!x.report }));
@@ -1458,7 +1473,8 @@ async function classes(request, env, url, ctx) {
       if (c.leaderboard) {
         const members = await q(env, `class_members?class_id=eq.${id}&select=user_id,nickname`) || [];
         const all = await q(env, `class_progress?class_id=eq.${id}&select=share_id,user_id,done,star`) || [];
-        board = leaderboard(members, all, new Set(items.map(i => i.share_id)), uid);
+        const every = await q(env, `class_items?class_id=eq.${id}&select=share_id`) || [];   // all the class's work, not only this student's
+        board = leaderboard(members, all, new Set(every.map(i => i.share_id)), uid);
       }
       return json({ role: 'student', id: c.id, name: c.name, kind: c.kind || 'class', nickname: membership.nickname, report: !!membership.report, items, progress, leaderboard: board });
     }
@@ -1516,13 +1532,30 @@ async function classes(request, env, url, ctx) {
       if (!sh || sh.owner !== uid) return error('bad_share', 400);
       const lang = body.lang === undefined ? 'en' : String(body.lang);
       if (!CLASS_LANGS.has(lang)) return error('bad_request', 400);
+      const only = await cleanOnly(env, id, body.only);
+      if (only === false) return error('nobody', 400);
       const have = await q(env, `class_items?class_id=eq.${id}&select=*`) || [];
       const same = have.find(x => x.share_id === sid);
       if (same && (same.lang || 'en') !== lang) return error('other_lang', 409);           // already assigned in another language
       if (!same && have.length >= MAX_ITEMS) return error('too_many_items', 429);
-      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}) }) }); }
-      catch (e) { if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // lang column not added yet
-      return json({ ok: true, lang });
+      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}), ...(only ? { students: only } : {}) }) }); }
+      catch (e) { if (only && e.status === 400) return error('needs_assign_sql', 503); if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // only / lang column not added yet
+      if (same && JSON.stringify(same.students || null) !== JSON.stringify(only)) {                 // assigned again: to whom it says now
+        try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${sid}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
+        catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
+      }
+      return json({ ok: true, lang, only });
+    }
+    // 👥 change who gets an assignment: everyone (only: null) or the students chosen
+    if (sub === 'items' && m === 'PATCH' && SHARE_ID.test(parts[4] || '')) {
+      const body = await request.json().catch(() => ({}));
+      const only = await cleanOnly(env, id, body.only);
+      if (only === false) return error('nobody', 400);
+      if (!(await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}&select=share_id`) || []).length) return error('not_found', 404);
+      try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
+      catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
+      if (only) await q(env, `class_progress?class_id=eq.${id}&share_id=eq.${parts[4]}&user_id=not.in.(${only.join(',')})`, { method: 'DELETE' }).catch(() => {});   // no longer theirs
+      return json({ ok: true, only });
     }
     if (sub === 'items' && m === 'DELETE' && parts[4]) {
       await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'DELETE' });

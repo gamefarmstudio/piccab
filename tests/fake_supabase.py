@@ -5,7 +5,7 @@ DB={t:[] for t in ['profiles','scenes','progress','decks','shares','classes','cl
 DB['gallery_categories']=[{'id':c,'name_th':th,'name_en':en,'emoji':e,'sort':n*10} for n,(c,th,en,e) in enumerate([('home','บ้าน','Home','🏠'),('school','โรงเรียน','School','🏫'),('food','อาหารและผลไม้','Food and fruit','🍎'),('animals','สัตว์','Animals','🐘')],1)]
 SEQ={'n':0}
 KEYS={'scenes':['user_id','id'],'progress':['user_id','scene_id'],'decks':['user_id','id'],'shares':['id'],'classes':['id'],
-      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email'],'game_state':['user_id'],'email_prefs':['user_id'],'class_tests':['id'],'class_test_results':['test_id','user_id']}
+      'class_members':['class_id','user_id'],'class_items':['class_id','share_id'],'class_progress':['class_id','share_id','user_id'],'profiles':['id'],'friend_profiles':['user_id'],'friendships':['a','b'],'friend_blocks':['user_id','blocked'],'friend_events':['id'],'friend_reports':['id'],'ai_usage':['id'],'feedback':['id'],'client_errors':['day','sig'],'usage_daily':['day','event'],'gallery_categories':['id'],'gallery_scenes':['id'],'learner_reports':['user_id'],'plans':['email'],'game_state':['user_id'],'email_prefs':['user_id'],'class_tests':['id'],'class_test_results':['test_id','k']}
 USERS={}   # uid -> user
 TOKENS={}  # token -> uid
 def tok_for(uid):
@@ -41,6 +41,8 @@ def row_filter(qs):
         if k in ('select','order','on_conflict','limit'): continue
         if k=='or': fs.append(cond('or'+v)); continue
         if v.startswith('gte.'): fs.append((lambda k,v: lambda r: str(r.get(k) or '')>=v)(k,v[4:])); continue
+        if v.startswith('not.in.('):
+            out=parse(v[4:]) or []; fs.append((lambda k,out: lambda r: str(r.get(k)) not in out)(k,out)); continue
         if v=='is.null': fs.append((lambda k: lambda r: r.get(k) is None)(k)); continue
         if v=='is.true': fs.append((lambda k: lambda r: r.get(k) is True)(k)); continue
         if v.startswith('gt.'): fs.append((lambda k,v: lambda r: float(r.get(k) or 0)>float(v))(k,v[3:])); continue
