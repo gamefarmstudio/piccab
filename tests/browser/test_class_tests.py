@@ -123,8 +123,23 @@ async def main():
         out['miss'] = await T.locator('.rwords .rw').all_inner_texts()
         await T.screenshot(path=shot('ct_scores.png'), full_page=True)
         st = state(); out['db_results'] = sorted((r['score'], r['total']) for r in st['class_test_results'])
+        # 📷 the checked pages are kept as evidence: a 📷 per student, the quota, look / download / delete
+        out['pic_btns'] = await T.locator('.ctst .ctpicbtn').count(); out['quota'] = await T.inner_text('.ctquota')
+        out['db_pics'] = sorted((r['k'], r['p'], r['owner'] is not None, r['expires_at'][:4] in ('2027',)) for r in st.get('class_test_photos', []))
+        await T.locator('.ctst', has_text='มิ้นท์').locator('.ctpicbtn').click()
+        for _ in range(50):
+            if await T.evaluate("(()=>{ const i=document.querySelector('.ctpic img'); return !!i && i.naturalWidth>100; })()"): break
+            await T.wait_for_timeout(200)
+        out['pic_view'] = [await T.inner_text('.ctpic figcaption'), await T.evaluate("document.querySelector('.ctpic a').download")]
+        await T.screenshot(path=shot('ct_photo_view.png'))
+        await T.click('.ctpicdel'); out['pic_sure'] = await T.inner_text('.ctpicdel'); await T.click('.ctpicdel'); await T.wait_for_timeout(1200)
+        out['pic_after'] = [await T.locator('#mbox:visible .ctpic').count(), await T.locator('.ctst .ctpicbtn').count(), await T.inner_text('.ctquota'), len(state()['class_test_photos'])]
+        async with T.expect_download() as dl: await T.click('.ctzip')
+        d = await dl.value; zp = shot('ct_photos.zip'); await d.save_as(zp)
+        import zipfile; out['zip'] = [d.suggested_filename, zipfile.ZipFile(zp).namelist()]
+        await T.uncheck('.ctkeep'); out['keep_off'] = await T.evaluate("localStorage.getItem('pv-ctkeep')")
         # ✍️ check by hand (no photo): บีม gets question 2 right after all
-        await T.locator('.ctst', has_text='บีม').locator('button').click(); await T.wait_for_timeout(300)
+        await T.locator('.ctst', has_text='บีม').locator('button:not(.ctpicbtn)').click(); await T.wait_for_timeout(300)
         out['manual_rows'] = await T.locator('.ctreview .ctrow').count(); out['manual_hand'] = await T.locator('.ctreview .cthand').count()
         await T.locator('.ctreview .ctans input').nth(1).fill('dog'); await T.click('.ctreview button.primary'); await T.wait_for_timeout(1200)
         out['scores2'] = await T.locator('.ctst').all_inner_texts()
@@ -190,6 +205,7 @@ async def main():
         out['n_reads'] = list(reads)
         out['n_scores'] = await T.locator('.ctst').all_inner_texts()
         await T.screenshot(path=shot('ct_names.png'), full_page=True)
+        out['n_keep'] = [await T.is_checked('.ctkeep'), [r['test_id'] for r in state()['class_test_photos'] if r['test_id'] == nt[0]['id']]]
         st = state(); out['n_res'] = [(r['k'], r.get('user_id'), r['score']) for r in st['class_test_results'] if r['test_id'] == nt[0]['id']]
         await b.close()
     check('ยังไม่มี' not in out['empty'] and 'เพิ่มแผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
@@ -209,6 +225,11 @@ async def main():
     check(out['fix_mark'] == '✓' and out['sum'] == 'ถูก 1/3', 'fixing a misread word re-marks it; ✓/✗ can be tapped', (out['fix_mark'], out['sum']))
     check('หา QR ไม่เจอ' in out['ask'] and out['rv2_marks'] == ['✓', '✗', '✗'], 'no QR: the teacher picks the student', (out['ask'], out['rv2_marks']))
     check(out['db_results'] == [(1, 3), (1, 3)] and any('มิ้นท์' in s and '1/3' in s for s in out['scores']), 'scores saved and shown', (out['db_results'], out['scores']))
+    check(out['pic_btns'] == 2 and out['quota'].startswith('ใช้ไป 2/300 แผ่น') and '6 เดือน' in out['quota'] and len(out['db_pics']) == 2 and all(x[2] and x[3] for x in out['db_pics']), '📷 both checked pages kept (6 months, 2/300)', (out['pic_btns'], out['quota'], out['db_pics']))
+    check('เก็บถึง' in out['pic_view'][0] and out['pic_view'][1].endswith('มิ้นท์.webp'), 'look at the photo: kept until …, download it', out['pic_view'])
+    check(out['pic_sure'] == 'แตะอีกครั้งเพื่อลบ' and out['pic_after'][0] == 0 and out['pic_after'][1] == 1 and out['pic_after'][2].startswith('ใช้ไป 1/300') and out['pic_after'][3] == 1, 'delete a photo: asks once more, then gone', (out['pic_sure'], out['pic_after']))
+    check(out['zip'][0].endswith('-photos.zip') and len(out['zip'][1]) == 1 and out['zip'][1][0].endswith('บีม.webp'), '⬇️ all photos in one zip', out['zip'])
+    check(out['keep_off'] == 'false' and out['n_keep'] == [False, []], 'switched off: the next photo is not kept', (out['keep_off'], out['n_keep']))
     check(any('ice cream' in m and '2 คน' in m for m in out['miss']) and any('cat' in m and '1 คน' in m for m in out['miss']), 'the most missed words of the class', out['miss'])
     check(out['manual_rows'] == 3 and out['manual_hand'] == 0 and any('บีม' in s and '2/3' in s for s in out['scores2']), 'checking by hand works too', (out['manual_rows'], out['manual_hand'], out['scores2']))
     check(out['s1_set'] and out['s1_set'][1] == ['cat', 'ice cream'] and out['s1_mytests'] == [[1, 3, 2]], 'the student gets her missed words as a set to practise', (out['s1_set'], out['s1_mytests']))
