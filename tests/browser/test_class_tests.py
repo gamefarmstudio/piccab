@@ -80,6 +80,12 @@ async def main():
         await T.route('**/api/tests/*/read', fake_read)
         await T.click('#classView button[title="โหลดใหม่"]'); await T.wait_for_timeout(1500)
         out['list'] = await T.inner_text('.ctsec .cttest')
+        # 📱 on a phone the 📅 day goes under the name, which keeps its width
+        await T.set_viewport_size({'width': 390, 'height': 844}); await T.wait_for_timeout(300)
+        out['phone_row'] = await T.evaluate("""(()=>{ const r=document.querySelector('.ctsec .cttest'), b=r.querySelector('.lb').getBoundingClientRect(), e=r.querySelector('.ctexam').getBoundingClientRect();
+            return [Math.round(b.width), e.top >= b.bottom - 2, Math.round(r.querySelector('.lm').getBoundingClientRect().height)]; })()""")
+        await T.locator('.ctsec').screenshot(path=shot('ct_list_phone.png'))
+        await T.set_viewport_size({'width': 1100, 'height': 900}); await T.wait_for_timeout(300)
         # 📅 change it from the list, then no day
         await T.click('.ctsec .cttest .ctexam'); await T.wait_for_timeout(300)
         await T.fill('#mbox .ctexamdate', (datetime.date.today() + datetime.timedelta(days=1)).isoformat()); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1200)
@@ -219,6 +225,25 @@ async def main():
         await T.screenshot(path=shot('ct_names.png'), full_page=True)
         out['n_keep'] = [await T.is_checked('.ctkeep'), [r['test_id'] for r in state()['class_test_photos'] if r['test_id'] == nt[0]['id']]]
         st = state(); out['n_res'] = [(r['k'], r.get('user_id'), r['score']) for r in st['class_test_results'] if r['test_id'] == nt[0]['id']]
+        out['desk_cam'] = await T.locator('.ctcambtn').count()
+        # 📱 a phone: 📷 opens the camera, the whole page shows next to what AI read, then the next sheet
+        pctx = await b.new_context(locale='th-TH', viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, service_workers='block', storage_state=await T.context.storage_state())
+        P = await pctx.new_page(); P.on('pageerror', lambda e: errs.append(str(e))); await P.route(SUPA + '/**', fwd); await P.route('**/api/tests/*/read', fake_read)
+        await P.goto(BASE + '/app'); await P.wait_for_timeout(1500)
+        await P.evaluate("document.querySelector('.mainnav button[data-view=class]')?.click() || document.querySelector('[data-view=class]')?.click()"); await P.wait_for_timeout(1500)
+        await P.click('.ctsec.names .cttest'); await P.wait_for_timeout(1500)
+        out['p_btns'] = [await P.locator('.ctcambtn').count(), await P.locator('.ctgallery').count(), await P.locator('.ctact .ctphoto:not(.ctcambtn)').count()]
+        async with P.expect_file_chooser() as fc: await P.click('.ctcambtn')
+        ch = await fc.value; out['p_capture'] = await ch.element.get_attribute('capture'); await ch.set_files(shot('ct_photo_names.png'))
+        await P.wait_for_selector('.ctreview', timeout=20000); await P.wait_for_timeout(300)
+        out['p_review'] = [await P.locator('.ctreview .ctrphoto').count(), await P.inner_text('.ctreview .ctfound'), await P.inner_text('.ctreview .ctcheck'), await P.evaluate("document.activeElement.tagName")]
+        await P.screenshot(path=shot('ct_review_phone.png'))
+        await P.click('.ctreview .ctrphoto'); out['p_big'] = await P.get_attribute('.ctreview .ctrphoto', 'class'); await P.click('.ctreview .ctrphoto')
+        await P.click('.ctreview button.primary'); await P.wait_for_selector('#mbox .ctnext', timeout=10000)
+        out['p_next'] = await P.inner_text('#mbox')
+        async with P.expect_file_chooser() as fc2: await P.click('#mbox .ctnext')
+        out['p_next_cam'] = await (await fc2.value).element.get_attribute('capture')
+        await pctx.close()
         await b.close()
     check('ยังไม่มี' not in out['empty'] and 'เพิ่มแผ่นสอบ' in out['empty'], 'the class has a 📝 tests section', out['empty'])
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
@@ -259,6 +284,10 @@ async def main():
     check(out['n_db'] == [(True, ['1 สมชาย', '2 สมหญิง'], False)], 'saved for the teacher, no class, no accounts', out['n_db'])
     check('รายชื่อนี้ไม่ได้ผูกกับบัญชี' in out['n_view'] and 'ห้องเรียนทั้งหมด' in out['n_view'], 'opened from the classes page; scores for the teacher only', out['n_view'])
     check(out['n_reads'] and out['n_reads'][0]['k'] == 1 and '2 สมหญิง' in out['n_rv'], "the QR on สมหญิง's sheet finds her", (out['n_reads'], out['n_rv']))
+    check(out['phone_row'][0] > 130 and out['phone_row'][1] and out['phone_row'][2] < 60, '📱 phone: the name and details keep their width, 📅 under them', out['phone_row'])
+    check(out['desk_cam'] == 0 and out['p_btns'] == [1, 1, 0] and out['p_capture'] == 'environment', '📱 phone: 📷 opens the camera; 🖼️ the photos already taken', (out['desk_cam'], out['p_btns'], out['p_capture']))
+    check(out['p_review'][0] == 1 and 'พบ QR' in out['p_review'][1] and 'ก่อน' in out['p_review'][2] and out['p_review'][3] == 'BUTTON' and 'big' in out['p_big'], 'before saving: the whole page, whose it is (QR), the answers', (out['p_review'], out['p_big']))
+    check('บันทึกแล้ว' in out['p_next'] and 'พอแค่นี้' in out['p_next'] and 'ถ่ายแผ่นต่อไป' in out['p_next'] and out['p_next_cam'] == 'environment', 'then: 📷 the next sheet', (out['p_next'], out['p_next_cam']))
     check(out['n_res'] == [(1, None, 1)] and any('สมหญิง' in x and '1/3' in x for x in out['n_scores']), 'her score is saved without an account', (out['n_res'], out['n_scores']))
     finish('test_class_tests', out, errs)
 
