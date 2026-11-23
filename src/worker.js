@@ -1648,6 +1648,14 @@ export function parseTestRead(text) {
   return out.sort((x, y) => x.n - y.n);
 }
 const MAX_OWNER_TESTS = 500;
+// 📅 the day of the test (YYYY-MM-DD, kept in opts): '' / null → none; false → not a date (or years away)
+export function cleanExam(v, now = Date.now()) {
+  if (v == null || v === '') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); if (!m) return false;
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]), d = new Date(t);
+  if (d.getUTCMonth() !== +m[2] - 1 || Math.abs(t - now) > 2 * 366 * 86400000) return false;
+  return m[0];
+}
 // the order of the words on one sheet: as in the set, or mixed up
 const wordOrder = (n, mix) => { const o = [...Array(n).keys()]; if (mix) for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
 // the list a teacher edited before printing: [{u: a class member's id (stays linked to their account), n: the name to print}]
@@ -1711,10 +1719,10 @@ async function tests(request, env, url) {
     if (!tid && m === 'GET') {
       const cid = url.searchParams.get('class') || '';
       if (cid && !(await ownClass(cid))) return error('not_found', 404);
-      const list = await q(env, `class_tests?owner=eq.${uid}&class_id=${cid ? 'eq.' + cid : 'is.null'}&select=id,name,created_at,words,roster&order=created_at.desc&limit=100`) || [];
+      const list = await q(env, `class_tests?owner=eq.${uid}&class_id=${cid ? 'eq.' + cid : 'is.null'}&select=id,name,created_at,words,roster,opts&order=created_at.desc&limit=100`) || [];
       const res = list.length ? await q(env, `class_test_results?test_id=${inList(list.map(t => t.id))}&select=test_id,score,total`) || [] : [];
       return json({ tests: list.map(t => { const r = res.filter(x => x.test_id === t.id);
-        return { id: t.id, name: t.name, created_at: t.created_at, total: (t.words || []).length, students: (t.roster || []).length, checked: r.length,
+        return { id: t.id, name: t.name, created_at: t.created_at, exam: (t.opts && t.opts.exam) || null, total: (t.words || []).length, students: (t.roster || []).length, checked: r.length,
           names: (t.roster || []).slice(0, 30).map(x => x.n),   // who it was printed for
           avg: r.length ? Math.round(r.reduce((s, x) => s + x.score / x.total, 0) / r.length * 100) : null }; }) });
     }
@@ -1723,7 +1731,8 @@ async function tests(request, env, url) {
       const name = cleanLine(body.name, 80), words = cleanTestWords(body.words);
       if (!name || !words.length) return error('bad_request', 400);
       const opts = { q: TEST_QS.includes(body.q) ? body.q : 'pic', hint: TEST_HINTS.includes(body.hint) ? body.hint : 'none',
-        ...(/^[A-Za-z0-9_-]{1,40}$/.test(String(body.sc || '')) ? { sc: String(body.sc) } : {}) };   // the word set it came from (to print it again)
+        ...(/^[A-Za-z0-9_-]{1,40}$/.test(String(body.sc || '')) ? { sc: String(body.sc) } : {}),   // the word set it came from (to print it again)
+        ...(cleanExam(body.exam) ? { exam: cleanExam(body.exam) } : {}) };
       let people, cid = null;
       if (body.class_id) {
         if (!(await ownClass(body.class_id))) return error('not_found', 404);
@@ -1766,6 +1775,14 @@ async function tests(request, env, url) {
     // so the QR codes already printed still point to the same person.
     if (!act && m === 'PATCH') {
       const body = await request.json().catch(() => ({}));
+      // 📅 the day of the test only
+      if (body.exam !== undefined && body.names === undefined && body.add === undefined) {
+        const ex = cleanExam(body.exam);
+        if (ex === false) return error('bad_exam', 400);
+        const opts = { ...(t.opts || {}) }; if (ex) opts.exam = ex; else delete opts.exam;
+        await q(env, `class_tests?id=eq.${tid}`, { method: 'PATCH', body: JSON.stringify({ opts }) });
+        return json({ ok: true, exam: ex });
+      }
       const ro = roster.map(r => ({ ...r }));
       if (body.names !== undefined) {
         if (!Array.isArray(body.names) || body.names.length !== ro.length) return error('bad_request', 400);

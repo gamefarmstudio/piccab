@@ -2,13 +2,14 @@
 // meaning (or only a number, when the teacher reads the words out) and a line — or one box per letter — to write the
 // word on. The child's name, class, date and score go at the top; the answers are on a page of their own for the teacher.
 // Printed with the browser like the flashcards, so "Save as PDF" gives the PDF.
-import { el, LANGS, S, shuffle, store, tally, toast } from './core.js';
+import { el, LANGS, LOC, S, shuffle, store, tally, toast } from './core.js';
 import { closeModal, openModal } from './scene.js';
 import { allWords } from './home.js';
 import { makeCards, printNow } from './cards.js';
 import { classTestPages, NAMES, namesFrom, rosterEditor } from './classtests.js';
 import { user } from './account.js';
 import { CL, classApi, loadClasses, renderClass } from './classes.js';
+import { examIn } from './sheets.js';
 
 var TS={ q:store.get('pv-ts-q','pic'), hint:store.get('pv-ts-hint','none'), mix:store.get('pv-ts-mix',true)!==false, key:store.get('pv-ts-key',true)!==false };
 const TS_PIC_PER=12, TS_ROW_FIRST=17, TS_ROW_PER=19;   // questions a page: 3 × 4 pictures, or rows of meanings
@@ -64,6 +65,10 @@ async function openTestSheet(sc, opts={}){
     };
     forSel.addEventListener('change',()=>{ cls=forSel.value; setRoster(); draw(); });
     if(user){ fillFor(); if(!CL.list) loadClasses().then(()=>{ if(forSel.isConnected){ fillFor(); setRoster(); draw(); } }); }
+    // 📅 the day of the test: from the word set's exam day (if it is still ahead); printed in the date box, shown in the class
+    const examSel=el('input',{type:'date',class:'tsexam','aria-label':'วันสอบ',value: examIn(sc)!=null && examIn(sc)>=0 ? sc.meta.exam : ''});
+    examSel.addEventListener('change',()=>draw());
+    const opt=()=>({ ...TS, exam:examSel.value||'' });
     const printBtn=el('button',{class:'primary tsprint',text:'🖨️ พิมพ์ / บันทึก PDF'});
     const saveBtn=el('button',{class:'tssave',text:'💾 บันทึกไว้ก่อน'});
     const fit=()=>{ const p=prev.querySelector('.tspage'); if(!p || !prev.clientWidth) return; prev.style.zoom='';
@@ -73,7 +78,7 @@ async function openTestSheet(sc, opts={}){
       const c=classes().find(x=>x.id===cls), names=(c || cls===NAMES) && ros ? ros.rows().filter(r=>r.on).map(r=>String(r.n||'').trim()||r.orig) : (c || cls===NAMES) ? [] : null;
       namesRow.hidden=!c && cls!==NAMES; saveBtn.hidden=namesRow.hidden;
       const who=names ? { name: names[0] || '(ชื่อนักเรียน)', sample:true } : {};
-      const pages=testPages(sc, order, TS, who), qp=pages.filter(p=>!p.classList.contains('key')).length;
+      const pages=testPages(sc, order, opt(), who), qp=pages.filter(p=>!p.classList.contains('key')).length;
       prev.replaceChildren(...pages.map((p,i)=>el('div',{class:'tspagewrap'}, el('span',{class:'pcpn',text: p.classList.contains('key') ? 'เฉลย (สำหรับครู)' : c ? `ตัวอย่าง หน้า ${i+1}` : `หน้า ${i+1}`}), p)));
       const noPic=(TS.q==='pic' || TS.q==='both') ? order.filter(c=>!c.pic).length : 0;
       const n=names ? names.length : 0;
@@ -89,7 +94,7 @@ async function openTestSheet(sc, opts={}){
       if(!people.length){ toast('เลือกอย่างน้อย 1 คน'); return; }
       printBtn.disabled=saveBtn.disabled=true; btn.textContent= print ? 'กำลังเตรียม…' : 'กำลังบันทึก…';
       const names=cls===NAMES;
-      const got=await classTestPages(names ? { people } : { class_id:cls, people }, sc, cards, TS, print);
+      const got=await classTestPages(names ? { people } : { class_id:cls, people }, sc, cards, opt(), print);
       if(!got){ printBtn.disabled=saveBtn.disabled=false; btn.textContent=label; return; }
       if(print){ await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...got.pages)); tally('test_sheet'); }
       closeModal();
@@ -101,7 +106,7 @@ async function openTestSheet(sc, opts={}){
     printBtn.addEventListener('click',async()=>{
       if(cls) return makeTest(true);
       printBtn.disabled=true; printBtn.textContent='กำลังเตรียม…';
-      await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...testPages(sc, order, TS)));
+      await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...testPages(sc, order, opt())));
       closeModal(); tally('test_sheet');
     });
     m.append(el('div',{class:'pchead'}, el('h3',{text:'📝 แผ่นสอบเขียนคำศัพท์'}), el('button',{class:'x','aria-label':'ปิด',text:'✕',onclick:closeModal})),
@@ -109,6 +114,7 @@ async function openTestSheet(sc, opts={}){
         user ? el('b',{text:'สำหรับ'}) : null, user ? forSel : null,
         el('b',{text:'โจทย์'}), qSeg,
         el('b',{text:'ตัวช่วย'}), hSeg,
+        el('b',{text:'📅 วันสอบ'}), el('div',{class:'tsexamrow'}, examSel, el('span',{class:'note small',text:'ไม่ใส่ก็ได้ · พิมพ์ลงช่องวันที่'})),
         el('div',{class:'tschk'},
           chk(TS.mix, 'สลับลำดับคำ', v=>{ TS.mix=v; store.set('pv-ts-mix',v); order=v ? shuffle(cards.slice()) : cards.slice(); }),
           chk(TS.key, 'พิมพ์หน้าเฉลย', v=>{ TS.key=v; store.set('pv-ts-key',v); }))),
@@ -143,7 +149,7 @@ function testPages(sc, cards, o, who={}){
   const tagged=!!(who.qrs || who.sample);
   const head=()=>el('div',{class:'tshead'+(tagged?' hasqr':'')}, qr(0),
     el('div',{class:'tstitle'}, el('b',{'data-noi18n':'',text:sc.name}), el('span',{text:'แบบทดสอบเขียนคำศัพท์'})),
-    el('div',{class:'tsfields'}, field('ชื่อ','wide',who.name), field('เลขที่'), field('ชั้น'), field('วันที่'),
+    el('div',{class:'tsfields'}, field('ชื่อ','wide',who.name), field('เลขที่'), field('ชั้น'), field('วันที่',o.exam ? 'date' : '',o.exam ? new Date(o.exam+'T12:00:00').toLocaleDateString(LOC,{ day:'numeric', month:'short', year:'2-digit' }) : ''),
       el('span',{class:'tsf score'}, 'คะแนน', el('i'), el('span',{'data-noi18n':'',text:`/ ${n}`}))),
     el('p',{class:'tshow',text:howText(o.q)}));
   if(!who.keyOnly) pageRanges(n, o.q).forEach(([a,b],k)=>{
