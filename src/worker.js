@@ -1292,9 +1292,17 @@ async function classItems(env, cid, forUid = null) {
   const shares = await q(env, `shares?id=${inList(items.map(i => i.share_id))}&select=id,kind,name,data`) || [];
   const by = new Map(shares.map(x => [x.id, x]));
   return items.filter(i => by.has(i.share_id)).map(i => { const sh = by.get(i.share_id), lang = CLASS_LANGS.has(i.lang) ? i.lang : 'en';
-    return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at,
+    return { share_id: i.share_id, kind: sh.kind, name: sh.name, lang, total: shareTotal(sh, lang), added_at: i.added_at, due: i.due || null,
       ...(forUid ? {} : { only: Array.isArray(i.students) && i.students.length ? i.students : null }) }; });
 }
+// ⏰ a due date the teacher sent: null (none), an ISO time from a day ago up to a year ahead, or false (not valid)
+export function cleanDue(v, now = Date.now()) {
+  if (v == null || v === '') return null;
+  const t = Date.parse(String(v));
+  if (!Number.isFinite(t) || t < now - 86400000 || t > now + 366 * 86400000) return false;
+  return new Date(t).toISOString();
+}
+export const closed = (item, now = Date.now()) => !!item.due && Date.parse(item.due) < now;
 // 👥 an assignment for everyone (students empty) or for the students chosen (column class_items.students; "only" in the API)
 export const assignedTo = (item, uid) => !Array.isArray(item.students) || !item.students.length || item.students.includes(uid);
 // the "only" a teacher sent: null (everyone) or the chosen students who are in the class; false when none of them is
@@ -1437,7 +1445,7 @@ async function classes(request, env, url, ctx) {
       if (!rows.length) return json({ ok: true, saved: 0 });
       const cids = [...new Set(rows.map(r => r.class_id))];
       const mem = new Set((await q(env, `class_members?user_id=eq.${uid}&class_id=${inList(cids)}&select=class_id`) || []).map(x => x.class_id));
-      const items = new Set((await q(env, `class_items?class_id=${inList(cids)}&select=*`) || []).filter(x => assignedTo(x, uid)).map(x => x.class_id + '/' + x.share_id));
+      const items = new Set((await q(env, `class_items?class_id=${inList(cids)}&select=*`) || []).filter(x => assignedTo(x, uid) && !closed(x)).map(x => x.class_id + '/' + x.share_id));   // ⏰ closed: progress stays as it was
       const n = v => Math.max(0, Math.min(10000, Math.round(+v || 0)));
       const ok = rows.filter(r => mem.has(r.class_id) && items.has(r.class_id + '/' + r.share_id))
         .map(r => { const total = n(r.total); return { class_id: r.class_id, share_id: r.share_id, user_id: uid, total, done: Math.min(n(r.done), total), star: Math.min(n(r.star), total), updated_at: new Date().toISOString() }; });
@@ -1534,28 +1542,37 @@ async function classes(request, env, url, ctx) {
       if (!CLASS_LANGS.has(lang)) return error('bad_request', 400);
       const only = await cleanOnly(env, id, body.only);
       if (only === false) return error('nobody', 400);
+      const due = cleanDue(body.due);
+      if (due === false) return error('bad_due', 400);
       const have = await q(env, `class_items?class_id=eq.${id}&select=*`) || [];
       const same = have.find(x => x.share_id === sid);
       if (same && (same.lang || 'en') !== lang) return error('other_lang', 409);           // already assigned in another language
       if (!same && have.length >= MAX_ITEMS) return error('too_many_items', 429);
-      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}), ...(only ? { students: only } : {}) }) }); }
-      catch (e) { if (only && e.status === 400) return error('needs_assign_sql', 503); if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // only / lang column not added yet
+      try { await q(env, 'class_items?on_conflict=class_id,share_id', { method: 'POST', headers: { prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ class_id: id, share_id: sid, ...(lang !== 'en' ? { lang } : {}), ...(only ? { students: only } : {}), ...(due ? { due } : {}) }) }); }
+      catch (e) { if (due && e.status === 400) return error('needs_due_sql', 503); if (only && e.status === 400) return error('needs_assign_sql', 503); if (lang !== 'en' && e.status === 400) return error('needs_update', 503); throw e; }   // a column not added yet
       if (same && JSON.stringify(same.students || null) !== JSON.stringify(only)) {                 // assigned again: to whom it says now
         try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${sid}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
         catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
       }
-      return json({ ok: true, lang, only });
+      if (same && (same.due || null) !== due && !(same.due && due && Date.parse(same.due) === Date.parse(due))) {   // assigned again: its due date now
+        try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${sid}`, { method: 'PATCH', body: JSON.stringify({ due }) }); }
+        catch (e) { if (e.status === 400) return error('needs_due_sql', 503); throw e; }
+      }
+      return json({ ok: true, lang, only, due });
     }
-    // 👥 change who gets an assignment: everyone (only: null) or the students chosen
+    // 👥 change who gets an assignment (only: null = everyone, or the students chosen) and/or ⏰ its due date (due: null = none)
     if (sub === 'items' && m === 'PATCH' && SHARE_ID.test(parts[4] || '')) {
       const body = await request.json().catch(() => ({}));
-      const only = await cleanOnly(env, id, body.only);
-      if (only === false) return error('nobody', 400);
+      const set = {};
+      let only;
+      if ('only' in body) { only = await cleanOnly(env, id, body.only); if (only === false) return error('nobody', 400); set.students = only; }
+      if ('due' in body) { const due = cleanDue(body.due); if (due === false) return error('bad_due', 400); set.due = due; }
+      if (!Object.keys(set).length) return error('bad_request', 400);
       if (!(await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}&select=share_id`) || []).length) return error('not_found', 404);
-      try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'PATCH', body: JSON.stringify({ students: only }) }); }
-      catch (e) { if (e.status === 400) return error('needs_assign_sql', 503); throw e; }
+      try { await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'PATCH', body: JSON.stringify(set) }); }
+      catch (e) { if (e.status === 400) return error('due' in set ? 'needs_due_sql' : 'needs_assign_sql', 503); throw e; }
       if (only) await q(env, `class_progress?class_id=eq.${id}&share_id=eq.${parts[4]}&user_id=not.in.(${only.join(',')})`, { method: 'DELETE' }).catch(() => {});   // no longer theirs
-      return json({ ok: true, only });
+      return json({ ok: true, ...('students' in set ? { only } : {}), ...('due' in set ? { due: set.due } : {}) });
     }
     if (sub === 'items' && m === 'DELETE' && parts[4]) {
       await q(env, `class_items?class_id=eq.${id}&share_id=eq.${parts[4]}`, { method: 'DELETE' });

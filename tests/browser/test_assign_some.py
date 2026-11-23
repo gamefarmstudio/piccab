@@ -57,10 +57,13 @@ async def main():
         out['nobody'] = await T.inner_text('#mbox .err')
         await T.locator('#mbox .wholist .chk', has_text='เอ').locator('input').check()
         out['count'] = await T.inner_text('#mbox .whocount')
+        # ⏰ due in a week
+        out['due_default'] = await T.inner_text('#mbox .duehint')
+        await T.click('#mbox .dueseg button:has-text("1 สัปดาห์")'); out['due_hint'] = await T.inner_text('#mbox .duehint')
         await T.screenshot(path=shot('as_pick.png'))
         await T.locator('#mbox .asrow', has_text=set_name).click(); await T.wait_for_timeout(2500)
         st = state(); out['db_only'] = sorted((i['share_id'] != '' , len(i.get('students') or [])) for i in st['class_items'])
-        out['who_btns'] = await T.locator('.cltable .whobtn').all_inner_texts()
+        out['who_btns'] = await T.locator('.cltable .whobtn:not(.duebtn)').all_inner_texts()
         out['na_rows'] = [await T.locator('.cltable tr', has_text=n).locator('td.na').count() for n in ('เอ', 'บี')]
         await T.screenshot(path=shot('as_table.png'), full_page=True)
         # CSV: บี's cells for the set are blank, and not counted in บี's totals
@@ -70,28 +73,47 @@ async def main():
         out['csv'] = [l for l in csv if l.split(',')[1] in ('เอ', 'บี')]
         # the students: each sees their own work
         out['a_items'] = await items_of(A); out['b_items'] = await items_of(B)
+        out['a_due'] = await A.locator('.clitem .duelbl').all_inner_texts()
+        out['due_btns'] = await T.locator('.cltable .duebtn').all_inner_texts()
+        # closed (the date passed): the table says so, and the student sees it
+        sid_due = [i['share_id'] for i in state()['class_items'] if i.get('due')][0]
+        req = urllib.request.Request(FAKE + '/rest/v1/class_items?share_id=eq.' + sid_due, data=json.dumps({'due': '2026-01-01T16:59:59.999Z'}).encode(), method='PATCH', headers={'content-type': 'application/json', 'apikey': 'sb_secret_test', 'authorization': 'Bearer sb_secret_test'})
+        urllib.request.urlopen(req).read()
+        await reload_class(T); out['due_closed'] = [await T.locator('.cltable .duebtn.closed').count(), await T.locator('.cltable .duebtn.closed').inner_text()]
+        await items_of(A); out['a_closed'] = await A.locator('.clitem .duelbl.closed').count()
+        # ⏰ in the table: pick a day → saved; then no due date
+        await T.click('.cltable .duebtn.closed'); await T.wait_for_timeout(300)
+        out['due_edit'] = await T.get_attribute('#mbox .dueseg button.on', 'aria-checked')
+        await T.fill('#mbox input.duedate', '2099-01-01'); out['due_far'] = await T.inner_text('#mbox .duehint')
+        await T.click('#mbox .dueseg button:has-text("ไม่กำหนด")'); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1500)
+        out['due_none'] = await T.locator('.cltable .duebtn').all_inner_texts()
+        out['db_due'] = [i.get('due') for i in state()['class_items']]
         # 👥 in the table: give it to บี too
-        await T.locator('.cltable .whobtn').nth(1).click(); await T.wait_for_timeout(300)
+        await T.locator('.cltable .whobtn:not(.duebtn)').nth(1).click(); await T.wait_for_timeout(300)
         out['edit_checked'] = await T.evaluate("[...document.querySelectorAll('#mbox .wholist input')].map(i=>i.checked)")
         await T.locator('#mbox .wholist .chk', has_text='บี').locator('input').check()
         await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1500)
-        out['who_btns2'] = await T.locator('.cltable .whobtn').all_inner_texts()
+        out['who_btns2'] = await T.locator('.cltable .whobtn:not(.duebtn)').all_inner_texts()
         out['b_items2'] = await items_of(B)
         # back to everyone; a new student gets it too
-        await T.locator('.cltable .whobtn').nth(1).click(); await T.wait_for_timeout(300)
+        await T.locator('.cltable .whobtn:not(.duebtn)').nth(1).click(); await T.wait_for_timeout(300)
         await T.click('#mbox .whoseg button >> nth=0'); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1500)
-        out['who_btns3'] = await T.locator('.cltable .whobtn').all_inner_texts()
+        out['who_btns3'] = await T.locator('.cltable .whobtn:not(.duebtn)').all_inner_texts()
         # then เอ only again: a student who joins later doesn't get it
-        await T.locator('.cltable .whobtn').nth(1).click(); await T.wait_for_timeout(300)
+        await T.locator('.cltable .whobtn:not(.duebtn)').nth(1).click(); await T.wait_for_timeout(300)
         await T.click('#mbox .whoseg button >> nth=1')
         await T.locator('#mbox .wholist .chk', has_text='เอ').locator('input').check(); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1500)
         C = await join(b, errs, code, 'ซี')
         out['c_items'] = await items_of(C)
         await reload_class(T)
-        out['who_btns4'] = await T.locator('.cltable .whobtn').all_inner_texts()
+        out['who_btns4'] = await T.locator('.cltable .whobtn:not(.duebtn)').all_inner_texts()
         out['na_c'] = await T.locator('.cltable tr', has_text='ซี').locator('td.na').count()
         await b.close()
     check('ทุกคน' in out['who_default'] and 'รวมถึงคนที่เข้าห้องทีหลัง' in out['who_default'] and out['list_hidden'], 'assigning: everyone by default, the list hidden', (out['who_default'], out['list_hidden']))
+    check(out['due_default'] == 'ทำได้ไม่มีกำหนด' and 'หมดเวลา' in out['due_hint'] and '23:59' in out['due_hint'], '⏰ no due date by default; 1 week shows when it closes', (out['due_default'], out['due_hint']))
+    check(out['due_btns'].count('⏰ ไม่กำหนด') == 1 and any(b.startswith('⏰ ถึง') for b in out['due_btns']) and out['a_due'] and 'อีก 7 วัน' in out['a_due'][0], 'the table shows the due date; the student sees 7 days left', (out['due_btns'], out['a_due']))
+    check(out['due_closed'][0] == 1 and 'หมดเวลา' in out['due_closed'][1] and out['a_closed'] == 1, 'past the date: closed in the table and for the student', (out['due_closed'], out['a_closed']))
+    check(out['due_edit'] == 'true' and out['due_none'] == ['⏰ ไม่กำหนด', '⏰ ไม่กำหนด'] and out['db_due'] == [None, None], 'change it from the table: no due date', (out['due_edit'], out['due_none'], out['db_due']))
     check(sorted(out['names']) == ['บี', 'เอ'] and out['nobody'] == 'เลือกอย่างน้อย 1 คน' and out['count'] == 'เลือก 1/2 คน', 'choose students: nobody ticked → asks; 1/2 chosen', (out['names'], out['nobody'], out['count']))
     check(out['db_only'] == [(True, 0), (True, 1)] and out['who_btns'] == ['👥 ทุกคน', '👥 1/2 คน'], 'saved: one for everyone, one for 1 student; shown in the table', (out['db_only'], out['who_btns']))
     check(out['na_rows'] == [0, 1], "บี's cell for the set is empty", out['na_rows'])

@@ -168,6 +168,7 @@ create table if not exists public.class_items (
   share_id    text not null references public.shares on delete cascade,
   added_at    timestamptz not null default now(),
   students    uuid[],                -- 👥 the students who get it; null = everyone (also in 2026-11-assign-some.sql)
+  due         timestamptz,           -- ⏰ when it closes; null = no due date (also in 2026-11-assign-due.sql)
   primary key (class_id, share_id),
   constraint class_items_students_size check (students is null or cardinality(students) between 1 and 200)
 );

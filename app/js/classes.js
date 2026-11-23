@@ -29,7 +29,7 @@ async function classApi(method, path, body){
 }
 const classErr=(r)=>({ bad_code:'ไม่พบห้องเรียนนี้ ตรวจรหัส 6 ตัวอีกครั้ง', bad_nickname:'ใส่ชื่อเล่นก่อนนะ', own_class:'นี่คือห้องที่คุณสอนอยู่แล้ว',
   class_full:'ห้องนี้เต็มแล้ว (200 คน)', rate_limited:'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', student_account:'บัญชีนักเรียนสร้างห้องเรียนไม่ได้ — ครูต้องเข้าสู่ระบบด้วยอีเมลหรือ Google',
-  too_many_classes:'สร้างห้องเรียนและกลุ่มครอบครัวครบ 50 กลุ่มแล้ว', family_report:'กลุ่มครอบครัวแชร์รายงานกับผู้ปกครองเสมอ — ถ้าไม่ต้องการ ให้ออกจากกลุ่ม', not_shared:'ยังไม่ได้แชร์รายงาน', pro_required:'รายงานละเอียดเป็นฟีเจอร์ Pro', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ', needs_assign_sql:'ต้องรัน SQL 2026-11-assign-some.sql ใน Supabase ก่อน จึงจะเลือกนักเรียนได้', nobody:'เลือกอย่างน้อย 1 คน' }[r.j && r.j.error]
+  too_many_classes:'สร้างห้องเรียนและกลุ่มครอบครัวครบ 50 กลุ่มแล้ว', family_report:'กลุ่มครอบครัวแชร์รายงานกับผู้ปกครองเสมอ — ถ้าไม่ต้องการ ให้ออกจากกลุ่ม', not_shared:'ยังไม่ได้แชร์รายงาน', pro_required:'รายงานละเอียดเป็นฟีเจอร์ Pro', too_many_items:'มอบหมายงานครบ 100 รายการแล้ว', other_lang:'งานนี้มอบหมายเป็นภาษาอื่นอยู่แล้ว — เลิกมอบหมายก่อนถ้าจะเปลี่ยนภาษา', needs_update:'ต้องรัน SQL 2026-11-class-lang.sql ใน Supabase ก่อน จึงจะมอบหมายภาษาอื่นได้', not_configured:'ระบบห้องเรียนยังไม่พร้อม', bad_share:'สร้างลิงก์งานไม่สำเร็จ', needs_assign_sql:'ต้องรัน SQL 2026-11-assign-some.sql ใน Supabase ก่อน จึงจะเลือกนักเรียนได้', nobody:'เลือกอย่างน้อย 1 คน', needs_due_sql:'ต้องรัน SQL 2026-11-assign-due.sql ใน Supabase ก่อน จึงจะกำหนดวันหมดเวลาได้', bad_due:'วันหมดเวลาไม่ถูกต้อง' }[r.j && r.j.error]
   || (r.status===401 ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง'));
 async function loadClasses(){
   if(!user){ CL.list={teaching:[],learning:[]}; return; }
@@ -169,6 +169,13 @@ function boardRows(members, progress, items, me){
   let rank=0, prev=null; rows.forEach((r,i)=>{ const k=r.done+'/'+r.star; if(k!==prev){ rank=i+1; prev=k; } r.rank=rank; });
   return rows;
 }
+// ⏰ for a student: "due Sun 30 Nov (3 days left)", today, or closed
+function dueLabel(it){
+  const day=t=>{ const d=new Date(t); return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()); };
+  const left=Math.round((day(Date.parse(it.due))-day(Date.now()))/86400000);
+  return el('span',{class:'lm duelbl'+(isClosed(it)?' closed':left<=0?' soon':'')},
+    isClosed(it) ? `⏰ หมดเวลาแล้ว (${dueText(it.due)})` : left<=0 ? `⏰ ส่งวันนี้ ภายใน 23:59` : `⏰ ส่งภายใน ${dueText(it.due)} (อีก ${left} วัน)`);
+}
 function renderStudent(v,d){
   const fam=d.kind==='family';
   v.append(el('div',{class:'ghead'}, el('h2',{text:(fam?'🏠 ':'🎒 ')+d.name}), el('p',{text:(fam?'ชื่อในกลุ่ม: ':'ชื่อในห้อง: ')+d.nickname})));
@@ -193,6 +200,7 @@ function renderStudent(v,d){
         el('span',{class:'clic',text:it.kind==='deck'?'📚':'🖼️'}),
         el('span',{class:'lb'}, el('b',{text:it.name}),
           el('span',{class:'lm'+(pr.total&&pr.done===pr.total?' okc':'')}, `${it.kind==='deck'?'ชุดคำ':'ฉาก'}${assignLang(it)} · ทบทวนแล้ว ${pr.done}/${pr.total||it.total} คำ`+(pr.star?` · ★ ${pr.star}`:'')),
+          it.due ? dueLabel(it) : null,
           pctBar(pr.done, pr.total||it.total)),
         el('button',{class:started?'':'primary',text:started?'▶ ทำต่อ':'▶ เริ่ม',onclick:e=>startAssignment(it, e.currentTarget)})));
     });
@@ -257,6 +265,8 @@ function renderTeacher(v,d){
     d.items.forEach(it=>head.append(el('th',{}, el('span',{text:(it.kind==='deck'?'📚 ':'🖼️ ')+it.name}), el('small',{text:(it.lang&&it.lang!=='en'&&LANGS[it.lang]?LANGS[it.lang].flag+' ':'')+it.total+' คำ'}),
       d.members.length ? el('button',{class:'whobtn'+(it.only?' some':''),title:'เลือกว่าใครได้งานนี้',onclick:()=>openWhoFor(d,it),
         text: it.only ? `👥 ${it.only.filter(u=>d.members.some(mb=>mb.user_id===u)).length}/${d.members.length} คน` : '👥 ทุกคน'}) : null,
+      el('button',{class:'whobtn duebtn'+(it.due?' some':'')+(isClosed(it)?' closed':''),title:'กำหนดวันหมดเวลา',onclick:()=>openDueFor(d,it),
+        text: !it.due ? '⏰ ไม่กำหนด' : isClosed(it) ? `⏰ หมดเวลา ${dueText(it.due)}` : `⏰ ถึง ${dueText(it.due)}`}),
       el('button',{class:'x',title:'เลิกมอบหมายงานนี้','aria-label':'เลิกมอบหมาย '+it.name,text:'✕',onclick:async()=>{
         if(!(await ask(`เลิกมอบหมาย “${it.name}”? ความคืบหน้าของงานนี้จะถูกลบ`,'เลิกมอบหมาย'))) return;
         const r=await classApi('DELETE',`/${d.id}/items/${it.share_id}`); if(!r.ok) toast(classErr(r)); CL.detail=null; renderClassDetail(); }}))));
@@ -353,7 +363,7 @@ function memberReports(v,d){
 function classExportData(d){
   const pr=new Map(d.progress.map(p=>[p.user_id+'/'+p.share_id,p]));
   const students=d.members.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname,'th'));
-  const items=d.items.map(it=>({...it, title:tx(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name+(it.lang&&it.lang!=='en'&&LANGS[it.lang]?` (${tx(LANGS[it.lang].name)})`:'')}));
+  const items=d.items.map(it=>({...it, title:tx(it.kind==='deck'?'ชุดคำ: ':'ฉาก: ')+it.name+(it.lang&&it.lang!=='en'&&LANGS[it.lang]?` (${tx(LANGS[it.lang].name)})`:'')+(it.due?` · ${tx('กำหนดส่ง')} ${dueText(it.due)}`:'')}));
   const rows=students.map((mb,i)=>{
     let done=0, star=0, total=0, last=0; const cells=[], long=[];
     items.forEach(it=>{
@@ -447,6 +457,44 @@ function exportClassXlsx(d){
   ];
   downloadBlob(zipStore(files), exportName(d,'xlsx'));
 }
+// ⏰ a due date: none, in 3 days / 1 week / 2 weeks, or a day chosen. The work closes at the end of that day (this
+// device's time zone). value(): an ISO time, or null for none; '' when "choose a day" has no day yet.
+const endOfDay=ymd=>{ const [y,m,dd]=String(ymd).split('-').map(Number); return new Date(y, m-1, dd, 23, 59, 59, 999).toISOString(); };
+const ymdOf=t=>{ const x=new Date(t); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+const inDays=n=>ymdOf(Date.now()+n*86400000);
+const dueText=due=>new Date(due).toLocaleDateString(LOC,{ weekday:'short', day:'numeric', month:'short' });
+const isClosed=it=>!!(it && it.due) && Date.parse(it.due)<Date.now();
+function duePicker(due){
+  const opts=[['','ไม่กำหนด'],['3','3 วัน'],['7','1 สัปดาห์'],['14','2 สัปดาห์'],['day','📅 เลือกวัน']];
+  let pick=due ? 'day' : '';
+  const date=el('input',{type:'date',class:'duedate','aria-label':'วันหมดเวลา',min:ymdOf(Date.now()),max:inDays(365),value: due ? ymdOf(due) : inDays(7)});
+  const seg=el('div',{class:'seg dueseg',role:'radiogroup','aria-label':'กำหนดส่ง'}), hint=el('span',{class:'note small duehint'});
+  const value=()=> pick==='' ? null : pick==='day' ? (date.value ? endOfDay(date.value) : '') : endOfDay(inDays(+pick));
+  const draw=()=>{
+    seg.replaceChildren(...opts.map(([v,t])=>el('button',{type:'button',role:'radio','aria-checked':String(pick===v),class:pick===v?'on':'',text:t,onclick:()=>{ pick=v; draw(); if(v==='day') date.focus(); }})));
+    date.hidden=pick!=='day';
+    const v=value(); hint.textContent= v ? `หมดเวลา ${dueText(v)} เวลา 23:59` : pick==='day' ? 'เลือกวัน' : 'ทำได้ไม่มีกำหนด';
+  };
+  date.addEventListener('input',draw);
+  draw();
+  return { el:el('div',{class:'duebox'}, el('div',{class:'whohead'}, el('b',{text:'⏰ กำหนดส่ง'}), seg), el('div',{class:'duerow'}, date, hint)), value };
+}
+// ⏰ change an assignment's due date (from the progress table's heading)
+function openDueFor(d, it){
+  openModal(m=>{
+    const dp=duePicker(it.due), err=el('p',{class:'err'}), save=el('button',{class:'primary',text:'บันทึก'});
+    save.addEventListener('click',async()=>{
+      const due=dp.value(); if(due===''){ err.textContent='เลือกวัน'; return; }
+      save.disabled=true; err.textContent='';
+      const r=await classApi('PATCH',`/${d.id}/items/${it.share_id}`,{ due }).catch(()=>({ok:false}));
+      if(!r.ok){ save.disabled=false; err.textContent=classErr(r); return; }
+      closeModal(); toast('บันทึกแล้ว ✓'); CL.detail=null; renderClassDetail();
+    });
+    m.append(el('h3',{}, '⏰ ', el('span',{'data-noi18n':'',text:it.name})), dp.el,
+      el('p',{class:'note small',text:'หลังหมดเวลา ความคืบหน้าในตารางจะหยุดตามที่ทำไว้ เด็กยังฝึกต่อได้ · เลื่อนวันได้ตลอด'}),
+      err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ยกเลิก',onclick:closeModal}), save));
+  });
+}
 // 👥 who gets an assignment: everyone in the class (also those who join later), or the students ticked.
 // value(): null for everyone, or the chosen students' ids
 function whoPicker(d, only){
@@ -519,10 +567,12 @@ function openAssignPicker(d){
     if(Object.keys(LANGS).length>1) m.append(langSeg);
     const who=d.members.length ? whoPicker(d, null) : null;   // 👥 everyone, or the students chosen
     if(who) m.append(who.el);
+    const dp=duePicker(null); m.append(dp.el);                 // ⏰ a due date, if any
     m.append(list, err, el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
     draw();
     const assign=async(t,btn)=>{
-      const only=who ? who.value() : null;
+      const only=who ? who.value() : null, due=dp.value();
+      if(due===''){ err.textContent='เลือกวันหมดเวลา'; return; }
       if(only && !only.length){ err.textContent='เลือกอย่างน้อย 1 คน'; return; }
       const lang=alang, all=m.querySelectorAll('.dk-list button, .aslang button'), lab=btn.querySelector('.dk-n');
       all.forEach(b=>b.disabled=true); lab.textContent='กำลังสร้าง…'; err.textContent='';
@@ -539,7 +589,7 @@ function openAssignPicker(d){
       const r=await shareApi('POST','/api/share',body).catch(()=>({ok:false,status:0,j:{}}));
       if(!r.ok) return fail(shareErr(r.status,r.j));
       myShares[key]={ id:r.j.id, at:Date.now() }; store.set('pv-shares',myShares);
-      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id, ...(lang!=='en'?{lang}:{}), only });
+      const a=await classApi('POST',`/${d.id}/items`,{ share_id:r.j.id, ...(lang!=='en'?{lang}:{}), only, due });
       if(!a.ok) return fail(classErr(a));
       closeModal(); toast('มอบหมายงานแล้ว ✓'); CL.detail=null; renderClassDetail();
     };

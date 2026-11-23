@@ -744,7 +744,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   const keyCols = { class_items: ['class_id', 'share_id'], class_progress: ['class_id', 'share_id', 'user_id'] };
   const list = v => v.split(',').map(x => x.replace(/^"|"$/g, ''));
   const parseVal = v => v.startsWith('eq.') ? { in: [v.slice(3)] } : v.startsWith('in.(') ? { in: list(v.slice(4, -1)) } : v.startsWith('not.in.(') ? { out: list(v.slice(8, -1)) } : null;
-  let noOnly = false;
+  let noOnly = false, noDue = false;
   globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
     if (u.pathname === '/auth/v1/user') { const t = (init.headers.authorization || '').slice(7); return users[t] ? new Response(JSON.stringify(users[t])) : new Response('{}', { status: 401 }); }
@@ -753,6 +753,7 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
     const match = r => filters.every(([k, f]) => f.in ? f.in.includes(String(r[k])) : !f.out.includes(String(r[k])));
     const m = init.method || 'GET';
     const body = init.body ? JSON.parse(init.body) : null;
+    if (noDue && t === 'class_items' && body && [].concat(body).some(r => 'due' in r)) return new Response('{"code":"PGRST204","message":"Could not find the due column"}', { status: 400 });
     if (noOnly && t === 'class_items' && body && [].concat(body).some(r => 'students' in r)) return new Response('{"code":"PGRST204","message":"Could not find the only column"}', { status: 400 });
     if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
     if (m === 'DELETE') { db[t] = db[t].filter(r => !match(r)); return new Response(null, { status: 204 }); }
@@ -797,7 +798,34 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   db.class_items = db.class_items.filter(i => i.share_id !== 'ShareSome01');
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', only: [S1] }, 'at')).j.error, 'needs_assign_sql');
   assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01' }, 'at')).status, 200);
-  const { assignedTo } = await import('../src/worker.js');
+  noOnly = false;
+  // ⏰ due dates: set when assigning, changed later; after it, progress stays as it was
+  const day = 86400000, soon = new Date(Date.now() + 3 * day).toISOString(), past = new Date(Date.now() - 3600000).toISOString();
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareAll001', due: 'nope' }, 'at')).j.error, 'bad_due');
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareAll001', due: new Date(Date.now() + 400 * day).toISOString() }, 'at')).j.error, 'bad_due');
+  r = await go(C + '/items', 'POST', { share_id: 'ShareAll001', due: soon }, 'at');   // assigned again with a due date
+  assert.equal(r.j.due, soon); assert.equal(db.class_items.find(i => i.share_id === 'ShareAll001').due, soon);
+  assert.deepEqual((await go(C, 'GET', null, 'a1')).j.items.map(i => [i.name, i.due]), [['All', soon], ['Some', null]]);
+  db.class_progress = [];
+  r = await go('/api/classes/progress', 'POST', { rows: [{ class_id: 'ClassSome01', share_id: 'ShareAll001', total: 4, done: 1 }] }, 'a1'); assert.equal(r.j.saved, 1);
+  // closed: the progress stays at 1 even though the student did more
+  db.class_items.find(i => i.share_id === 'ShareAll001').due = past;
+  r = await go('/api/classes/progress', 'POST', { rows: [{ class_id: 'ClassSome01', share_id: 'ShareAll001', total: 4, done: 4 }] }, 'a1'); assert.equal(r.j.saved, 0);
+  assert.equal(db.class_progress.find(p => p.share_id === 'ShareAll001').done, 1);
+  // the teacher moves the date: it counts again; or takes it away
+  r = await go(C + '/items/ShareAll001', 'PATCH', { due: soon }, 'at'); assert.equal(r.j.due, soon); assert.ok(!('only' in r.j));
+  assert.equal((await go('/api/classes/progress', 'POST', { rows: [{ class_id: 'ClassSome01', share_id: 'ShareAll001', total: 4, done: 4 }] }, 'a1')).j.saved, 1);
+  r = await go(C + '/items/ShareAll001', 'PATCH', { due: null }, 'at'); assert.equal(db.class_items.find(i => i.share_id === 'ShareAll001').due, null);
+  assert.equal(db.class_items.find(i => i.share_id === 'ShareAll001').students, undefined);   // who gets it: not touched
+  assert.equal((await go(C + '/items/ShareAll001', 'PATCH', {}, 'at')).status, 400);
+  assert.equal((await go(C + '/items/ShareAll001', 'PATCH', { due: 'x' }, 'at')).j.error, 'bad_due');
+  noDue = true;
+  assert.equal((await go(C + '/items/ShareAll001', 'PATCH', { due: soon }, 'at')).j.error, 'needs_due_sql');
+  assert.equal((await go(C + '/items', 'POST', { share_id: 'ShareSome01', due: soon }, 'at')).j.error, 'needs_due_sql');
+  noDue = false;
+  const { assignedTo, cleanDue, closed } = await import('../src/worker.js');
+  assert.equal(cleanDue(null), null); assert.equal(cleanDue('2026-11-30T16:59:59.999Z', Date.parse('2026-11-23T00:00:00Z')), '2026-11-30T16:59:59.999Z');
+  assert.ok(closed({ due: past }) && !closed({ due: soon }) && !closed({}));
   assert.ok(assignedTo({}, S1) && assignedTo({ students: null }, S1) && assignedTo({ students: [] }, S1) && assignedTo({ students: [S1] }, S1) && !assignedTo({ students: [S2] }, S1));
   console.log('assign to some students tests passed');
 }
