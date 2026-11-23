@@ -1585,3 +1585,10 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .mbox .rted input[type=checkbox],.mbox .tskeychk input{display:inline-block;width:18px;height:18px;margin:0;padding:0}
 .ctsave{font-weight:600}
 .tssave{font-weight:600}
+/* ➕ choosing the word set for a test */
+.ctmore{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:10px 0 4px}
+.ctmore .note{margin:0 4px 0 0}
+.ctmore button{display:inline-flex;align-items:center;gap:2px;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:14px;font-weight:600}
+.ctmore button.on{border-color:var(--ink);background:#f1eefc}
+.ctscenes{margin-top:6px;max-height:34vh}
+.ctscenes[hidden]{display:none}

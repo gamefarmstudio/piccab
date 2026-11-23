@@ -64,7 +64,13 @@ async def main():
         await P.click('#classView .ghead button.ghost'); await P.wait_for_timeout(1500)
         out['p_row']=await P.inner_text('.rmembers .lrow')
         await P.screenshot(path=shot('rp3_family.png'), full_page=True)
-        await P.click('.rmembers button:has-text("ดูรายงาน")'); await P.wait_for_selector('.rtiles', timeout=30000); await P.wait_for_timeout(400)
+        await P.click('.rmembers button:has-text("ดูรายงาน")')
+        try: await P.wait_for_selector('.rtiles', timeout=30000)
+        except Exception:   # say why: what the parent sees, what reached the server, what the child's device has
+            st=state()['db']; dbg={'parent_sees': (await P.inner_text('#classView'))[:600], 'reports': [(r.get('user_id'), sorted((r.get('data') or {}).keys()), len((r.get('data') or {}).get('days',[]))) for r in st['learner_reports']],
+              'child_days': await C.evaluate("Object.keys(JSON.parse(localStorage.getItem('pv-days')||'{}')).slice(-3)"), 'child_share': await C.evaluate("localStorage.getItem('pv-report-on')"), 'today': __import__('datetime').date.today().isoformat()}
+            print('REPORT DEBUG', json.dumps(dbg, ensure_ascii=False)); raise
+        await P.wait_for_timeout(400)
         out['tiles_txt']=await P.locator('.rtile').all_inner_texts()
         out['cols']=await P.locator('.rchart .rcol').count(); out['cols_on']=await P.locator('.rchart .rcol.on').count()
         out['games']=await P.locator('.rbars').first.inner_text()
