@@ -1592,3 +1592,14 @@ rect.draft{fill:rgba(255,201,40,.25);stroke:var(--gold);stroke-width:3;vector-ef
 .ctmore button.on{border-color:var(--ink);background:#f1eefc}
 .ctscenes{margin-top:6px;max-height:34vh}
 .ctscenes[hidden]{display:none}
+/* ⏰ due dates */
+.duebox{margin:6px 0 10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.dueseg button{padding:6px 10px;font-size:14px}
+.duerow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.duerow .duehint{margin:0}
+.mbox .duebox input.duedate{display:inline-block;width:auto;margin:0;padding:6px 10px;font-size:15px}
+.duedate[hidden]{display:none !important}
+.duebtn.closed{border-color:var(--bad);color:var(--bad)}
+.duelbl{display:block;color:var(--muted)}
+.duelbl.soon{color:#b4532a;font-weight:600}
+.duelbl.closed{color:var(--bad)}
