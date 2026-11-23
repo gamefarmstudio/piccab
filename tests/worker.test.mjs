@@ -622,8 +622,8 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   const users = { pt: { id: T, email: 't@school.th' }, p1: { id: S1, is_anonymous: true }, p2: { id: S2, is_anonymous: true }, px: { id: X, email: 'x@x.th' } };
   const db = { classes: [{ id: 'ClassTest01', code: 'ABCDEF', owner: T, name: 'ป.5/1', kind: 'class' }], class_members: [
       { class_id: 'ClassTest01', user_id: S2, nickname: 'Beam' }, { class_id: 'ClassTest01', user_id: S1, nickname: 'Mint' }],   // as the database sorts them
-    class_items: [], class_progress: [], plans: [], class_tests: [], class_test_results: [], ai_usage: [] };
-  const keyCols = { class_tests: ['id'], class_test_results: ['test_id', 'k'], ai_usage: ['id'] };
+    class_items: [], class_progress: [], plans: [], class_tests: [], class_test_results: [], class_test_photos: [], ai_usage: [] };
+  const keyCols = { class_tests: ['id'], class_test_results: ['test_id', 'k'], class_test_photos: ['test_id', 'k', 'p'], ai_usage: ['id'] };
   const parseVal = v => v === 'is.null' ? ['null', 'undefined'] : v.startsWith('eq.') ? [v.slice(3)] : v.startsWith('in.(') ? v.slice(4, -1).split(',').map(x => x.replace(/^"|"$/g, '')) : null;
   let aiCalls = [], aiPrompt = '', missing = false;
   globalThis.fetch = async (url, init = {}) => {
@@ -635,11 +635,13 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
     const t = u.pathname.replace('/rest/v1/', '');
     if (missing && t.startsWith('class_test')) return new Response('{"code":"PGRST205","message":"Could not find the table public.class_tests"}', { status: 404 });
     assert.ok(db[t], 'table ' + t);
-    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict', 'limit'].includes(k)).map(([k, v]) => [k, parseVal(v)]);
-    const match = r => filters.every(([k, vals]) => vals.includes(String(r[k])));
+    const filters = [...u.searchParams].filter(([k]) => !['select', 'order', 'on_conflict', 'limit'].includes(k));
+    const match = r => filters.every(([k, v]) => v.startsWith('gt.') ? String(r[k]) > v.slice(3) : v.startsWith('lt.') ? String(r[k]) < v.slice(3) : parseVal(v).includes(String(r[k])));
     const m = init.method || 'GET';
     if (m === 'GET') return new Response(JSON.stringify(db[t].filter(match)));
-    if (m === 'DELETE') { const gone = db[t].filter(match); db[t] = db[t].filter(r => !match(r)); if (t === 'class_tests') db.class_test_results = db.class_test_results.filter(r => !gone.some(g => g.id === r.test_id)); return new Response(null, { status: 204 }); }
+    if (m === 'DELETE') { const gone = db[t].filter(match); db[t] = db[t].filter(r => !match(r));
+      if (t === 'class_tests') for (const tt of ['class_test_results', 'class_test_photos']) db[tt] = db[tt].filter(r => !gone.some(g => g.id === r.test_id));
+      return new Response(null, { status: 204 }); }
     if (m === 'PATCH') { db[t].filter(match).forEach(r => Object.assign(r, JSON.parse(init.body))); return new Response(null, { status: 204 }); }
     if (m === 'POST') {
       for (const row of [].concat(JSON.parse(init.body))) {
@@ -649,7 +651,12 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
       return new Response(null, { status: 201 });
     }
   };
-  const E = { SUPABASE_SECRET_KEY: 'sb_secret_x', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g', AI_PROVIDER: 'gemini,claude', ASSETS: assets };
+  const R2 = new Map();   // 📷 the photos kept
+  const IMAGES = { put: async (k, v, o) => { R2.set(k, { v: new TextDecoder().decode(v), type: o.httpMetadata.contentType }); },
+    get: async k => R2.has(k) ? { body: R2.get(k).v, httpMetadata: { contentType: R2.get(k).type } } : null,
+    delete: async ks => { [].concat(ks).forEach(k => R2.delete(k)); },
+    list: async ({ prefix }) => ({ objects: [...R2.keys()].filter(k => k.startsWith(prefix)).map(key => ({ key })), truncated: false }) };
+  const E = { SUPABASE_SECRET_KEY: 'sb_secret_x', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g', AI_PROVIDER: 'gemini,claude', ASSETS: assets, IMAGES };
   const go = async (path, method = 'GET', body, tok, env = E) => { const r = await worker.fetch(new Request('https://piccab.com' + path, { method, headers: { 'content-type': 'application/json', ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body: body && JSON.stringify(body) }), env); return { status: r.status, j: await r.json().catch(() => null) }; };
   const base = '/api/tests', cls = '?class=ClassTest01';
   const words = [{ w: 'cat', th: 'แมว' }, { w: 'dog', th: 'หมา' }, { w: 'Cat', th: 'ซ้ำ' }, { w: 'ice cream', th: 'ไอศกรีม' }];
@@ -697,10 +704,42 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   const rep = cleanReport({ tests: [['Animals', 'ป.5/1', 2, 3, '2026-11-21'], ['bad', '', 9, 3, '2026-11-21'], ['', '', 1, 1, null]] });
   assert.deepEqual(rep.tests, [['Animals', 'ป.5/1', 2, 3, '2026-11-21']]);
   assert.deepEqual(weekSummary(rep, Date.parse('2026-11-22T10:00:00Z')).tests, [['Animals', 2, 3]]);
-  // all answers taken away → no result; deleting the test deletes its results
-  await go(`${base}/${tid}/results/1`, 'PUT', { answers: [null, null, null] }, 'pt'); assert.equal(db.class_test_results.length, 0);
+  // 📷 keep the photo of a checked page as evidence: only the teacher, within the plan's limit
+  const { cleanTestPhotos } = await import('../src/worker.js');
+  const pic = 'data:image/webp;base64,' + btoa('PICTURE');
+  r = await go(`${base}/${tid}`, 'GET', null, 'pt'); assert.deepEqual(r.j.photos, { used: 0, max: 300, days: 182, pro: false }); assert.deepEqual(r.j.roster[1].pics, []);
+  r = await go(`${base}/${tid}/photos/1/0`, 'PUT', { image: pic }, 'pt'); assert.equal(r.status, 200); assert.equal(r.j.used, 1);
+  assert.ok(Math.abs(Date.parse(r.j.until) - Date.now() - 182 * 86400000) < 60000); assert.equal(R2.get(`tp/${T}/${tid}/1-0`).type, 'image/webp');
+  assert.equal((await go(`${base}/${tid}/photos/1/0`, 'PUT', { image: pic }, 'pt')).j.used, 1);                       // the same page again: replaced
+  assert.equal((await go(`${base}/${tid}/photos/1/0`, 'PUT', { image: 'data:image/svg+xml;base64,AAAA' }, 'pt')).j.error, 'bad_image');
+  assert.equal((await go(`${base}/${tid}/photos/9/0`, 'PUT', { image: pic }, 'pt')).status, 400);                    // no such person
+  assert.equal((await go(`${base}/${tid}/photos/1/0`, 'PUT', { image: pic }, 'px')).status, 404);                    // not their test
+  assert.equal((await go(`${base}/${tid}/photos/1/0`, 'GET', null, 'px')).status, 404);
+  assert.equal((await go(`${base}/${tid}/photos/1/0`, 'GET', null, 'p1')).status, 403);                             // not for students
+  const raw = await worker.fetch(new Request(`https://piccab.com${base}/${tid}/photos/1/0`, { headers: { authorization: 'Bearer pt' } }), E);
+  assert.equal(raw.headers.get('content-type'), 'image/webp'); assert.match(raw.headers.get('cache-control'), /private/); assert.equal(await raw.text(), 'PICTURE');
+  r = await go(`${base}/${tid}`, 'GET', null, 'pt'); assert.deepEqual(r.j.roster.map(x => x.pics.map(y => y.p)), [[], [0]]); assert.equal(r.j.photos.used, 1);
+  // full: the score is still saved, the photo is not; Pro: 5,000, kept a year
+  db.class_test_photos.push(...Array.from({ length: 299 }, (_, i) => ({ test_id: 'Other' + i, k: 0, p: 0, owner: T, expires_at: '2099-01-01T00:00:00.000Z' })));
+  r = await go(`${base}/${tid}/photos/0/0`, 'PUT', { image: pic }, 'pt'); assert.equal(r.status, 409); assert.deepEqual([r.j.error, r.j.used, r.j.max], ['photo_quota', 300, 300]);
+  db.plans.push({ email: 't@school.th', plan: 'pro', until: null });
+  r = await go(`${base}/${tid}/photos/0/0`, 'PUT', { image: pic }, 'pt'); assert.equal(r.j.max, 5000); assert.ok(Date.parse(r.j.until) - Date.now() > 364 * 86400000);
+  assert.deepEqual((await go(`${base}/${tid}`, 'GET', null, 'pt')).j.photos, { used: 301, max: 5000, days: 365, pro: true });
+  db.plans.length = 0; db.class_test_photos = db.class_test_photos.filter(x => !x.test_id.startsWith('Other'));
+  // past the keep date: hidden at once, then the cron removes the picture
+  db.class_test_photos.find(x => x.k === 0).expires_at = '2026-01-01T00:00:00.000Z';
+  assert.equal((await go(`${base}/${tid}/photos/0/0`, 'GET', null, 'pt')).status, 404);
+  assert.deepEqual((await go(`${base}/${tid}`, 'GET', null, 'pt')).j.roster.map(x => x.pics.length), [0, 1]);
+  assert.deepEqual(await cleanTestPhotos(E), { removed: 1 }); assert.ok(!R2.has(`tp/${T}/${tid}/0-0`)); assert.ok(R2.has(`tp/${T}/${tid}/1-0`));
+  assert.deepEqual(await cleanTestPhotos(E), { removed: 0 });
+  // remove one
+  await go(`${base}/${tid}/photos/1/0`, 'DELETE', null, 'pt'); assert.equal(R2.size + db.class_test_photos.length, 0);
+  await go(`${base}/${tid}/photos/1/0`, 'PUT', { image: pic }, 'pt');
+  // all answers taken away → no result (and no photo); deleting the test deletes its results and photos
+  await go(`${base}/${tid}/results/1`, 'PUT', { answers: [null, null, null] }, 'pt'); assert.equal(db.class_test_results.length, 0); assert.equal(R2.size + db.class_test_photos.length, 0);
   await go(`${base}/${tid}/results/0`, 'PUT', { answers: [{ a: 'cat', ok: true }, null, null] }, 'pt');
-  await go(`${base}/${tid}`, 'DELETE', null, 'pt'); assert.equal(db.class_tests.length + db.class_test_results.length, 0);
+  await go(`${base}/${tid}/photos/0/1`, 'PUT', { image: pic }, 'pt'); assert.equal(R2.size, 1);
+  await go(`${base}/${tid}`, 'DELETE', null, 'pt'); assert.equal(db.class_tests.length + db.class_test_results.length + db.class_test_photos.length + R2.size, 0);
   // ✏️ the list edited before printing: a member renamed (still linked), one left out, someone without the app added
   r = await go(base, 'POST', { name: 'Mixed', words, class_id: 'ClassTest01', people: [{ u: S1, n: 'ด.ญ. มินตรา' }, { n: 'นิว (ไม่มีแอป)' }, { u: X, n: 'not in class' }, { u: S1, n: 'twice' }, { n: ' ' }] }, 'pt');
   assert.deepEqual(r.j.roster.map(x => [x.n, x.account]), [['ด.ญ. มินตรา', true], ['นิว (ไม่มีแอป)', false]]);

@@ -2,8 +2,9 @@
 // (people who don't use the app: they get a score, nothing goes to any account).
 // 1. The teacher prints one sheet per student (📝 แผ่นสอบ → choose the class): the student's name is printed on it, and
 //    each page has a QR code "PCB1.<test>.<student>.<page>", so the app knows whose sheet a photo is, and its order.
-// 2. The teacher photographs the sheets; the app reads the QR on the phone, and AI copies what the child wrote
-//    (the photo goes to the AI only — it is never stored).
+// 2. The teacher photographs the sheets; the app reads the QR on the phone, and AI copies what the child wrote.
+//    📷 The photo of each checked page is kept as evidence (only the teacher sees it; Free 300 sheets for 6 months,
+//    Pro 5,000 for a year — supabase/2026-11-test-photos.sql), unless the teacher turns that off.
 // 3. The teacher checks each answer next to a picture of the handwriting, changes what AI misread, and saves.
 // 4. The class gets scores per student and the words most students got wrong.
 // 5. Each student gets the words they got wrong as a word set to practise; their score goes in their learning report.
@@ -15,17 +16,17 @@ import { loadImg, makeCards, printNow } from './cards.js';
 import { openTestSheet, pageRanges, testPages, TS } from './testsheet.js';
 import { isList, openSheetMaker, saveWordSheet } from './sheets.js';
 import { user } from './account.js';
-import { CL, classApi, classErr, renderClass } from './classes.js';
+import { CL, classApi, classErr, downloadBlob, renderClass, zipStore } from './classes.js';
 import { sendReportSoon } from './report.js';
 import { accessToken } from './sync.js';
 
-var CT={ checking:false, lists:{} };   // lists: the tests shown per class ('_names': typed names), shown at once while they reload
+var CT={ checking:false, lists:{}, fullSaid:false };   // lists: the tests shown per class ('_names': typed names), shown at once while they reload
 const QR_PREFIX='PCB1';
 const normAns=s=>String(s||'').toLowerCase().replace(/[’‘`´]/g,"'").replace(/[^\p{L}\p{N}' -]/gu,'').replace(/\s+/g,' ').trim();
 const isRight=(a, w)=>!!normAns(a) && normAns(a)===normAns(w);
 const TEST_ERR={ needs_tests_sql:'ต้องรัน SQL 2026-11-class-tests.sql และ 2026-11-test-names.sql ใน Supabase ก่อน', no_students:'ยังไม่มีนักเรียนในห้องนี้', too_many_tests:'มีแผ่นสอบในห้องนี้ครบ 200 ชุดแล้ว — ลบชุดเก่าก่อน',
   too_many_reads:'อ่านรูปของแผ่นสอบนี้ครบจำนวนแล้ว — ตรวจที่เหลือด้วยมือได้', rate_limited:'ส่งรูปถี่เกินไป รอสักครู่แล้วลองใหม่', not_configured:'ตอนนี้ใช้ AI ไม่ได้ — ตรวจด้วยมือได้',
-  busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', invalid_json:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', refused:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', image_too_large:'รูปใหญ่เกินไป' };
+  needs_photos_sql:'ต้องรัน SQL 2026-11-test-photos.sql ใน Supabase ก่อน จึงจะเก็บรูปได้', busy:'AI ไม่ว่าง ลองใหม่อีกครั้ง', invalid_json:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', refused:'AI อ่านแผ่นนี้ไม่ได้ ลองถ่ายใหม่ให้ชัดขึ้น', image_too_large:'รูปใหญ่เกินไป' };
 const testErr=r=>TEST_ERR[r && r.j && r.j.error] || classErr(r);
 // /api/tests: the teacher's paper tests
 async function testApi(method, path, body){
@@ -256,7 +257,9 @@ function renderClassTest(v, d){
       const r=await testApi('DELETE',`/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }
       for(const lk in CT.lists) CT.lists[lk]=CT.lists[lk].filter(x=>x.id!==t.id);
       CL.test=null; toast('ลบแล้ว'); renderClass(); }})),
-    el('p',{class:'note small',text:'ถ่ายทีละแผ่นให้เห็นทั้งหน้าและ QR ที่มุมขวาบน เลือกหลายรูปพร้อมกันได้ · AI อ่านคำตอบ แล้วคุณตรวจทานก่อนบันทึก · รูปไม่ถูกเก็บไว้'}));
+    el('p',{class:'note small',text: t.photos ? 'ถ่ายทีละแผ่นให้เห็นทั้งหน้าและ QR ที่มุมขวาบน เลือกหลายรูปพร้อมกันได้ · AI อ่านคำตอบ แล้วคุณตรวจทานก่อนบันทึก'
+      : 'ถ่ายทีละแผ่นให้เห็นทั้งหน้าและ QR ที่มุมขวาบน เลือกหลายรูปพร้อมกันได้ · AI อ่านคำตอบ แล้วคุณตรวจทานก่อนบันทึก · รูปไม่ถูกเก็บไว้'}));
+  if(t.photos) v.append(photosBox(t));
   // scores
   v.append(el('h3',{class:'psub',text:'คะแนน'}));
   const list=el('div',{class:'ctlist'});
@@ -264,6 +267,7 @@ function renderClassTest(v, d){
     list.append(el('div',{class:'ctst'+(r?'':' todo')},
       el('span',{class:'ctnick','data-noi18n':'',text:st.n}),
       r ? el('span',{class:'ctscore'}, el('b',{text:`${r.score}/${r.total}`}), el('span',{class:'pbar'}, el('i',{style:`width:${Math.round(r.score/r.total*100)}%`}))) : el('span',{class:'ctscore muted',text:'ยังไม่ตรวจ'}),
+      (st.pics||[]).length ? el('button',{class:'linkbtn ctpicbtn','aria-label':'ดูรูปแผ่นสอบ',title:'ดูรูปแผ่นสอบ',text:st.pics.length>1?`📷 ${st.pics.length}`:'📷',onclick:()=>viewPhotos(t, k)}) : null,
       el('button',{class:'linkbtn',text:r?'✏️ แก้':'✍️ ตรวจเอง',onclick:()=>reviewSheet(t, k, [1, qCount(t)], null, null).then(ok=>{ if(ok) renderClass(); })})));
   });
   v.append(list);
@@ -379,7 +383,9 @@ function reviewSheet(t, k, range, photo, read, where){
         const answers=prev.slice(); rows.forEach(r=>{ answers[r.i]={ a:normAns(r.a), ok:r.ok }; });
         const x=await testApi('PUT',`/${t.id}/results/${k}`,{ answers }).catch(()=>({ok:false}));
         if(!x.ok){ save.disabled=false; save.textContent='✓ บันทึก'; toast(testErr(x)); return; }
-        st.result=x.j.result; out=true; toast(`บันทึกคะแนน ${st.n} แล้ว`); closeModal();
+        st.result=x.j.result; out=true;
+        if(photo && t.photos && keepOn()){ save.textContent='กำลังเก็บรูป…'; await keepPhoto(t, k, Math.max(0, pg), photo); }
+        toast(`บันทึกคะแนน ${st.n} แล้ว`); closeModal();
       });
       const pages=pageRanges(n, (t.opts||{}).q), pg=pages.findIndex(p=>p[0]===range[0]);
       m.append(el('div',{class:'ctrhead'},
@@ -395,6 +401,87 @@ function reviewSheet(t, k, range, photo, read, where){
     });
   });
 }
+// ---------- 📷 the photos kept as evidence ----------
+const keepOn=()=>store.get('pv-ctkeep', true)!==false;
+const dayText=d=>new Date(d).toLocaleDateString(LOC,{ day:'numeric', month:'short', year:'numeric' });
+const SOON=30*86400000;
+// the teacher's switch, how many sheets are kept, and what goes soon
+function photosBox(t){
+  const P=t.photos, all=t.roster.flatMap(st=>st.pics||[]);
+  const keep=el('input',{type:'checkbox',class:'ctkeep'}); keep.checked=keepOn();
+  keep.addEventListener('change',()=>store.set('pv-ctkeep', keep.checked));
+  const soon=all.filter(x=>Date.parse(x.until)-Date.now()<SOON).sort((a,b)=>String(a.until).localeCompare(String(b.until)));
+  const zip=all.length ? el('button',{class:'linkbtn ctzip',text:'⬇️ ดาวน์โหลดรูปทั้งหมด (ZIP)'}) : null;
+  if(zip) zip.addEventListener('click',()=>downloadPhotos(t, zip));
+  return el('div',{class:'ctphotos'+(P.used>=P.max?' full':'')},
+    el('label',{class:'chk'}, keep, el('span',{text:'📷 เก็บรูปแผ่นที่ตรวจแล้วไว้เป็นหลักฐาน'})),
+    el('p',{class:'note small ctquota',text: P.days>300 ? `ใช้ไป ${P.used}/${P.max} แผ่น · เก็บไว้ 1 ปี แล้วลบเอง · เห็นได้เฉพาะคุณ` : `ใช้ไป ${P.used}/${P.max} แผ่น · เก็บไว้ 6 เดือน แล้วลบเอง · เห็นได้เฉพาะคุณ`}),
+    P.used>=P.max ? el('p',{class:'note small ctfull',text: P.pro ? 'ที่เก็บรูปเต็มแล้ว — ลบแผ่นสอบเก่าเพื่อเก็บรูปใหม่ได้ (คะแนนยังบันทึกได้ตามปกติ)' : 'ที่เก็บรูปเต็มแล้ว — ลบแผ่นสอบเก่า หรืออัปเกรดเป็น 💎 Pro เพื่อเก็บได้ 5,000 แผ่น นาน 1 ปี (คะแนนยังบันทึกได้ตามปกติ)'})
+      : !P.pro ? el('p',{class:'note small',text:'💎 Pro เก็บได้ 5,000 แผ่น นาน 1 ปี'}) : null,
+    soon.length ? el('p',{class:'note small ctsoon',text:`⚠️ รูป ${soon.length} แผ่นจะถูกลบตั้งแต่ ${dayText(soon[0].until)} — ดาวน์โหลดเก็บไว้ได้`}) : null,
+    zip);
+}
+// the page as it is kept: WebP where the browser makes it (Safari: JPEG)
+function photoData(c){ const u=c.toDataURL('image/webp',0.6); return u.startsWith('data:image/webp') ? u : c.toDataURL('image/jpeg',0.65); }
+async function keepPhoto(t, k, p, photo){
+  const st=t.roster[k], r=await testApi('PUT',`/${t.id}/photos/${k}/${p}`,{ image:photoData(photo) }).catch(()=>({ok:false}));
+  if(r.ok){ st.pics=(st.pics||[]).filter(x=>x.p!==p).concat({ p, until:r.j.until }).sort((a,b)=>a.p-b.p); t.photos.used=r.j.used; t.photos.max=r.j.max; return; }
+  if(r.j && r.j.error==='photo_quota'){ t.photos.used=r.j.used; if(!CT.fullSaid){ CT.fullSaid=true; toast(`ที่เก็บรูปเต็มแล้ว (${r.j.max} แผ่น) — บันทึกคะแนนแล้ว แต่ไม่ได้เก็บรูป`, 6000); } return; }
+  toast('เก็บรูปไม่สำเร็จ — บันทึกคะแนนแล้ว', 4000);
+}
+async function photoBlob(t, k, p){
+  const tok=await accessToken();
+  const r=await fetch(`/api/tests/${t.id}/photos/${k}/${p}`,{ headers: tok ? { authorization:'Bearer '+tok } : {} }).catch(()=>null);
+  return r && r.ok ? r.blob() : null;
+}
+const safeName=s=>String(s||'').replace(/[\\/:*?"<>|\s]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+const photoName=(t, k, p, type)=>{ const st=t.roster[k]; return `${String(k+1).padStart(2,'0')}-${safeName(st.n)||'sheet'}${(st.pics||[]).length>1 || p ? `-p${p+1}` : ''}.${/webp/.test(type) ? 'webp' : 'jpg'}`; };
+// one person's photos: look, download, remove
+function viewPhotos(t, k){
+  const st=t.roster[k], urls=[]; let changed=false;
+  G.modalClose=()=>{ urls.forEach(u=>URL.revokeObjectURL(u)); if(changed) renderClass(); };
+  openModal(m=>{
+    m.classList.add('wide','ctview');
+    const box=el('div',{class:'ctpics'});
+    m.append(el('h3',{}, '📷 ', el('span',{'data-noi18n':'',text:st.n})),
+      el('p',{class:'note small',text:'รูปแผ่นสอบที่ตรวจแล้ว — เห็นได้เฉพาะคุณ'}), box,
+      el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ปิด',onclick:closeModal})));
+    for(const x of (st.pics||[]).slice()){
+      const fig=el('figure',{class:'ctpic'}, el('p',{class:'note small',text:'กำลังโหลด…'})); box.append(fig);
+      photoBlob(t, k, x.p).then(b=>{
+        fig.textContent='';
+        if(!b){ fig.append(el('p',{class:'note small',text:'เปิดรูปนี้ไม่ได้'})); return; }
+        const u=URL.createObjectURL(b); urls.push(u);
+        const del=el('button',{class:'linkbtn danger ctpicdel',text:'🗑 ลบรูป'});
+        del.addEventListener('click',async()=>{
+          if(!del.classList.contains('sure')){ del.classList.add('sure'); del.textContent='แตะอีกครั้งเพื่อลบ'; return; }
+          del.disabled=true;
+          const r=await testApi('DELETE',`/${t.id}/photos/${k}/${x.p}`).catch(()=>({ok:false}));
+          if(!r.ok){ del.disabled=false; toast(testErr(r)); return; }
+          st.pics=st.pics.filter(y=>y.p!==x.p); t.photos.used=Math.max(0, t.photos.used-1); changed=true; fig.remove(); toast('ลบรูปแล้ว');
+          if(!st.pics.length) closeModal();
+        });
+        fig.append(el('figcaption',{}, el('span',{text: st.pics.length>1 ? `หน้า ${x.p+1} · เก็บถึง ${dayText(x.until)}` : `เก็บถึง ${dayText(x.until)}`}), el('span',{class:'sp'}),
+            el('a',{class:'linkbtn',href:u,download:photoName(t, k, x.p, b.type),text:'⬇️ ดาวน์โหลด'}), del),
+          el('img',{src:u,alt:''}));
+      });
+    }
+  });
+}
+// every photo of the test in one .zip
+async function downloadPhotos(t, btn){
+  const all=t.roster.flatMap((st,k)=>(st.pics||[]).map(x=>[k, x.p])), files=[], label=btn.textContent;
+  btn.disabled=true;
+  for(const [i,[k,p]] of all.entries()){
+    btn.textContent=`กำลังรวบรวม ${i+1}/${all.length}…`;
+    const b=await photoBlob(t, k, p);
+    if(b) files.push({ name:photoName(t, k, p, b.type), data:new Uint8Array(await b.arrayBuffer()) });
+  }
+  btn.disabled=false; btn.textContent=label;
+  if(!files.length){ toast('เปิดรูปไม่ได้ ลองใหม่อีกครั้ง'); return; }
+  downloadBlob(zipStore(files, 'application/zip'), `Piccab-${safeName(t.name)||'test'}-photos.zip`);
+}
+
 // the handwriting of one answer, cut from the page (a little wider than AI's box)
 function handCrop(photo, box){
   const [x0,y0,x1,y1]=box.map(v=>v/1000), W=photo.width, H=photo.height;

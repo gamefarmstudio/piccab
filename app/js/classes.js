@@ -400,7 +400,7 @@ function exportClassCsv(d){
 // --- minimal .xlsx writer: inline strings, 3 styles, stored (uncompressed) zip ---
 const CRC_T=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
 function crc32(b){ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=CRC_T[(c^b[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
-function zipStore(files){
+function zipStore(files, type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'){
   const enc=new TextEncoder(), parts=[], central=[]; let off=0;
   const now=new Date(), dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1)), dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate());
   for(const f of files){
@@ -415,7 +415,7 @@ function zipStore(files){
   }
   const csize=central.reduce((a,b)=>a+(b.byteLength!=null?b.byteLength:b.length),0);
   const e=new DataView(new ArrayBuffer(22)); e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,csize,true); e.setUint32(16,off,true);
-  return new Blob([...parts,...central,e.buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  return new Blob([...parts,...central,e.buffer],{type});
 }
 const xesc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');
 function xlCol(n){ let s=''; n++; while(n){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
@@ -662,4 +662,4 @@ function openStudentAccount(){
 }
 const classLinkCode=((/^\/c\/([A-Za-z2-9]{6})\/?$/.exec(location.pathname)||[])[1]||'').toUpperCase()||null;
 
-export { CL, classApi, classErr, classLinkCode, isStudent, loadClasses, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };
+export { CL, classApi, classErr, classLinkCode, downloadBlob, zipStore, isStudent, loadClasses, openJoinClass, openStudentAccount, renderClass, reportClassProgress, reportClassProgressSoon, socialTabs, studentNick };

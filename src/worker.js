@@ -91,6 +91,7 @@ export default {
   // 📧 the weekly summary to parents (cron in wrangler.jsonc)
   async scheduled(event, env, ctx) {
     ctx.waitUntil(weeklyDigest(env).then(r => console.log('weekly digest', JSON.stringify(r))).catch(e => console.log('weekly digest failed', e && e.message)));
+    ctx.waitUntil(cleanTestPhotos(env).then(r => console.log('test photos', JSON.stringify(r))));   // 📷 past their keep date
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -878,6 +879,7 @@ async function deleteAccount(request, env) {
   if (env.IMAGES) {
     const mine = await sbRest(env, `shares?owner=eq.${uid}&select=id`).then(r => r.ok ? r.json() : []).catch(() => []);
     for (const row of Array.isArray(mine) ? mine : []) removed += await deletePrefix(env, `s/${row.id}/`);
+    removed += await deletePrefix(env, `tp/${uid}/`);   // 📷 photos of paper tests
     let cursor;
     do {
       const page = await env.IMAGES.list({ prefix: `u/${uid}/`, cursor });
@@ -1518,7 +1520,10 @@ async function classes(request, env, url, ctx) {
       return json({ nickname: mb.nickname, joined_at: mb.joined_at, updated_at: r ? r.updated_at : null, data: r ? r.data : null });
     }
     if (!teacher) return error('forbidden', 403);
-    if (!sub && m === 'DELETE') { await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true }); }
+    if (!sub && m === 'DELETE') {
+      for (const ct of await q(env, `class_tests?class_id=eq.${id}&select=id,owner`).catch(() => []) || []) await dropTestPhotos(env, ct.owner, ct.id);   // 📷 the tests go with the class
+      await q(env, `classes?id=eq.${id}`, { method: 'DELETE' }); return json({ ok: true });
+    }
     if (!sub && m === 'PATCH') {
       const body = await request.json().catch(() => ({}));
       const patch = {};
@@ -1661,6 +1666,38 @@ export function cleanPeople(list, members) {
 export function cleanNames(arr) {
   return (Array.isArray(arr) ? arr : String(arr || '').split(/\r?\n/)).map(x => cleanLine(x, 40)).filter(Boolean).slice(0, MAX_MEMBERS);
 }
+// 📷 photos of checked sheets, kept as evidence of the marking (supabase/2026-11-test-photos.sql). Only the teacher sees them.
+export const PHOTO_PLANS = { free: { max: 300, days: 182 }, pro: { max: 5000, days: 365 } };
+const MAX_PHOTO_B64 = 1_400_000;   // ~1 MB picture: the app sends ~150-300 KB
+export const photoKey = (owner, tid, k, p) => `tp/${owner}/${tid}/${k}-${p}`;
+const photosMissing = e => !!e && (e.status === 404 || e.status === 400 && /class_test_photos|PGRST20[45]|42P01/.test(String(e.body || '')));
+const photoPlan = async (env, me) => (await proOf(env, me)).pro ? { ...PHOTO_PLANS.pro, pro: true } : { ...PHOTO_PLANS.free, pro: false };
+const photoUse = async (env, uid, now) => (await q(env, `class_test_photos?owner=eq.${uid}&expires_at=gt.${now}&select=k&limit=6000`) || []).length;
+// one person's photos (k), or all of a test's: the pictures and their rows
+async function dropTestPhotos(env, uid, tid, k = null) {
+  if (!env.IMAGES) return;
+  try {
+    if (k == null) { await deletePrefix(env, `tp/${uid}/${tid}/`); return; }
+    await env.IMAGES.delete([...Array(20).keys()].map(p => photoKey(uid, tid, k, p)));
+    await q(env, `class_test_photos?test_id=eq.${tid}&k=eq.${k}`, { method: 'DELETE' });
+  } catch (e) { if (!photosMissing(e)) console.log('test photos delete', e && e.message); }
+}
+// 🗓 past their keep date (cron): the pictures, then the rows — a few tests per run, so it stays small
+export async function cleanTestPhotos(env, now = Date.now()) {
+  if (!env.SUPABASE_SECRET_KEY || !env.IMAGES) return { removed: 0 };
+  const at = new Date(now).toISOString();
+  let removed = 0;
+  try {
+    const due = [...new Set((await q(env, `class_test_photos?expires_at=lt.${at}&select=test_id&limit=1000`) || []).map(r => r.test_id))].slice(0, 15);
+    for (const tid of due) {
+      const rows = await q(env, `class_test_photos?test_id=eq.${tid}&expires_at=lt.${at}&select=k,p,owner`) || [];
+      for (let i = 0; i < rows.length; i += 1000) await env.IMAGES.delete(rows.slice(i, i + 1000).map(r => photoKey(r.owner, tid, r.k, r.p)));
+      await q(env, `class_test_photos?test_id=eq.${tid}&expires_at=lt.${at}`, { method: 'DELETE' });
+      removed += rows.length;
+    }
+  } catch (e) { if (!photosMissing(e)) console.log('test photos clean', e && e.message); }
+  return { removed };
+}
 // /api/tests — the paper tests a teacher made: for a class or group (?class=<id>), or for a typed list of names
 async function tests(request, env, url) {
   if (!env.SUPABASE_SECRET_KEY) return error('not_configured', 503);
@@ -1711,10 +1748,20 @@ async function tests(request, env, url) {
     if (!act && m === 'GET') {
       const res = await q(env, `class_test_results?test_id=eq.${tid}&select=k,answers,score,total,updated_at`) || [];
       const by = new Map(res.map(r => [r.k, r]));
-      return json({ id: t.id, name: t.name, created_at: t.created_at, class_id: t.class_id || null, words, opts: t.opts || {},
-        roster: roster.map((r, k) => { const x = by.get(k); return { n: r.n, o: r.o, account: !!r.u, result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
+      // 📷 the photos kept for each person, and how many the teacher may keep (null: the SQL is not run yet)
+      let photos = null; const pics = new Map();
+      try {
+        const now = new Date().toISOString();
+        for (const r of await q(env, `class_test_photos?test_id=eq.${tid}&expires_at=gt.${now}&select=k,p,expires_at&order=p.asc`) || []) {
+          if (!pics.has(r.k)) pics.set(r.k, []); pics.get(r.k).push({ p: r.p, until: r.expires_at });
+        }
+        const plan = await photoPlan(env, me);
+        photos = { used: await photoUse(env, uid, now), max: plan.max, days: plan.days, pro: plan.pro };
+      } catch (e) { if (!photosMissing(e)) throw e; }
+      return json({ id: t.id, name: t.name, created_at: t.created_at, class_id: t.class_id || null, words, opts: t.opts || {}, photos,
+        roster: roster.map((r, k) => { const x = by.get(k); return { n: r.n, o: r.o, account: !!r.u, pics: pics.get(k) || [], result: x ? { answers: x.answers, score: x.score, total: x.total, at: x.updated_at } : null }; }) });
     }
-    if (!act && m === 'DELETE') { await q(env, `class_tests?id=eq.${tid}`, { method: 'DELETE' }); return json({ ok: true }); }
+    if (!act && m === 'DELETE') { await dropTestPhotos(env, uid, tid); await q(env, `class_tests?id=eq.${tid}`, { method: 'DELETE' }); return json({ ok: true }); }
     // ✏️ the names on the sheets: rename (a student with an account stays linked to it), add people. Places never move,
     // so the QR codes already printed still point to the same person.
     if (!act && m === 'PATCH') {
@@ -1757,13 +1804,44 @@ async function tests(request, env, url) {
       const body = await request.json().catch(() => ({}));
       const answers = cleanAnswers(body.answers, words.length);
       if (!answers) return error('bad_request', 400);
-      if (!answers.some(Boolean)) { await q(env, `class_test_results?test_id=eq.${tid}&k=eq.${k}`, { method: 'DELETE' }); return json({ ok: true, result: null }); }
+      if (!answers.some(Boolean)) { await q(env, `class_test_results?test_id=eq.${tid}&k=eq.${k}`, { method: 'DELETE' }); await dropTestPhotos(env, uid, tid, k); return json({ ok: true, result: null }); }
       const score = answers.filter(x => x && x.ok).length;
       const row = { test_id: tid, k, user_id: roster[k].u || null, answers, score, total: words.length, updated_at: new Date().toISOString() };
       const put = r => q(env, 'class_test_results?on_conflict=test_id,k', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(r) });
       try { await put(row); }
       catch (e) { if (e.status === 409 && row.user_id) await put({ ...row, user_id: null }); else throw e; }   // the student's account was deleted: keep the result without it
       return json({ ok: true, result: { answers, score, total: words.length, at: row.updated_at } });
+    }
+    // 📷 /photos/<k>/<page>: keep the photo of a checked page (PUT), look at it (GET), remove it (DELETE)
+    if (act === 'photos') {
+      if (!env.IMAGES) return error('not_configured', 503);
+      const k = Number(parts[4]), p = Number(parts[5]);
+      if (!Number.isInteger(k) || !roster[k] || !Number.isInteger(p) || p < 0 || p > 19) return error('bad_request', 400);
+      const key = photoKey(uid, tid, k, p), now = new Date().toISOString(), one = `class_test_photos?test_id=eq.${tid}&k=eq.${k}&p=eq.${p}`;
+      try {
+        if (m === 'GET') {
+          const row = (await q(env, `${one}&expires_at=gt.${now}&select=k`) || [])[0];
+          const obj = row ? await env.IMAGES.get(key) : null;
+          if (!obj) return error('not_found', 404);
+          return new Response(obj.body, { headers: { 'content-type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/jpeg', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+        }
+        if (m === 'PUT') {
+          const body = await request.json().catch(() => ({}));
+          const mm = /^data:(image\/(?:jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.image || ''));
+          if (!mm) return error('bad_image', 400);
+          if (mm[2].length > MAX_PHOTO_B64) return error('image_too_large', 413);
+          const plan = await photoPlan(env, me);
+          const had = (await q(env, `${one}&expires_at=gt.${now}&select=k`) || []).length > 0, used = await photoUse(env, uid, now);
+          if (!had && used >= plan.max) return json({ error: 'photo_quota', used, max: plan.max }, 409);   // full: the score is saved, the photo is not
+          const bytes = Uint8Array.from(atob(mm[2]), c => c.charCodeAt(0));
+          await env.IMAGES.put(key, bytes, { httpMetadata: { contentType: mm[1] } });
+          const until = new Date(Date.now() + plan.days * 86400000).toISOString();
+          await q(env, 'class_test_photos?on_conflict=test_id,k,p', { method: 'POST', headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({ test_id: tid, k, p, owner: uid, bytes: bytes.length, created_at: now, expires_at: until }) });
+          return json({ ok: true, until, used: used + (had ? 0 : 1), max: plan.max });
+        }
+        if (m === 'DELETE') { await env.IMAGES.delete(key); await q(env, one, { method: 'DELETE' }); return json({ ok: true }); }
+      } catch (e) { if (photosMissing(e)) return error('needs_photos_sql', 503); throw e; }
     }
     return error('method_not_allowed', 405);
   } catch (e) {
