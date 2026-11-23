@@ -465,7 +465,7 @@ const inDays=n=>ymdOf(Date.now()+n*86400000);
 const dueText=due=>new Date(due).toLocaleDateString(LOC,{ weekday:'short', day:'numeric', month:'short' });
 const isClosed=it=>!!(it && it.due) && Date.parse(it.due)<Date.now();
 function duePicker(due){
-  const opts=[['','ไม่กำหนด'],['3','3 วัน'],['7','1 สัปดาห์'],['14','2 สัปดาห์'],['day','📅 เลือกวัน']];
+  const opts=[['','ไม่กำหนด'],['3','⏳ 3 วัน'],['7','⏳ 1 สัปดาห์'],['14','⏳ 2 สัปดาห์'],['day','📅 เลือกวัน']];
   let pick=due ? 'day' : '';
   const date=el('input',{type:'date',class:'duedate','aria-label':'วันหมดเวลา',min:ymdOf(Date.now()),max:inDays(365),value: due ? ymdOf(due) : inDays(7)});
   const seg=el('div',{class:'seg dueseg',role:'radiogroup','aria-label':'กำหนดส่ง'}), hint=el('span',{class:'note small duehint'});
