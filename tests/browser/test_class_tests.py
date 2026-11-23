@@ -51,6 +51,10 @@ async def main():
         out['info'] = await T.inner_text('.tsinfo')
         out['ros'] = await T.evaluate("[...document.querySelectorAll('.tsnamesrow .rtrow')].map(r=>[r.querySelector('.rtname').value, r.querySelector('.rtapp').textContent, r.querySelector('input').checked])")
         await T.uncheck('.tschk input >> nth=0'); await T.click('.tsseg button[data-v=count]'); await T.wait_for_timeout(200)
+        # 📅 the day of the test: printed in the date box, kept with the test
+        import datetime; exam = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
+        await T.fill('.tsexam', exam); await T.wait_for_timeout(200)
+        out['exam_prev'] = await T.locator('.tsprev .tsfields .tsf >> nth=3').locator('i').inner_text()
         await T.screenshot(path=shot('ct_print_opts.png'))
         await T.click('.tsbox .tsprint'); await T.wait_for_timeout(2500)
         out['printed'] = await T.evaluate('window.__printed||0')
@@ -58,6 +62,7 @@ async def main():
         out['names'] = await T.locator('#printSheet .tspage:not(.key) .tsf.wide i').all_inner_texts()
         out['qrs'] = await T.locator('#printSheet .tsqr img').count()
         out['list_now'] = await T.locator('.ctsec .cttest').count()   # shows at once, no reload
+        out['exam_db'] = state()['class_tests'][0]['opts'].get('exam'); out['exam_chip'] = await T.inner_text('.ctsec .cttest .ctexam')
         st = state(); out['db_test'] = [(t['name'], len(t['words']), [r['n'] for r in t['roster']]) for t in st['class_tests']]
         tid = st['class_tests'][0]['id']; out['db_tid'] = tid; roster = [r['n'] for r in st['class_tests'][0]['roster']]
         mint = roster.index('มิ้นท์'); beam = roster.index('บีม'); fake_k = {'mint': mint}
@@ -75,6 +80,13 @@ async def main():
         await T.route('**/api/tests/*/read', fake_read)
         await T.click('#classView button[title="โหลดใหม่"]'); await T.wait_for_timeout(1500)
         out['list'] = await T.inner_text('.ctsec .cttest')
+        # 📅 change it from the list, then no day
+        await T.click('.ctsec .cttest .ctexam'); await T.wait_for_timeout(300)
+        await T.fill('#mbox .ctexamdate', (datetime.date.today() + datetime.timedelta(days=1)).isoformat()); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1200)
+        out['exam_tmr'] = [await T.inner_text('.ctsec .cttest .ctexam'), await T.get_attribute('.ctsec .cttest .ctexam', 'class'), await T.locator('#classView .ghead').count()]
+        await T.click('.ctsec .cttest .ctexam'); await T.wait_for_timeout(300); await T.click('#mbox .row button:has-text("ไม่กำหนด")'); await T.wait_for_timeout(1200)
+        out['exam_none'] = [await T.inner_text('.ctsec .cttest .ctexam'), state()['class_tests'][0]['opts'].get('exam')]
+        await T.click('.ctsec .cttest .ctexam'); await T.wait_for_timeout(300); await T.fill('#mbox .ctexamdate', exam); await T.click('#mbox .row button.primary'); await T.wait_for_timeout(1200)
         await T.locator('.ctsec').screenshot(path=shot('ct_list.png'))
         # 🖨️ on the right: print again, the same test (same QR), for one student
         printed0 = await T.evaluate('window.__printed||0')
@@ -212,6 +224,9 @@ async def main():
     check(any(set_name in x for x in out['pick']), 'choose the word set to test', out['pick'])
     check(out['for'][0] != '' and 'ป.5/1' in out['for'][1] and out['sample_qr'] >= 1 and '2 คน' in out['info'], 'the class is chosen: a sample with a QR, 2 students', (out['for'], out['sample_qr'], out['info']))
     check(sorted(out['ros']) == [['บีม', '📱', True], ['มิ้นท์', '📱', True]], 'the names on the sheets: the class, 📱, all ticked', out['ros'])
+    import datetime; exam_ = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
+    check(out['exam_prev'] and out['exam_db'] == exam_ and 'อีก 7 วัน' in out['exam_chip'], '📅 the test day: in the date box, saved, in the list', (out['exam_prev'], out['exam_db'], out['exam_chip']))
+    check(out['exam_tmr'][0].startswith('📅 สอบพรุ่งนี้') and 'soon' in out['exam_tmr'][1] and out['exam_none'] == ['📅 กำหนดวันสอบ', None], '📅 changed from the list; then none', (out['exam_tmr'], out['exam_none']))
     check(out['list_now'] == 1, 'the new test is in the list straight after printing', out['list_now'])
     check(out['saved'][0] == 0 and '0/4 คน' in out['saved'][1] and out['saved'][2][-1] == 'แก้ม' and len(out['saved'][2]) == 4, '💾 save the names without printing; the list shows them at once', out['saved'])
     check(out['printed'] == 1 and out['pages'] == 3 and sorted(out['names']) == ['บีม', 'มิ้นท์'] and out['qrs'] == 2, 'one sheet per student with the name and a QR, + the answers', (out['printed'], out['pages'], out['names'], out['qrs']))

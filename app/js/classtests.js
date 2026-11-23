@@ -49,12 +49,12 @@ async function qrUrl(text){
 // target: {class_id} or {names: [...]}
 async function classTestPages(target, sc, cards, o, print=true){
   const seen=new Set(), words=cards.filter(c=>{ const k=c.word.trim().toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,60);
-  const r=await testApi('POST','',{ ...target, name:sc.name, sc:sc.id, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix }).catch(()=>({ok:false}));
+  const r=await testApi('POST','',{ ...target, name:sc.name, sc:sc.id, words:words.map(c=>({ w:c.word, th:c.mean||'' })), q:o.q, hint:o.hint, mix:!!o.mix, exam:o.exam||'' }).catch(()=>({ok:false}));
   if(!r.ok){ toast(testErr(r), 5000); return null; }
   const T=r.j;
   tally('class_test');
   const lk=target.class_id || '_names';   // into the list at once, before it reloads
-  CT.lists[lk]=[{ id:T.id, name:T.name, created_at:new Date().toISOString(), total:T.words.length, students:T.roster.length, checked:0, avg:null, names:T.roster.slice(0,30).map(x=>x.n) },
+  CT.lists[lk]=[{ id:T.id, name:T.name, created_at:new Date().toISOString(), exam:(T.opts||{}).exam||null, total:T.words.length, students:T.roster.length, checked:0, avg:null, names:T.roster.slice(0,30).map(x=>x.n) },
     ...(CT.lists[lk]||[]).filter(x=>x.id!==T.id)];
   return { pages: print ? await sheetPages(T, sc, keyCards(T, words), o) : [], test:T };
 }
@@ -147,7 +147,7 @@ async function openTestRoster(id){
       if(!(await store_())){ busy(false, go, '🖨️ พิมพ์'); return; }
       go.textContent='กำลังเตรียม…';
       const ks=ros.rows().filter(r=>r.on && r.k!=null).map(r=>r.k);
-      const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked }, ks);
+      const pages=await sheetPages(T, sc || { name:T.name }, key, { q, hint:opts.hint||'none', key:keyChk.checked, exam:opts.exam||'' }, ks);
       await printNow(el('div',{id:'printSheet',class:'tsprint'}, ...pages));
       closeModal(); tally('test_sheet'); after();
     });
@@ -179,6 +179,7 @@ function testsSection(d){
           el('span',{class:'lm',text: t.avg!=null ? `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน · เฉลี่ย ${t.avg}%`
             : `${when} · ${t.total} ข้อ · ตรวจแล้ว ${t.checked}/${t.students} คน`}),
           ),   // who it went to: in 👥 Names (a list of 50 would crowd this)
+        examBtn(t.id, t.name, t.exam),
         el('button',{class:'ctprint',title:'รายชื่อบนแผ่นสอบ: เพิ่ม แก้ แล้วบันทึกหรือพิมพ์',onclick:e=>{ e.stopPropagation(); openTestRoster(t.id); }}, '👥 ', el('span',{text:'รายชื่อ'})),
         ic('chevron_right','chev'));
       list.append(row);
@@ -192,6 +193,36 @@ function testsSection(d){
     show(r.j.tests);
   });
   return box;
+}
+// ---------- 📅 the day of the test ----------
+const dayNum=ymd=>{ const [y,m,d]=String(ymd).split('-').map(Number); return Date.UTC(y,m-1,d)/86400000; };
+const todayNum=()=>{ const t=new Date(); return Date.UTC(t.getFullYear(),t.getMonth(),t.getDate())/86400000; };
+function examText(ymd){
+  if(!ymd) return '📅 กำหนดวันสอบ';
+  const n=dayNum(ymd)-todayNum(), d=new Date(ymd+'T12:00:00').toLocaleDateString(LOC,{ weekday:'short', day:'numeric', month:'short' });
+  return n<0 ? `📅 สอบแล้ว ${d}` : n===0 ? '📅 สอบวันนี้' : n===1 ? `📅 สอบพรุ่งนี้ ${d}` : `📅 ${d} · อีก ${n} วัน`;
+}
+function examBtn(id, name, ymd){
+  const n=ymd ? dayNum(ymd)-todayNum() : null;
+  return el('button',{class:'ctexam'+(n==null?' none':n<0?' past':n<=1?' soon':''),title:'วันสอบ — แตะเพื่อเปลี่ยน',text:examText(ymd),
+    onclick:e=>{ e.stopPropagation(); openExamFor(id, name, ymd); }});
+}
+function openExamFor(id, name, ymd){
+  openModal(m=>{
+    const inp=el('input',{type:'date',class:'ctexamdate','aria-label':'วันสอบ',value:ymd||''}), err=el('p',{class:'err'});
+    const save=async v=>{
+      err.textContent='';
+      const x=await testApi('PATCH',`/${id}`,{ exam:v }).catch(()=>({ok:false}));
+      if(!x.ok){ err.textContent=x.j && x.j.error==='bad_exam' ? 'วันสอบไม่ถูกต้อง' : testErr(x); return; }
+      for(const lk in CT.lists) CT.lists[lk]=CT.lists[lk].map(t=>t.id===id ? { ...t, exam:x.j.exam } : t);
+      if(CL.test && CL.test.id===id && CL.test.data && !CL.test.data.error) CL.test.data.opts={ ...(CL.test.data.opts||{}), exam:x.j.exam||undefined };
+      closeModal(); toast(x.j.exam ? 'บันทึกวันสอบแล้ว' : 'ไม่กำหนดวันสอบแล้ว'); renderClass();
+    };
+    m.append(el('h3',{text:'📅 วันสอบ'}), el('p',{class:'note small','data-noi18n':'',text:name}), inp, err,
+      el('div',{class:'row'}, ymd ? el('button',{class:'linkbtn',text:'ไม่กำหนด',onclick:()=>save('')}) : null, el('span',{class:'sp'}),
+        el('button',{text:'ยกเลิก',onclick:closeModal}),
+        el('button',{class:'primary',text:'บันทึก',onclick:()=>{ if(!inp.value){ inp.focus(); err.textContent='เลือกวันสอบ'; return; } save(inp.value); }})));
+  });
 }
 // ➕ choose the word set (or scene) to test, then the usual 📝 test sheet screen with this class chosen
 // ➕ choose the word set to test (the word sets made in 🎓 ชุดคำศัพท์), then the usual 📝 test sheet screen with this
@@ -252,6 +283,7 @@ function renderClassTest(v, d){
   v.append(file, el('div',{class:'ctact'},
     el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
     el('button',{class:'ctprint',onclick:()=>openTestRoster(t.id)}, '👥 ', el('span',{text:'รายชื่อ / พิมพ์'})),
+    examBtn(t.id, t.name, (t.opts||{}).exam),
     el('button',{class:'danger ctdel',text:'🗑 ลบ',onclick:async()=>{
       if(!(await ask(`ลบแผ่นสอบ “${t.name}” และคะแนนทั้งหมด?`,'ลบ'))) return;
       const r=await testApi('DELETE',`/${t.id}`).catch(()=>({ok:false})); if(!r.ok){ toast(testErr(r)); return; }

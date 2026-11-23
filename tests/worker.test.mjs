@@ -751,6 +751,20 @@ import { pickProvider, geminiModels, COMPARE_MODELS } from '../src/worker.js';
   assert.ok(r.j.roster.every(x => x.o.length === 3));
   assert.deepEqual(db.class_tests.find(t => t.id === mid).roster[0].u, S1);
   assert.equal((await go(`${base}/${mid}`, 'PATCH', { add: 'x' }, 'px')).status, 404);
+  // 📅 the day of the test: set when made, changed or cleared later; in the list
+  const { cleanExam } = await import('../src/worker.js');
+  assert.equal(cleanExam('2026-12-01', Date.parse('2026-11-23')), '2026-12-01'); assert.equal(cleanExam('', 0), null);
+  assert.equal(cleanExam('2026-02-30', Date.parse('2026-01-01')), false); assert.equal(cleanExam('2031-01-01', Date.parse('2026-11-23')), false); assert.equal(cleanExam('1/12/2026'), false);
+  const exam = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  r = await go(base, 'POST', { name: 'Exam', words, class_id: 'ClassTest01', exam }, 'pt'); const eid = r.j.id; assert.equal(r.j.opts.exam, exam);
+  assert.equal((await go(base + cls, 'GET', null, 'pt')).j.tests.find(t => t.id === eid).exam, exam);
+  assert.equal((await go(`${base}/${eid}`, 'PATCH', { exam: 'soon' }, 'pt')).j.error, 'bad_exam');
+  r = await go(`${base}/${eid}`, 'PATCH', { exam: '' }, 'pt'); assert.equal(r.j.exam, null); assert.equal(db.class_tests.find(t => t.id === eid).opts.exam, undefined);
+  assert.equal(db.class_tests.find(t => t.id === eid).opts.q, 'pic');                                     // the rest of opts kept
+  await go(`${base}/${eid}`, 'PATCH', { exam }, 'pt'); assert.equal((await go(`${base}/${eid}`, 'GET', null, 'pt')).j.opts.exam, exam);
+  assert.equal((await go(`${base}/${eid}`, 'PATCH', { exam }, 'px')).status, 404);
+  assert.equal(db.class_tests.find(t => t.id === eid).roster.length, 2);                                  // names untouched
+  await go(`${base}/${eid}`, 'DELETE', null, 'pt');
   await go(`${base}/${mid}`, 'DELETE', null, 'pt');
   // a typed list of names: no class, no accounts — marked the same way, nothing goes to any student
   assert.equal((await go(base, 'POST', { name: 'x', words, names: ' \n ' }, 'pt')).j.error, 'no_students');
