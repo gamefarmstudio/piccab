@@ -634,7 +634,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(AP.playing) ap
 
 // ---------- modal ----------
 G.modalClose=null;
-function openModal(build){ const m=$('#mbox'); m.className='mbox'; $('#modal').classList.remove('sheetmode'); m.innerHTML=''; build(m); $('#modal').hidden=false; const f=m.querySelector('input,textarea,button.primary'); if(f) setTimeout(()=>f.focus(),30); }
+function openModal(build){ const m=$('#mbox'); m.className='mbox'; $('#modal').classList.remove('sheetmode'); m.innerHTML=''; build(m); $('#modal').hidden=false; const f=m.querySelector('[data-focus]') || m.querySelector('input,textarea,button.primary'); if(f) setTimeout(()=>f.focus(),30); }
 function closeModal(){ $('#modal').hidden=true; const cb=G.modalClose; G.modalClose=null; if(cb) cb(); }
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
 function ask(msg, okText){

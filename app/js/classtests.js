@@ -280,8 +280,12 @@ function renderClassTest(v, d){
       : `${new Date(t.created_at).toLocaleDateString(LOC,{dateStyle:'medium'})} · ${qCount(t)} ข้อ · ตรวจแล้ว ${done.length}/${t.roster.length} คน`})));
   const file=el('input',{type:'file',accept:'image/*',multiple:'',hidden:'',class:'ctfile'});
   file.addEventListener('change',()=>{ const fs=[...file.files]; file.value=''; if(fs.length) checkPhotos(t, fs); });
+  // 📷 phones: the camera straight away (one sheet, then the next), or photos already taken (several at once)
+  const phone=window.matchMedia && matchMedia('(pointer:coarse)').matches;
   v.append(file, el('div',{class:'ctact'},
-    el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
+    phone ? el('button',{class:'primary ctphoto ctcambtn',onclick:()=>takeSheet(t)}, ic('photo_camera'), 'ถ่ายรูปแผ่นสอบ') : null,
+    phone ? el('button',{class:'ctgallery',onclick:()=>file.click()}, '🖼️ ', el('span',{text:'เลือกจากคลังรูป'}))
+      : el('button',{class:'primary ctphoto',onclick:()=>file.click()}, ic('photo_camera'), 'ตรวจจากรูปถ่าย'),
     el('button',{class:'ctprint',onclick:()=>openTestRoster(t.id)}, '👥 ', el('span',{text:'รายชื่อ / พิมพ์'})),
     examBtn(t.id, t.name, (t.opts||{}).exam),
     el('button',{class:'danger ctdel',text:'🗑 ลบ',onclick:async()=>{
@@ -334,32 +338,49 @@ async function findQr(img){
   }
   return null;
 }
-async function checkPhotos(t, files){
+// 📷 the phone's camera: one sheet; after it is checked, the next one (the input is made each time, so it works again)
+function takeSheet(t){
+  const i=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:'',class:'ctcam'});
+  i.addEventListener('change',()=>{ const fs=[...i.files]; i.remove(); if(fs.length) checkPhotos(t, fs, true); });
+  document.body.append(i); i.click();
+  setTimeout(()=>{ if(!i.files || !i.files.length) i.remove(); }, 120000);
+}
+// camera: after a sheet — the next one, or done
+function askNext(t, saved){
+  openModal(m=>m.append(el('h3',{text: saved ? '✓ บันทึกแล้ว' : '📷 แผ่นต่อไป'}),
+    el('p',{class:'note',text:`ตรวจแล้ว ${t.roster.filter(st=>st.result).length}/${t.roster.length} คน`}),
+    el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'พอแค่นี้',onclick:closeModal}),
+      el('button',{class:'primary ctnext',onclick:()=>{ closeModal(); takeSheet(t); }}, ic('photo_camera'), 'ถ่ายแผ่นต่อไป'))));
+}
+async function checkPhotos(t, files, camera=false){
   if(CT.checking) return; CT.checking=true;
   const ranges=pageRanges(qCount(t), (t.opts||{}).q);
+  let stopped=false, saved=false;
   try{
     for(const [i, f] of files.entries()){
-      const where=`รูปที่ ${i+1}/${files.length}`;
-      openModal(m=>m.append(el('h3',{text:'📷 '+where}), el('p',{class:'note ctwait',text:'กำลังหา QR ของแผ่นนี้…'})));
+      const where=files.length>1 ? `รูปที่ ${i+1}/${files.length}` : '';
+      openModal(m=>m.append(el('h3',{text:'📷 '+(where||'รูปแผ่นสอบ')}), el('p',{class:'note ctwait',text:'กำลังหา QR ของแผ่นนี้…'})));
       const url=URL.createObjectURL(f), img=await loadImg(url);
       if(!img){ URL.revokeObjectURL(url); toast('เปิดรูปนี้ไม่ได้'); continue; }
-      let hit=await findQr(img);
+      let hit=await findQr(img); if(hit) hit.qr=true;
       if(hit && hit.tid!==t.id){ toast('รูปนี้เป็นแผ่นของการสอบอื่น', 4000); hit=null; }
       if(hit && (!t.roster[hit.k] || !ranges[hit.p])) hit=null;
       if(!hit) hit=await askWhose(t, ranges, url, where);
       if(!hit){ URL.revokeObjectURL(url); continue; }
       const range=ranges[hit.p], photo=photoCanvas(img, 1600);
-      openModal(m=>m.append(el('h3',{text:'📷 '+where}), el('p',{class:'note ctwait'}, '✨ AI กำลังอ่านแผ่นของ', ' ', el('b',{'data-noi18n':'',text:t.roster[hit.k].n}), '…')));
+      openModal(m=>m.append(el('h3',{text:'📷 '+(where||'รูปแผ่นสอบ')}), el('p',{class:'note ctwait'}, '✨ AI กำลังอ่านแผ่นของ', ' ', el('b',{'data-noi18n':'',text:t.roster[hit.k].n}), '…')));
       const r=await testApi('POST',`/${t.id}/read`,{ image:photo.toDataURL('image/jpeg',0.85), k:hit.k, first:range[0], last:range[1] }).catch(()=>({ok:false}));
       if(!r.ok) toast(testErr(r), 5000);
-      const go=await reviewSheet(t, hit.k, range, photo, r.ok ? r.j.items || [] : null, where);
+      const go=await reviewSheet(t, hit.k, range, photo, r.ok ? r.j.items || [] : null, where, hit.qr ? 'qr' : 'hand');
       URL.revokeObjectURL(url);
-      if(go==='stop') break;
+      if(go===true) saved=true;
+      if(go==='stop'){ stopped=true; break; }
     }
   } finally {
     CT.checking=false; closeModal();
     if(CL.test && CL.test.data===t) renderClass();
   }
+  if(camera && !stopped) askNext(t, saved);
 }
 // no QR found: the teacher says whose sheet it is (and which page)
 function askWhose(t, ranges, url, where){
@@ -368,7 +389,7 @@ function askWhose(t, ranges, url, where){
     openModal(m=>{
       const who=el('select',{'aria-label':'นักเรียน'}, el('option',{value:'',text:'— เลือกนักเรียน —'}), ...t.roster.map((st,k)=>el('option',{value:String(k),text:st.n+(st.result?' ✓':'')})));
       const page=ranges.length>1 ? el('select',{'aria-label':'หน้า'}, ...ranges.map((r,p)=>el('option',{value:String(p),text:`หน้า ${p+1} (ข้อ ${r[0]}–${r[1]})`}))) : null;
-      m.append(el('h3',{text:'📷 '+where}), el('p',{class:'note',text:'หา QR ไม่เจอ — แผ่นนี้เป็นของใคร?'}),
+      m.append(el('h3',{text:'📷 '+(where||'รูปแผ่นสอบ')}), el('p',{class:'note',text:'หา QR ไม่เจอ — แผ่นนี้เป็นของใคร?'}),
         el('img',{class:'ctthumb',src:url,alt:''}), el('div',{class:'ctwho'}, who, page),
         el('div',{class:'row'}, el('span',{class:'sp'}), el('button',{text:'ข้ามรูปนี้',onclick:closeModal}),
           el('button',{class:'primary',text:'ต่อไป',onclick:()=>{ if(who.value===''){ who.focus(); return; } out={ tid:t.id, k:+who.value, p:page ? +page.value : 0 }; closeModal(); }})));
@@ -379,7 +400,8 @@ function askWhose(t, ranges, url, where){
 // ---------- 3. the teacher checks: the handwriting, what AI read, right or wrong ----------
 // range: question numbers [first, last]; photo + read: the page and what AI read ([{n, a, box}]), or none (checking by hand)
 // → true when saved, 'stop' to stop checking the other photos
-function reviewSheet(t, k, range, photo, read, where){
+// how: 'qr' (the QR on the sheet said whose it is) or 'hand' (the teacher chose)
+function reviewSheet(t, k, range, photo, read, where, how){
   const st=t.roster[k], o=st.o, n=qCount(t);
   const prev=(st.result && st.result.answers) || Array(n).fill(null);
   const got=new Map((read||[]).map(x=>[x.n, x]));
@@ -410,6 +432,7 @@ function reviewSheet(t, k, range, photo, read, where){
         show();
       }
       const save=el('button',{class:'primary',text:'✓ บันทึก'});
+      if(photo && window.matchMedia && matchMedia('(pointer:coarse)').matches) save.dataset.focus='';   // phones: no keyboard over the page at once
       save.addEventListener('click',async()=>{
         save.disabled=true; save.textContent='กำลังบันทึก…';
         const answers=prev.slice(); rows.forEach(r=>{ answers[r.i]={ a:normAns(r.a), ok:r.ok }; });
@@ -420,13 +443,17 @@ function reviewSheet(t, k, range, photo, read, where){
         toast(`บันทึกคะแนน ${st.n} แล้ว`); closeModal();
       });
       const pages=pageRanges(n, (t.opts||{}).q), pg=pages.findIndex(p=>p[0]===range[0]);
-      m.append(el('div',{class:'ctrhead'},
-          el('div',{}, el('h3',{}, '📝 ', el('span',{'data-noi18n':'',text:st.n})),
+      // 📷 the whole page, to compare with what AI read (tap: bigger)
+      const thumb=photo ? el('img',{class:'ctrphoto',src:photo.toDataURL('image/jpeg',0.75),alt:'',title:'แตะเพื่อขยาย',onclick:()=>thumb.classList.toggle('big')}) : null;
+      m.append(el('div',{class:'ctrhead'}, thumb,
+          el('div',{class:'ctrwho'}, el('h3',{}, '📝 ', el('span',{'data-noi18n':'',text:st.n})),
+            how==='qr' ? el('p',{class:'note small ctfound',text:'✓ พบ QR บนแผ่น — เป็นของคนนี้'}) : how==='hand' ? el('p',{class:'note small ctfound',text:'✋ เลือกคนเอง'}) : null,
             el('p',{class:'note small',text:(where ? where+' · ' : '')+(pages.length>1 && pg>=0 && range[1]-range[0]+1<n ? `หน้า ${pg+1}/${pages.length} · ` : '')+`ข้อ ${range[0]}–${range[1]}`})),
           score),
         read===null && photo ? el('p',{class:'note small ctnoai',text:'AI อ่านแผ่นนี้ไม่ได้ — พิมพ์คำตอบหรือแตะ ✓/✗ เองได้'}) : null,
         photo ? el('p',{class:'note small',text:'ตรวจทานสิ่งที่ AI อ่าน: แก้คำได้ หรือแตะ ✓/✗ เพื่อเปลี่ยน'}) : null,
         list,
+        photo ? el('p',{class:'note small ctcheck',text:'ตรวจดูคำตอบและคะแนนให้ถูกก่อน แล้วกดบันทึก'}) : null,
         el('div',{class:'row'}, photo ? el('button',{class:'linkbtn',text:'หยุดตรวจ',onclick:()=>{ out='stop'; closeModal(); }}) : null, el('span',{class:'sp'}),
           el('button',{text: photo ? 'ข้าม' : 'ยกเลิก',onclick:closeModal}), save));
       upd();
