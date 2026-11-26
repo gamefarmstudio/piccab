@@ -394,7 +394,7 @@ async function galPutImg(id, blob, thumb){
 async function galImportOne(p, cats){
   const meta=galParse(await p.json.text());
   const bmp=await createImageBitmap(p.img);
-  const W0=bmp.width, H0=bmp.height, cut=GA.crop ? 0.04 : 0;
+  const W0=bmp.width, H0=bmp.height, cut=GA.crop && meta.crop!==false ? 0.04 : 0;   // "crop": false — a picture we drew (no watermark)
   const W1=Math.round(W0*(1-cut)), H1=Math.round(H0*(1-cut)), k=Math.min(1, 1600/Math.max(W1,H1));
   const W=Math.round(W1*k), H=Math.round(H1*k);
   const items=galItems(meta.items, W0, H0, W1, H1, k);

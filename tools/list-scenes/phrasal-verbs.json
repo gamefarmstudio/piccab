@@ -1,0 +1,71 @@
+{
+  "category": "phrasal-verbs",
+  "stage": "m13",
+  "cefr": "B1",
+  "level": "intermediate",
+  "subtitle": "Phrasal verbs",
+  "groups": [
+    { "verb": "GIVE", "title": "Phrasal verbs: give", "title_th": "กริยาวลี: give", "words": [
+      { "word": "give up", "th": "ยอมแพ้, ล้มเลิก, เลิกทำ", "en": "My dad gave up smoking last year.", "en_th": "พ่อของฉันเลิกสูบบุหรี่เมื่อปีที่แล้ว" },
+      { "word": "give in", "th": "ยอมจำนน, ยอมทำตาม (หลังต้านทานมานาน)", "en": "Mum finally gave in and let us stay up late.", "en_th": "ในที่สุดแม่ก็ยอมให้พวกเรานอนดึก" },
+      { "word": "give away", "th": "แจกฟรี / เผลอเปิดเผยความลับ", "en": "We gave away our old clothes to a charity.", "en_th": "พวกเราแจกเสื้อผ้าเก่าให้องค์กรการกุศล" },
+      { "word": "give back", "th": "คืนให้", "en": "Please give back the book you borrowed.", "en_th": "กรุณาคืนหนังสือที่คุณยืมไป" },
+      { "word": "give off", "th": "ปล่อยกลิ่น ควัน หรือความร้อนออกมา", "en": "These flowers give off a sweet smell.", "en_th": "ดอกไม้เหล่านี้ส่งกลิ่นหอมหวาน" },
+      { "word": "give out", "th": "แจกจ่าย / หมดแรง, เสีย (เครื่องยนต์)", "en": "The teacher gave out the worksheets.", "en_th": "ครูแจกใบงานให้นักเรียน" } ] },
+    { "verb": "PUT", "title": "Phrasal verbs: put", "title_th": "กริยาวลี: put", "words": [
+      { "word": "put up with", "star": true, "th": "อดทนต่อ, ทนกับ (สิ่งที่ไม่ชอบ)", "en": "I can't put up with the noise any more.", "en_th": "ฉันทนเสียงดังนี้ไม่ไหวแล้ว" },
+      { "word": "put off", "th": "เลื่อนออกไป (= postpone)", "en": "They put off the meeting until Friday.", "en_th": "พวกเขาเลื่อนการประชุมไปเป็นวันศุกร์" },
+      { "word": "put out", "th": "ดับไฟ, ดับบุหรี่", "en": "The firefighters put out the fire quickly.", "en_th": "นักดับเพลิงดับไฟได้อย่างรวดเร็ว" },
+      { "word": "put on", "th": "สวมใส่ / น้ำหนักขึ้น", "en": "Put on a jacket. It's cold outside.", "en_th": "ใส่เสื้อแจ็กเก็ตสิ ข้างนอกหนาวนะ" },
+      { "word": "put away", "th": "เก็บเข้าที่", "en": "Put away your toys before dinner.", "en_th": "เก็บของเล่นให้เข้าที่ก่อนกินข้าวเย็น" },
+      { "word": "put down", "th": "วางลง / จดบันทึก / ดูถูก", "en": "Please put down your phone and listen.", "en_th": "กรุณาวางโทรศัพท์ลงแล้วฟัง" } ] },
+    { "verb": "LOOK", "title": "Phrasal verbs: look", "title_th": "กริยาวลี: look", "words": [
+      { "word": "look forward to", "star": true, "th": "ตั้งตารอคอย (+ V.ing / Noun)", "en": "I'm looking forward to seeing you.", "en_th": "ฉันตั้งตารอที่จะได้เจอคุณ" },
+      { "word": "look after", "star": true, "th": "ดูแล (= take care of)", "en": "Can you look after my cat this weekend?", "en_th": "คุณช่วยดูแลแมวของฉันสุดสัปดาห์นี้ได้ไหม" },
+      { "word": "look up", "th": "ค้นหาข้อมูล (ในพจนานุกรม/เว็บ)", "en": "Look up the word in a dictionary.", "en_th": "ค้นหาคำนั้นในพจนานุกรม" },
+      { "word": "look up to", "th": "เคารพนับถือ, ชื่นชม", "en": "I look up to my older brother.", "en_th": "ฉันนับถือพี่ชายของฉัน" },
+      { "word": "look down on", "th": "ดูถูก, เหยียดหยาม", "en": "Never look down on other people.", "en_th": "อย่าดูถูกคนอื่นเด็ดขาด" },
+      { "word": "look into", "th": "ตรวจสอบ, สืบสวน (= investigate)", "en": "The police are looking into the problem.", "en_th": "ตำรวจกำลังสืบสวนปัญหานี้" } ] },
+    { "verb": "GET", "title": "Phrasal verbs: get", "title_th": "กริยาวลี: get", "words": [
+      { "word": "get along with", "star": true, "th": "เข้ากันได้ดีกับ", "en": "She gets along with all her classmates.", "en_th": "เธอเข้ากับเพื่อนร่วมชั้นได้ทุกคน" },
+      { "word": "get over", "th": "หายป่วย / ทำใจได้จากเรื่องเศร้า", "en": "It took me a week to get over my cold.", "en_th": "ฉันใช้เวลาหนึ่งสัปดาห์กว่าจะหายหวัด" },
+      { "word": "get rid of", "th": "กำจัดทิ้ง", "en": "It's hard to get rid of bad habits.", "en_th": "การเลิกนิสัยไม่ดีเป็นเรื่องยาก" },
+      { "word": "get away with", "th": "ทำผิดแล้วรอดตัว ไม่ถูกลงโทษ", "en": "He cheated, but he didn't get away with it.", "en_th": "เขาโกง แต่ก็ไม่รอดพ้นการลงโทษ" },
+      { "word": "get through", "th": "ผ่านพ้นไปได้ / ติดต่อทางโทรศัพท์ได้", "en": "Friends help us get through difficult times.", "en_th": "เพื่อนช่วยให้เราผ่านช่วงเวลายากลำบากไปได้" },
+      { "word": "get by", "th": "พออยู่พอกิน, เอาตัวรอดไปได้", "en": "Students often get by on a small budget.", "en_th": "นักศึกษามักใช้ชีวิตแบบพออยู่พอกินด้วยเงินไม่มาก" } ] },
+    { "verb": "TURN", "title": "Phrasal verbs: turn", "title_th": "กริยาวลี: turn", "words": [
+      { "word": "turn down", "star": true, "th": "ปฏิเสธ (ข้อเสนอ) / ลดเสียง", "en": "She turned down the job offer.", "en_th": "เธอปฏิเสธข้อเสนองานนั้น" },
+      { "word": "turn up", "th": "ปรากฏตัว, มาถึง / เร่งเสียง", "en": "Tom turned up late for class again.", "en_th": "ทอมมาเรียนสายอีกแล้ว" },
+      { "word": "turn into", "th": "กลายเป็น, เปลี่ยนสภาพเป็น", "en": "A caterpillar turns into a butterfly.", "en_th": "หนอนผีเสื้อกลายเป็นผีเสื้อ" },
+      { "word": "turn out", "th": "กลับกลายเป็นว่า, ผลปรากฏว่า", "en": "The story turned out to be true.", "en_th": "เรื่องนั้นกลับกลายเป็นเรื่องจริง" },
+      { "word": "turn in", "th": "ส่งงาน (= hand in) / เข้านอน", "en": "Please turn in your homework on Monday.", "en_th": "กรุณาส่งการบ้านวันจันทร์" } ] },
+    { "verb": "BRING", "title": "Phrasal verbs: bring", "title_th": "กริยาวลี: bring", "words": [
+      { "word": "bring about", "star": true, "th": "ก่อให้เกิด, นำไปสู่การเปลี่ยนแปลง", "en": "The internet has brought about big changes.", "en_th": "อินเทอร์เน็ตทำให้เกิดการเปลี่ยนแปลงครั้งใหญ่" },
+      { "word": "bring up", "th": "เลี้ยงดูเด็ก / ยกประเด็นขึ้นมาพูด", "en": "She was brought up by her grandparents.", "en_th": "เธอถูกเลี้ยงดูโดยปู่ย่าตายาย" },
+      { "word": "bring back", "th": "นำกลับมา / ทำให้นึกถึงความหลัง", "en": "This song brings back good memories.", "en_th": "เพลงนี้ทำให้นึกถึงความทรงจำดี ๆ" },
+      { "word": "bring out", "th": "ผลิตออกวางขาย / ดึงศักยภาพออกมา", "en": "The company will bring out a new phone.", "en_th": "บริษัทจะออกโทรศัพท์รุ่นใหม่" },
+      { "word": "bring down", "th": "ลดราคา / โค่นล้ม", "en": "The shop brought down its prices.", "en_th": "ร้านลดราคาสินค้าลง" } ] },
+    { "verb": "CUT", "title": "Phrasal verbs: cut", "title_th": "กริยาวลี: cut", "words": [
+      { "word": "cut off", "star": true, "th": "ตัดขาด (ไฟฟ้า/สัญญาณ/ความสัมพันธ์)", "en": "The electricity was cut off during the storm.", "en_th": "ไฟฟ้าถูกตัดระหว่างที่เกิดพายุ" },
+      { "word": "cut down on", "alts": ["cut down"], "th": "ลดปริมาณลง", "en": "You should cut down on sugar.", "en_th": "คุณควรลดน้ำตาลลง" },
+      { "word": "cut out", "th": "ตัดออก / เลิกกินหรือเลิกทำ", "en": "I'm trying to cut out junk food.", "en_th": "ฉันพยายามเลิกกินอาหารขยะ" },
+      { "word": "cut in", "th": "พูดแทรก / ขับรถปาดหน้า", "en": "Please don't cut in while I'm speaking.", "en_th": "กรุณาอย่าพูดแทรกตอนที่ฉันกำลังพูด" } ] },
+    { "verb": "RUN", "title": "Phrasal verbs: run", "title_th": "กริยาวลี: run", "words": [
+      { "word": "run out of", "star": true, "th": "หมด, ใช้จนหมด", "en": "We ran out of time before the end of the test.", "en_th": "พวกเราหมดเวลาก่อนทำข้อสอบเสร็จ" },
+      { "word": "run into", "th": "บังเอิญเจอ (คน) / เจอปัญหา", "en": "I ran into an old friend at the mall.", "en_th": "ฉันบังเอิญเจอเพื่อนเก่าที่ห้าง" },
+      { "word": "run over", "th": "ขับรถชนหรือทับ / ทบทวนคร่าว ๆ", "en": "Let's run over the plan once more.", "en_th": "มาทบทวนแผนกันอีกรอบ" },
+      { "word": "run away", "th": "หนีไป, วิ่งหนี", "en": "The dog ran away from the loud noise.", "en_th": "สุนัขวิ่งหนีเสียงดัง" } ] },
+    { "verb": "TAKE", "title": "Phrasal verbs: take", "title_th": "กริยาวลี: take", "words": [
+      { "word": "take off", "th": "ถอดออก / เครื่องบินขึ้น / ประสบความสำเร็จเร็ว", "en": "The plane took off on time.", "en_th": "เครื่องบินขึ้นตรงเวลา" },
+      { "word": "take up", "th": "เริ่มทำกิจกรรมหรืองานอดิเรก / กินพื้นที่", "en": "My sister took up swimming last month.", "en_th": "พี่สาวของฉันเริ่มว่ายน้ำเมื่อเดือนที่แล้ว" },
+      { "word": "take over", "th": "เข้าควบคุมกิจการ, รับช่วงต่อ", "en": "She will take over the company from her father.", "en_th": "เธอจะรับช่วงบริษัทต่อจากพ่อ" },
+      { "word": "take after", "th": "หน้าตาหรือนิสัยเหมือน (พ่อแม่/ญาติ)", "en": "She takes after her mother.", "en_th": "เธอหน้าตาเหมือนแม่" },
+      { "word": "take in", "th": "เข้าใจ (ข้อมูล) / หลอกลวง", "en": "It was hard to take in all the facts.", "en_th": "การทำความเข้าใจข้อเท็จจริงทั้งหมดเป็นเรื่องยาก" } ] },
+    { "verb": "BREAK", "title": "Phrasal verbs: break", "title_th": "กริยาวลี: break", "words": [
+      { "word": "break down", "th": "เสีย (รถ/เครื่องจักร) / ย่อยสลาย / ร้องไห้สติแตก", "en": "Our car broke down on the way home.", "en_th": "รถของเราเสียระหว่างทางกลับบ้าน" },
+      { "word": "break out", "th": "เกิดขึ้นฉับพลัน (สงคราม/ไฟไหม้/โรคระบาด)", "en": "A fire broke out in the kitchen.", "en_th": "เกิดไฟไหม้ขึ้นในครัว" },
+      { "word": "break into", "th": "บุกรุก, งัดแงะเข้าไป", "en": "Thieves broke into the house last night.", "en_th": "ขโมยงัดเข้าบ้านเมื่อคืนนี้" },
+      { "word": "break up", "th": "เลิกรากัน / ปิดเทอม", "en": "They broke up after two years together.", "en_th": "พวกเขาเลิกกันหลังคบกันมาสองปี" },
+      { "word": "break through", "th": "ฝ่าฟันอุปสรรค, ค้นพบครั้งสำคัญ", "en": "The team broke through the final barrier.", "en_th": "ทีมฝ่าฟันอุปสรรคสุดท้ายไปได้" } ] }
+  ]
+}
