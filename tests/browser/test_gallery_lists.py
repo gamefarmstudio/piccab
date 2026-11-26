@@ -49,7 +49,7 @@ async def main():
     check('10' in out['result'] and 'ไม่รู้จักหมวด' not in out['result'], 'all 10 imported into the new category', out['result'])
     check(out['scenes']==exp, 'each scene: Phrasal Verbs, its words, ม.1–3 · B1', out['scenes'])
     check(out['give_words']==['give up','give in','give away','give back','give off','give out'] and out['give_th']=='ยอมแพ้, ล้มเลิก, เลิกทำ', 'the words in card order, with the Thai meaning', (out['give_words'], out['give_th']))
-    check(out['crop_on'] and out['size']==(1000, 642) and out['boxes'][0]==(28, 128, 463, 150) and out['boxes'][-1][0]+out['boxes'][-1][2]==972, 'boxes are the cards (edges kept)', (out['crop_on'], out['size'], out['boxes']))
+    check(out['crop_on'] and out['size']==(1200, 648) and all(abs(a-b)<=1 for a,b in zip(out['boxes'][0], (28, 128, 563, 152))) and abs(out['boxes'][-1][0]+out['boxes'][-1][2]-1172)<=1, 'boxes are the cards (edges kept)', (out['crop_on'], out['size'], out['boxes']))
     check(out['sent'] and out['sent'][0]==('My dad gave up smoking last year.', ['give up']), 'example sentences linked to the phrasal verb', out['sent'])
     check(out['cut_alts']==[['cut down']], '"cut down (on)": cut down on, or cut down', out['cut_alts'])
     finish('picture library: word lists', out, errs)

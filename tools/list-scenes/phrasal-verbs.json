@@ -1,71 +1,454 @@
 {
-  "category": "phrasal-verbs",
-  "stage": "m13",
-  "cefr": "B1",
-  "level": "intermediate",
-  "subtitle": "Phrasal verbs",
-  "groups": [
-    { "verb": "GIVE", "title": "Phrasal verbs: give", "title_th": "กริยาวลี: give", "words": [
-      { "word": "give up", "th": "ยอมแพ้, ล้มเลิก, เลิกทำ", "en": "My dad gave up smoking last year.", "en_th": "พ่อของฉันเลิกสูบบุหรี่เมื่อปีที่แล้ว" },
-      { "word": "give in", "th": "ยอมจำนน, ยอมทำตาม (หลังต้านทานมานาน)", "en": "Mum finally gave in and let us stay up late.", "en_th": "ในที่สุดแม่ก็ยอมให้พวกเรานอนดึก" },
-      { "word": "give away", "th": "แจกฟรี / เผลอเปิดเผยความลับ", "en": "We gave away our old clothes to a charity.", "en_th": "พวกเราแจกเสื้อผ้าเก่าให้องค์กรการกุศล" },
-      { "word": "give back", "th": "คืนให้", "en": "Please give back the book you borrowed.", "en_th": "กรุณาคืนหนังสือที่คุณยืมไป" },
-      { "word": "give off", "th": "ปล่อยกลิ่น ควัน หรือความร้อนออกมา", "en": "These flowers give off a sweet smell.", "en_th": "ดอกไม้เหล่านี้ส่งกลิ่นหอมหวาน" },
-      { "word": "give out", "th": "แจกจ่าย / หมดแรง, เสีย (เครื่องยนต์)", "en": "The teacher gave out the worksheets.", "en_th": "ครูแจกใบงานให้นักเรียน" } ] },
-    { "verb": "PUT", "title": "Phrasal verbs: put", "title_th": "กริยาวลี: put", "words": [
-      { "word": "put up with", "star": true, "th": "อดทนต่อ, ทนกับ (สิ่งที่ไม่ชอบ)", "en": "I can't put up with the noise any more.", "en_th": "ฉันทนเสียงดังนี้ไม่ไหวแล้ว" },
-      { "word": "put off", "th": "เลื่อนออกไป (= postpone)", "en": "They put off the meeting until Friday.", "en_th": "พวกเขาเลื่อนการประชุมไปเป็นวันศุกร์" },
-      { "word": "put out", "th": "ดับไฟ, ดับบุหรี่", "en": "The firefighters put out the fire quickly.", "en_th": "นักดับเพลิงดับไฟได้อย่างรวดเร็ว" },
-      { "word": "put on", "th": "สวมใส่ / น้ำหนักขึ้น", "en": "Put on a jacket. It's cold outside.", "en_th": "ใส่เสื้อแจ็กเก็ตสิ ข้างนอกหนาวนะ" },
-      { "word": "put away", "th": "เก็บเข้าที่", "en": "Put away your toys before dinner.", "en_th": "เก็บของเล่นให้เข้าที่ก่อนกินข้าวเย็น" },
-      { "word": "put down", "th": "วางลง / จดบันทึก / ดูถูก", "en": "Please put down your phone and listen.", "en_th": "กรุณาวางโทรศัพท์ลงแล้วฟัง" } ] },
-    { "verb": "LOOK", "title": "Phrasal verbs: look", "title_th": "กริยาวลี: look", "words": [
-      { "word": "look forward to", "star": true, "th": "ตั้งตารอคอย (+ V.ing / Noun)", "en": "I'm looking forward to seeing you.", "en_th": "ฉันตั้งตารอที่จะได้เจอคุณ" },
-      { "word": "look after", "star": true, "th": "ดูแล (= take care of)", "en": "Can you look after my cat this weekend?", "en_th": "คุณช่วยดูแลแมวของฉันสุดสัปดาห์นี้ได้ไหม" },
-      { "word": "look up", "th": "ค้นหาข้อมูล (ในพจนานุกรม/เว็บ)", "en": "Look up the word in a dictionary.", "en_th": "ค้นหาคำนั้นในพจนานุกรม" },
-      { "word": "look up to", "th": "เคารพนับถือ, ชื่นชม", "en": "I look up to my older brother.", "en_th": "ฉันนับถือพี่ชายของฉัน" },
-      { "word": "look down on", "th": "ดูถูก, เหยียดหยาม", "en": "Never look down on other people.", "en_th": "อย่าดูถูกคนอื่นเด็ดขาด" },
-      { "word": "look into", "th": "ตรวจสอบ, สืบสวน (= investigate)", "en": "The police are looking into the problem.", "en_th": "ตำรวจกำลังสืบสวนปัญหานี้" } ] },
-    { "verb": "GET", "title": "Phrasal verbs: get", "title_th": "กริยาวลี: get", "words": [
-      { "word": "get along with", "star": true, "th": "เข้ากันได้ดีกับ", "en": "She gets along with all her classmates.", "en_th": "เธอเข้ากับเพื่อนร่วมชั้นได้ทุกคน" },
-      { "word": "get over", "th": "หายป่วย / ทำใจได้จากเรื่องเศร้า", "en": "It took me a week to get over my cold.", "en_th": "ฉันใช้เวลาหนึ่งสัปดาห์กว่าจะหายหวัด" },
-      { "word": "get rid of", "th": "กำจัดทิ้ง", "en": "It's hard to get rid of bad habits.", "en_th": "การเลิกนิสัยไม่ดีเป็นเรื่องยาก" },
-      { "word": "get away with", "th": "ทำผิดแล้วรอดตัว ไม่ถูกลงโทษ", "en": "He cheated, but he didn't get away with it.", "en_th": "เขาโกง แต่ก็ไม่รอดพ้นการลงโทษ" },
-      { "word": "get through", "th": "ผ่านพ้นไปได้ / ติดต่อทางโทรศัพท์ได้", "en": "Friends help us get through difficult times.", "en_th": "เพื่อนช่วยให้เราผ่านช่วงเวลายากลำบากไปได้" },
-      { "word": "get by", "th": "พออยู่พอกิน, เอาตัวรอดไปได้", "en": "Students often get by on a small budget.", "en_th": "นักศึกษามักใช้ชีวิตแบบพออยู่พอกินด้วยเงินไม่มาก" } ] },
-    { "verb": "TURN", "title": "Phrasal verbs: turn", "title_th": "กริยาวลี: turn", "words": [
-      { "word": "turn down", "star": true, "th": "ปฏิเสธ (ข้อเสนอ) / ลดเสียง", "en": "She turned down the job offer.", "en_th": "เธอปฏิเสธข้อเสนองานนั้น" },
-      { "word": "turn up", "th": "ปรากฏตัว, มาถึง / เร่งเสียง", "en": "Tom turned up late for class again.", "en_th": "ทอมมาเรียนสายอีกแล้ว" },
-      { "word": "turn into", "th": "กลายเป็น, เปลี่ยนสภาพเป็น", "en": "A caterpillar turns into a butterfly.", "en_th": "หนอนผีเสื้อกลายเป็นผีเสื้อ" },
-      { "word": "turn out", "th": "กลับกลายเป็นว่า, ผลปรากฏว่า", "en": "The story turned out to be true.", "en_th": "เรื่องนั้นกลับกลายเป็นเรื่องจริง" },
-      { "word": "turn in", "th": "ส่งงาน (= hand in) / เข้านอน", "en": "Please turn in your homework on Monday.", "en_th": "กรุณาส่งการบ้านวันจันทร์" } ] },
-    { "verb": "BRING", "title": "Phrasal verbs: bring", "title_th": "กริยาวลี: bring", "words": [
-      { "word": "bring about", "star": true, "th": "ก่อให้เกิด, นำไปสู่การเปลี่ยนแปลง", "en": "The internet has brought about big changes.", "en_th": "อินเทอร์เน็ตทำให้เกิดการเปลี่ยนแปลงครั้งใหญ่" },
-      { "word": "bring up", "th": "เลี้ยงดูเด็ก / ยกประเด็นขึ้นมาพูด", "en": "She was brought up by her grandparents.", "en_th": "เธอถูกเลี้ยงดูโดยปู่ย่าตายาย" },
-      { "word": "bring back", "th": "นำกลับมา / ทำให้นึกถึงความหลัง", "en": "This song brings back good memories.", "en_th": "เพลงนี้ทำให้นึกถึงความทรงจำดี ๆ" },
-      { "word": "bring out", "th": "ผลิตออกวางขาย / ดึงศักยภาพออกมา", "en": "The company will bring out a new phone.", "en_th": "บริษัทจะออกโทรศัพท์รุ่นใหม่" },
-      { "word": "bring down", "th": "ลดราคา / โค่นล้ม", "en": "The shop brought down its prices.", "en_th": "ร้านลดราคาสินค้าลง" } ] },
-    { "verb": "CUT", "title": "Phrasal verbs: cut", "title_th": "กริยาวลี: cut", "words": [
-      { "word": "cut off", "star": true, "th": "ตัดขาด (ไฟฟ้า/สัญญาณ/ความสัมพันธ์)", "en": "The electricity was cut off during the storm.", "en_th": "ไฟฟ้าถูกตัดระหว่างที่เกิดพายุ" },
-      { "word": "cut down on", "alts": ["cut down"], "th": "ลดปริมาณลง", "en": "You should cut down on sugar.", "en_th": "คุณควรลดน้ำตาลลง" },
-      { "word": "cut out", "th": "ตัดออก / เลิกกินหรือเลิกทำ", "en": "I'm trying to cut out junk food.", "en_th": "ฉันพยายามเลิกกินอาหารขยะ" },
-      { "word": "cut in", "th": "พูดแทรก / ขับรถปาดหน้า", "en": "Please don't cut in while I'm speaking.", "en_th": "กรุณาอย่าพูดแทรกตอนที่ฉันกำลังพูด" } ] },
-    { "verb": "RUN", "title": "Phrasal verbs: run", "title_th": "กริยาวลี: run", "words": [
-      { "word": "run out of", "star": true, "th": "หมด, ใช้จนหมด", "en": "We ran out of time before the end of the test.", "en_th": "พวกเราหมดเวลาก่อนทำข้อสอบเสร็จ" },
-      { "word": "run into", "th": "บังเอิญเจอ (คน) / เจอปัญหา", "en": "I ran into an old friend at the mall.", "en_th": "ฉันบังเอิญเจอเพื่อนเก่าที่ห้าง" },
-      { "word": "run over", "th": "ขับรถชนหรือทับ / ทบทวนคร่าว ๆ", "en": "Let's run over the plan once more.", "en_th": "มาทบทวนแผนกันอีกรอบ" },
-      { "word": "run away", "th": "หนีไป, วิ่งหนี", "en": "The dog ran away from the loud noise.", "en_th": "สุนัขวิ่งหนีเสียงดัง" } ] },
-    { "verb": "TAKE", "title": "Phrasal verbs: take", "title_th": "กริยาวลี: take", "words": [
-      { "word": "take off", "th": "ถอดออก / เครื่องบินขึ้น / ประสบความสำเร็จเร็ว", "en": "The plane took off on time.", "en_th": "เครื่องบินขึ้นตรงเวลา" },
-      { "word": "take up", "th": "เริ่มทำกิจกรรมหรืองานอดิเรก / กินพื้นที่", "en": "My sister took up swimming last month.", "en_th": "พี่สาวของฉันเริ่มว่ายน้ำเมื่อเดือนที่แล้ว" },
-      { "word": "take over", "th": "เข้าควบคุมกิจการ, รับช่วงต่อ", "en": "She will take over the company from her father.", "en_th": "เธอจะรับช่วงบริษัทต่อจากพ่อ" },
-      { "word": "take after", "th": "หน้าตาหรือนิสัยเหมือน (พ่อแม่/ญาติ)", "en": "She takes after her mother.", "en_th": "เธอหน้าตาเหมือนแม่" },
-      { "word": "take in", "th": "เข้าใจ (ข้อมูล) / หลอกลวง", "en": "It was hard to take in all the facts.", "en_th": "การทำความเข้าใจข้อเท็จจริงทั้งหมดเป็นเรื่องยาก" } ] },
-    { "verb": "BREAK", "title": "Phrasal verbs: break", "title_th": "กริยาวลี: break", "words": [
-      { "word": "break down", "th": "เสีย (รถ/เครื่องจักร) / ย่อยสลาย / ร้องไห้สติแตก", "en": "Our car broke down on the way home.", "en_th": "รถของเราเสียระหว่างทางกลับบ้าน" },
-      { "word": "break out", "th": "เกิดขึ้นฉับพลัน (สงคราม/ไฟไหม้/โรคระบาด)", "en": "A fire broke out in the kitchen.", "en_th": "เกิดไฟไหม้ขึ้นในครัว" },
-      { "word": "break into", "th": "บุกรุก, งัดแงะเข้าไป", "en": "Thieves broke into the house last night.", "en_th": "ขโมยงัดเข้าบ้านเมื่อคืนนี้" },
-      { "word": "break up", "th": "เลิกรากัน / ปิดเทอม", "en": "They broke up after two years together.", "en_th": "พวกเขาเลิกกันหลังคบกันมาสองปี" },
-      { "word": "break through", "th": "ฝ่าฟันอุปสรรค, ค้นพบครั้งสำคัญ", "en": "The team broke through the final barrier.", "en_th": "ทีมฝ่าฟันอุปสรรคสุดท้ายไปได้" } ] }
-  ]
+ "category": "phrasal-verbs",
+ "stage": "m13",
+ "cefr": "B1",
+ "level": "intermediate",
+ "subtitle": "Phrasal verbs",
+ "groups": [
+  {
+   "verb": "GIVE",
+   "title": "Phrasal verbs: give",
+   "title_th": "กริยาวลี: give",
+   "words": [
+    {
+     "word": "give up",
+     "th": "ยอมแพ้, ล้มเลิก, เลิกทำ",
+     "en": "My dad gave up smoking last year.",
+     "en_th": "พ่อของฉันเลิกสูบบุหรี่เมื่อปีที่แล้ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"38\" cy=\"30\" r=\"8\"/><path d=\"M38 38v24\"/><path d=\"M38 44l-12-12M38 38l14-12\"/><path d=\"M38 62l-9 20M38 62l9 20\"/><path d=\"M52 26V8\"/><polygon points=\"52,8 76,13 52,19\" fill=\"#ffffff\"/></svg>"
+    },
+    {
+     "word": "give in",
+     "th": "ยอมจำนน, ยอมทำตาม (หลังต้านทานมานาน)",
+     "en": "Mum finally gave in and let us stay up late.",
+     "en_th": "ในที่สุดแม่ก็ยอมให้พวกเรานอนดึก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polygon points=\"44,6 56,6 56,16 64,16 50,30 36,16 44,16\" fill=\"#ef5a78\"/><circle cx=\"54\" cy=\"44\" r=\"8\"/><path d=\"M50 51l-6 18h16v14M44 69l-10 13M48 58l12 8\"/></svg>"
+    },
+    {
+     "word": "give away",
+     "th": "แจกฟรี / เผลอเปิดเผยความลับ",
+     "en": "We gave away our old clothes to a charity.",
+     "en_th": "พวกเราแจกเสื้อผ้าเก่าให้องค์กรการกุศล",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"32\" y=\"44\" width=\"36\" height=\"30\" rx=\"3\" fill=\"#ffc928\"/><path d=\"M28 44h44M50 44v30M50 44c-6-12-18-8-12 0M50 44c6-12 18-8 12 0\"/><path d=\"M24 36l-12-10M76 36l12-10M24 70H8M76 70h16\"/></svg>"
+    },
+    {
+     "word": "give back",
+     "th": "คืนให้",
+     "en": "Please give back the book you borrowed.",
+     "en_th": "กรุณาคืนหนังสือที่คุณยืมไป",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"38\" y=\"44\" width=\"24\" height=\"32\" rx=\"3\" fill=\"#3fa7f5\"/><path d=\"M44 44v32\"/><path d=\"M70 30C66 14 34 14 30 30\"/><path d=\"M24 22l6 9 9-5\"/></svg>"
+    },
+    {
+     "word": "give off",
+     "th": "ปล่อยกลิ่น ควัน หรือความร้อนออกมา",
+     "en": "These flowers give off a sweet smell.",
+     "en_th": "ดอกไม้เหล่านี้ส่งกลิ่นหอมหวาน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M50 90V58M50 74c-10-2-14-10-14-10M50 78c10-2 14-10 14-10\"/><circle cx=\"50\" cy=\"48\" r=\"6\" fill=\"#ffc928\"/><circle cx=\"50\" cy=\"36\" r=\"6\"/><circle cx=\"60\" cy=\"48\" r=\"6\"/><circle cx=\"40\" cy=\"48\" r=\"6\"/><circle cx=\"50\" cy=\"58\" r=\"6\"/><path d=\"M30 26c-4-4 4-8 0-12M50 20c-4-4 4-8 0-12M70 26c-4-4 4-8 0-12\"/></svg>"
+    },
+    {
+     "word": "give out",
+     "th": "แจกจ่าย / หมดแรง, เสีย (เครื่องยนต์)",
+     "en": "The teacher gave out the worksheets.",
+     "en_th": "ครูแจกใบงานให้นักเรียน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"26\" cy=\"26\" r=\"8\"/><path d=\"M26 34v24\"/><path d=\"M26 40l20 4M26 38l18 10\"/><path d=\"M26 58l-9 20M26 58l9 20\"/><rect x=\"46\" y=\"22\" width=\"14\" height=\"18\" rx=\"2\" fill=\"#ffffff\"/><path d=\"M64 30h8M64 22l6-6M64 38l6 6\"/><rect x=\"76\" y=\"8\" width=\"12\" height=\"15\" rx=\"2\"/><rect x=\"76\" y=\"40\" width=\"12\" height=\"15\" rx=\"2\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "PUT",
+   "title": "Phrasal verbs: put",
+   "title_th": "กริยาวลี: put",
+   "words": [
+    {
+     "word": "put up with",
+     "star": true,
+     "th": "อดทนต่อ, ทนกับ (สิ่งที่ไม่ชอบ)",
+     "en": "I can't put up with the noise any more.",
+     "en_th": "ฉันทนเสียงดังนี้ไม่ไหวแล้ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"46\" r=\"18\"/><path d=\"M41 58c5-5 13-5 18 0M42 42h5M53 42h5\"/><ellipse cx=\"30\" cy=\"46\" rx=\"5\" ry=\"9\" fill=\"#ffc928\"/><ellipse cx=\"70\" cy=\"46\" rx=\"5\" ry=\"9\" fill=\"#ffc928\"/><path d=\"M10 26l6 6-6 6 6 6M90 26l-6 6 6 6-6 6\"/><path d=\"M50 74v16\"/></svg>"
+    },
+    {
+     "word": "put off",
+     "th": "เลื่อนออกไป (= postpone)",
+     "en": "They put off the meeting until Friday.",
+     "en_th": "พวกเขาเลื่อนการประชุมไปเป็นวันศุกร์",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"12\" y=\"20\" width=\"76\" height=\"62\" rx=\"6\"/><path d=\"M12 36h76M30 14v12M70 14v12\"/><rect x=\"20\" y=\"44\" width=\"14\" height=\"12\" rx=\"2\" fill=\"#f2683a\"/><rect x=\"64\" y=\"62\" width=\"14\" height=\"12\" rx=\"2\" fill=\"#ffc928\"/><path d=\"M34 50c18-2 30 4 32 12\"/><path d=\"M58 60l8 2 2-8\"/></svg>"
+    },
+    {
+     "word": "put out",
+     "th": "ดับไฟ, ดับบุหรี่",
+     "en": "The firefighters put out the fire quickly.",
+     "en_th": "นักดับเพลิงดับไฟได้อย่างรวดเร็ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M34 86c-14-4-14-20 0-30 0 8 6 10 6 10 0-12 8-18 8-26 10 10 14 20 12 30 6-2 6-8 6-8 6 12 0 22-10 24z\" fill=\"#f2683a\"/><path d=\"M60 10l20 6-4 12-20-6z\"/><path d=\"M66 30v6M58 34v6M74 34v6\"/><circle cx=\"62\" cy=\"44\" r=\"2\" fill=\"#3fa7f5\"/></svg>"
+    },
+    {
+     "word": "put on",
+     "th": "สวมใส่ / น้ำหนักขึ้น",
+     "en": "Put on a jacket. It's cold outside.",
+     "en_th": "ใส่เสื้อแจ็กเก็ตสิ ข้างนอกหนาวนะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 30l12-8h16l12 8 10 22-10 4-4-10v38H34V46l-4 10-10-4z\" fill=\"#5b4fc4\"/><path d=\"M42 22l8 12 8-12M50 34v58\"/><path d=\"M50 4v12M44 10l6 6 6-6\"/></svg>"
+    },
+    {
+     "word": "put away",
+     "th": "เก็บเข้าที่",
+     "en": "Put away your toys before dinner.",
+     "en_th": "เก็บของเล่นให้เข้าที่ก่อนกินข้าวเย็น",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 52h64v32H18z\"/><path d=\"M18 52l8-10h48l8 10\"/><circle cx=\"50\" cy=\"20\" r=\"10\" fill=\"#ef5a78\"/><path d=\"M50 34v12M44 40l6 6 6-6\"/><rect x=\"28\" y=\"60\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M60 72l6-12 6 12z\"/></svg>"
+    },
+    {
+     "word": "put down",
+     "th": "วางลง / จดบันทึก / ดูถูก",
+     "en": "Please put down your phone and listen.",
+     "en_th": "กรุณาวางโทรศัพท์ลงแล้วฟัง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 80h80M20 80v10M80 80v10\"/><rect x=\"38\" y=\"44\" width=\"24\" height=\"34\" rx=\"4\" fill=\"#3fa7f5\"/><path d=\"M46 72h8\"/><path d=\"M50 8v24M42 24l8 8 8-8\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "LOOK",
+   "title": "Phrasal verbs: look",
+   "title_th": "กริยาวลี: look",
+   "words": [
+    {
+     "word": "look forward to",
+     "star": true,
+     "th": "ตั้งตารอคอย (+ V.ing / Noun)",
+     "en": "I'm looking forward to seeing you.",
+     "en_th": "ฉันตั้งตารอที่จะได้เจอคุณ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"24\" cy=\"30\" r=\"8\"/><path d=\"M24 38v24\"/><path d=\"M24 44l10 10M24 44l-6 12\"/><path d=\"M24 62l-9 20M24 62l9 20\"/><rect x=\"46\" y=\"18\" width=\"42\" height=\"40\" rx=\"5\"/><path d=\"M46 30h42M56 14v8M78 14v8\"/><polygon points=\"67,36 70,43 77,43 71,47 73,54 67,50 61,54 63,47 57,43 64,43\" fill=\"#ffc928\"/><path d=\"M34 22l8-6\"/></svg>"
+    },
+    {
+     "word": "look after",
+     "star": true,
+     "th": "ดูแล (= take care of)",
+     "en": "Can you look after my cat this weekend?",
+     "en_th": "คุณช่วยดูแลแมวของฉันสุดสัปดาห์นี้ได้ไหม",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"34\" cy=\"22\" r=\"8\"/><path d=\"M34 30v24\"/><path d=\"M34 36l-10 14M34 34l16 14\"/><path d=\"M34 54l-9 20M34 54l9 20\"/><circle cx=\"62\" cy=\"50\" r=\"5.6\"/><path d=\"M62 55.6v17\"/><path d=\"M62 59.6l-10 -2\"/><path d=\"M62 72.6l-6 14M62 72.6l6 14\"/><path d=\"M66 14c-4-6-12-2-8 4l8 8 8-8c4-6-4-10-8-4z\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "look up",
+     "th": "ค้นหาข้อมูล (ในพจนานุกรม/เว็บ)",
+     "en": "Look up the word in a dictionary.",
+     "en_th": "ค้นหาคำนั้นในพจนานุกรม",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 70c12-6 26-6 38 0 12-6 26-6 38 0V30c-12-6-26-6-38 0-12-6-26-6-38 0z\"/><path d=\"M48 30v40\"/><circle cx=\"62\" cy=\"40\" r=\"14\" fill=\"#ffffff\"/><path d=\"M72 50l14 14\" stroke-width=\"6\"/><path d=\"M18 40h20M18 50h20M56 40h12\"/></svg>"
+    },
+    {
+     "word": "look up to",
+     "th": "เคารพนับถือ, ชื่นชม",
+     "en": "I look up to my older brother.",
+     "en_th": "ฉันนับถือพี่ชายของฉัน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"26\" cy=\"52\" r=\"6.0\"/><path d=\"M26 58.0v18\"/><path d=\"M26 62.0l8 -8\"/><path d=\"M26 76.0l-7 15M26 76.0l7 15\"/><circle cx=\"64\" cy=\"22\" r=\"8.8\"/><path d=\"M64 30.8v26\"/><path d=\"M64 37.8l-8 10M64 34l8 10\"/><path d=\"M64 56.8l-10 22M64 56.8l10 22\"/><path d=\"M32 42l14-14M38 28h8v8\"/><polygon points=\"86,6 88,12 94,12 89,16 91,22 86,18 81,22 83,16 78,12 84,12\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "look down on",
+     "th": "ดูถูก, เหยียดหยาม",
+     "en": "Never look down on other people.",
+     "en_th": "อย่าดูถูกคนอื่นเด็ดขาด",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"12\" y=\"56\" width=\"30\" height=\"34\" rx=\"2\" fill=\"#5b4fc4\"/><circle cx=\"27\" cy=\"18\" r=\"8\"/><path d=\"M27 26v24\"/><path d=\"M27 32l-8 10M27 32l8 10\"/><path d=\"M27 50l-9 20M27 50l9 20\"/><circle cx=\"70\" cy=\"62\" r=\"5.6\"/><path d=\"M70 67.6v17\"/><path d=\"M70 71.6l-8 6M70 72l8 6\"/><path d=\"M70 84.6l-6 14M70 84.6l6 14\"/><path d=\"M40 30l20 18M60 40v8h-8\"/></svg>"
+    },
+    {
+     "word": "look into",
+     "th": "ตรวจสอบ, สืบสวน (= investigate)",
+     "en": "The police are looking into the problem.",
+     "en_th": "ตำรวจกำลังสืบสวนปัญหานี้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"14\" y=\"44\" width=\"40\" height=\"34\" rx=\"3\"/><path d=\"M14 54h40\"/><circle cx=\"60\" cy=\"40\" r=\"16\" fill=\"#ffffff\"/><path d=\"M72 52l16 16\" stroke-width=\"6\"/><ellipse cx=\"55\" cy=\"38\" rx=\"3\" ry=\"5\" fill=\"#f2683a\"/><ellipse cx=\"65\" cy=\"44\" rx=\"3\" ry=\"5\" fill=\"#f2683a\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "GET",
+   "title": "Phrasal verbs: get",
+   "title_th": "กริยาวลี: get",
+   "words": [
+    {
+     "word": "get along with",
+     "star": true,
+     "th": "เข้ากันได้ดีกับ",
+     "en": "She gets along with all her classmates.",
+     "en_th": "เธอเข้ากับเพื่อนร่วมชั้นได้ทุกคน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"32\" cy=\"26\" r=\"8\"/><path d=\"M32 34v24\"/><path d=\"M32 40l18 6\"/><path d=\"M32 58l-9 20M32 58l9 20\"/><circle cx=\"68\" cy=\"26\" r=\"8\"/><path d=\"M68 34v24\"/><path d=\"M68 40l-18 6\"/><path d=\"M68 58l-9 20M68 58l9 20\"/><path d=\"M50 14c-4-6-12-2-8 4l8 8 8-8c4-6-4-10-8-4z\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "get over",
+     "th": "หายป่วย / ทำใจได้จากเรื่องเศร้า",
+     "en": "It took me a week to get over my cold.",
+     "en_th": "ฉันใช้เวลาหนึ่งสัปดาห์กว่าจะหายหวัด",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"38\" y=\"64\" width=\"24\" height=\"26\" fill=\"#f2683a\"/><path d=\"M38 72h24M38 81h24M6 90h88\"/><circle cx=\"50\" cy=\"14\" r=\"8\"/><path d=\"M50 22v24\"/><path d=\"M50 28l-14 -4M50 26l14 -4\"/><path d=\"M50 46l-14 6M50 46l14 6\"/><path d=\"M14 88c2-24 12-40 24-46M62 42c12 6 20 22 22 46\" stroke-dasharray=\"4 8\"/></svg>"
+    },
+    {
+     "word": "get rid of",
+     "th": "กำจัดทิ้ง",
+     "en": "It's hard to get rid of bad habits.",
+     "en_th": "การเลิกนิสัยไม่ดีเป็นเรื่องยาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 46h40l-5 44H35z\" fill=\"#23915a\"/><path d=\"M26 46h48M42 40h16M42 56v26M50 56v26M58 56v26\"/><path d=\"M70 12l-8 18M62 30l-6-6M62 30l8 0\"/><rect x=\"66\" y=\"4\" width=\"14\" height=\"10\" rx=\"2\" transform=\"rotate(20 73 9)\"/></svg>"
+    },
+    {
+     "word": "get away with",
+     "th": "ทำผิดแล้วรอดตัว ไม่ถูกลงโทษ",
+     "en": "He cheated, but he didn't get away with it.",
+     "en_th": "เขาโกง แต่ก็ไม่รอดพ้นการลงโทษ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"46\" cy=\"24\" r=\"8\"/><path d=\"M46 32v24\"/><path d=\"M46 38l14 -6M46 36l-14 8\"/><path d=\"M46 56l-14 14M46 56l16 8l-2 14\"/><circle cx=\"68\" cy=\"14\" r=\"9\" fill=\"#ffc928\"/><circle cx=\"66\" cy=\"12\" r=\"1\"/><circle cx=\"71\" cy=\"16\" r=\"1\"/><path d=\"M8 40h14M12 52h12M8 64h14\"/></svg>"
+    },
+    {
+     "word": "get through",
+     "th": "ผ่านพ้นไปได้ / ติดต่อทางโทรศัพท์ได้",
+     "en": "Friends help us get through difficult times.",
+     "en_th": "เพื่อนช่วยให้เราผ่านช่วงเวลายากลำบากไปได้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"8\" y=\"10\" width=\"28\" height=\"80\" fill=\"#f2683a\"/><rect x=\"64\" y=\"10\" width=\"28\" height=\"80\" fill=\"#f2683a\"/><path d=\"M8 30h28M8 50h28M8 70h28M64 30h28M64 50h28M64 70h28\"/><circle cx=\"50\" cy=\"30\" r=\"8\"/><path d=\"M50 38v24\"/><path d=\"M50 44l-6 12M50 42l6 12\"/><path d=\"M50 62l-9 20M50 62l9 20\"/></svg>"
+    },
+    {
+     "word": "get by",
+     "th": "พออยู่พอกิน, เอาตัวรอดไปได้",
+     "en": "Students often get by on a small budget.",
+     "en_th": "นักศึกษามักใช้ชีวิตแบบพออยู่พอกินด้วยเงินไม่มาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 34h62a10 10 0 0 1 10 10v30a10 10 0 0 1-10 10H14z\"/><path d=\"M14 34l50-16 6 16\"/><path d=\"M60 50h26v16H60z\"/><circle cx=\"34\" cy=\"62\" r=\"8\" fill=\"#ffc928\"/><circle cx=\"46\" cy=\"66\" r=\"6\" fill=\"#ffc928\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "TURN",
+   "title": "Phrasal verbs: turn",
+   "title_th": "กริยาวลี: turn",
+   "words": [
+    {
+     "word": "turn down",
+     "star": true,
+     "th": "ปฏิเสธ (ข้อเสนอ) / ลดเสียง",
+     "en": "She turned down the job offer.",
+     "en_th": "เธอปฏิเสธข้อเสนองานนั้น",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 30h50v40H12z\"/><path d=\"M12 30l25 22 25-22\"/><circle cx=\"70\" cy=\"64\" r=\"18\" fill=\"#ef5a78\"/><path d=\"M62 56l16 16M78 56L62 72\" stroke=\"#ffffff\"/></svg>"
+    },
+    {
+     "word": "turn up",
+     "th": "ปรากฏตัว, มาถึง / เร่งเสียง",
+     "en": "Tom turned up late for class again.",
+     "en_th": "ทอมมาเรียนสายอีกแล้ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"14\" y=\"10\" width=\"40\" height=\"80\" rx=\"2\"/><path d=\"M14 10l26 8v72\"/><circle cx=\"66\" cy=\"32\" r=\"8\"/><path d=\"M66 40v24\"/><path d=\"M66 46l-12 8M66 44l10 8\"/><path d=\"M66 64l-9 20M66 64l9 20\"/><circle cx=\"82\" cy=\"18\" r=\"10\" fill=\"#ffc928\"/><path d=\"M82 12v6l4 3\"/></svg>"
+    },
+    {
+     "word": "turn into",
+     "th": "กลายเป็น, เปลี่ยนสภาพเป็น",
+     "en": "A caterpillar turns into a butterfly.",
+     "en_th": "หนอนผีเสื้อกลายเป็นผีเสื้อ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 62c4-8 10-8 14 0 4-8 10-8 14 0\"/><circle cx=\"38\" cy=\"58\" r=\"4\"/><path d=\"M44 58h14M52 52l6 6-6 6\"/><path d=\"M80 40c-10-16-22-10-16 4 4 10 16 4 16-4z\" fill=\"#5b4fc4\"/><path d=\"M80 40c10-16 22-10 16 4-4 10-16 4-16-4z\" fill=\"#ffc928\"/><path d=\"M80 34v20M76 28l4 6 4-6\"/></svg>"
+    },
+    {
+     "word": "turn out",
+     "th": "กลับกลายเป็นว่า, ผลปรากฏว่า",
+     "en": "The story turned out to be true.",
+     "en_th": "เรื่องนั้นกลับกลายเป็นเรื่องจริง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M24 56h52v32H24z\"/><path d=\"M20 56l14-18h46l-14 18\" fill=\"#ffc928\"/><polygon points=\"50,6 54,16 64,16 56,22 59,32 50,26 41,32 44,22 36,16 46,16\" fill=\"#f2683a\"/><path d=\"M30 30l-8-6M70 30l8-6M50 40v8\"/></svg>"
+    },
+    {
+     "word": "turn in",
+     "th": "ส่งงาน (= hand in) / เข้านอน",
+     "en": "Please turn in your homework on Monday.",
+     "en_th": "กรุณาส่งการบ้านวันจันทร์",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"20\" y=\"10\" width=\"34\" height=\"44\" rx=\"3\" fill=\"#ffffff\"/><path d=\"M28 22h18M28 30h18M28 38h12\"/><path d=\"M14 70h72l-6 20H20z\" fill=\"#3fa7f5\"/><path d=\"M60 30h14v24M68 48l6 6 6-6\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "BRING",
+   "title": "Phrasal verbs: bring",
+   "title_th": "กริยาวลี: bring",
+   "words": [
+    {
+     "word": "bring about",
+     "star": true,
+     "th": "ก่อให้เกิด, นำไปสู่การเปลี่ยนแปลง",
+     "en": "The internet has brought about big changes.",
+     "en_th": "อินเทอร์เน็ตทำให้เกิดการเปลี่ยนแปลงครั้งใหญ่",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"10\" y=\"44\" width=\"10\" height=\"40\" rx=\"2\" transform=\"rotate(-30 20 84)\"/><rect x=\"30\" y=\"44\" width=\"10\" height=\"40\" rx=\"2\" transform=\"rotate(-20 40 84)\"/><rect x=\"50\" y=\"44\" width=\"10\" height=\"40\" rx=\"2\"/><rect x=\"70\" y=\"44\" width=\"10\" height=\"40\" rx=\"2\"/><path d=\"M6 86h88\"/><path d=\"M14 28c10-12 26-12 36-4M44 18l6 6-8 4\"/><circle cx=\"76\" cy=\"26\" r=\"10\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "bring up",
+     "th": "เลี้ยงดูเด็ก / ยกประเด็นขึ้นมาพูด",
+     "en": "She was brought up by her grandparents.",
+     "en_th": "เธอถูกเลี้ยงดูโดยปู่ย่าตายาย",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"40\" cy=\"20\" r=\"8\"/><path d=\"M40 28v24\"/><path d=\"M40 34l14 12M40 32l14 18\"/><path d=\"M40 52l-9 20M40 52l9 20\"/><circle cx=\"62\" cy=\"36\" r=\"7\" fill=\"#ffc928\"/><path d=\"M56 44c4 6 14 6 18-2\"/><path d=\"M80 80V56M74 62l6-6 6 6\"/></svg>"
+    },
+    {
+     "word": "bring back",
+     "th": "นำกลับมา / ทำให้นึกถึงความหลัง",
+     "en": "This song brings back good memories.",
+     "en_th": "เพลงนี้ทำให้นึกถึงความทรงจำดี ๆ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"22\" y=\"26\" width=\"56\" height=\"46\" rx=\"4\"/><rect x=\"30\" y=\"34\" width=\"40\" height=\"30\" rx=\"2\"/><path d=\"M50 58c-4-4-12-8-8-14 3-4 8-2 8 2 0-4 5-6 8-2 4 6-4 10-8 14z\" fill=\"#ef5a78\"/><path d=\"M80 18c-10-10-26-12-38-6M42 4l0 8 8 2\"/></svg>"
+    },
+    {
+     "word": "bring out",
+     "th": "ผลิตออกวางขาย / ดึงศักยภาพออกมา",
+     "en": "The company will bring out a new phone.",
+     "en_th": "บริษัทจะออกโทรศัพท์รุ่นใหม่",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 60h60v30H20z\"/><path d=\"M20 60l-6-10M80 60l6-10\"/><rect x=\"38\" y=\"16\" width=\"24\" height=\"40\" rx=\"4\" fill=\"#3fa7f5\"/><path d=\"M46 50h8\"/><path d=\"M24 22l-8-4M76 22l8-4M30 8l-4-6M70 8l4-6\"/><circle cx=\"50\" cy=\"6\" r=\"2\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "bring down",
+     "th": "ลดราคา / โค่นล้ม",
+     "en": "The shop brought down its prices.",
+     "en_th": "ร้านลดราคาสินค้าลง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 30l26-18h40v36H40z\" fill=\"#23915a\"/><circle cx=\"34\" cy=\"30\" r=\"4\" fill=\"#ffffff\"/><path d=\"M50 30h20\"/><path d=\"M60 58v30M50 78l10 10 10-10\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "CUT",
+   "title": "Phrasal verbs: cut",
+   "title_th": "กริยาวลี: cut",
+   "words": [
+    {
+     "word": "cut off",
+     "star": true,
+     "th": "ตัดขาด (ไฟฟ้า/สัญญาณ/ความสัมพันธ์)",
+     "en": "The electricity was cut off during the storm.",
+     "en_th": "ไฟฟ้าถูกตัดระหว่างที่เกิดพายุ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"8\" y=\"34\" width=\"26\" height=\"32\" rx=\"4\"/><path d=\"M34 44h10M34 56h10\"/><rect x=\"66\" y=\"34\" width=\"26\" height=\"32\" rx=\"4\" fill=\"#5b4fc4\"/><path d=\"M66 44h-8M66 56h-8\"/><path d=\"M50 20l-6 12h10l-6 12\" stroke=\"#f2683a\"/><path d=\"M50 60l-6 10h10l-6 12\" stroke=\"#f2683a\"/></svg>"
+    },
+    {
+     "word": "cut down on",
+     "alts": [
+      "cut down"
+     ],
+     "th": "ลดปริมาณลง",
+     "en": "You should cut down on sugar.",
+     "en_th": "คุณควรลดน้ำตาลลง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"12\" y=\"50\" width=\"16\" height=\"16\" rx=\"2\" fill=\"#ffffff\"/><rect x=\"12\" y=\"66\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"28\" y=\"66\" width=\"16\" height=\"16\" rx=\"2\"/><rect x=\"28\" y=\"50\" width=\"16\" height=\"16\" rx=\"2\"/><path d=\"M50 66h12M56 60l6 6-6 6\"/><rect x=\"70\" y=\"66\" width=\"16\" height=\"16\" rx=\"2\" fill=\"#ffc928\"/><path d=\"M78 20v30M70 42l8 8 8-8\"/></svg>"
+    },
+    {
+     "word": "cut out",
+     "th": "ตัดออก / เลิกกินหรือเลิกทำ",
+     "en": "I'm trying to cut out junk food.",
+     "en_th": "ฉันพยายามเลิกกินอาหารขยะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 46c0-20 56-20 56 0z\" fill=\"#ffc928\"/><path d=\"M20 54h60M22 62h56\"/><path d=\"M22 70h56c0 10-56 10-56 0z\" fill=\"#f2683a\"/><circle cx=\"50\" cy=\"50\" r=\"40\"/><path d=\"M22 78L78 22\"/></svg>"
+    },
+    {
+     "word": "cut in",
+     "th": "พูดแทรก / ขับรถปาดหน้า",
+     "en": "Please don't cut in while I'm speaking.",
+     "en_th": "กรุณาอย่าพูดแทรกตอนที่ฉันกำลังพูด",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"8\" y=\"58\" width=\"30\" height=\"16\" rx=\"5\" fill=\"#3fa7f5\"/><circle cx=\"16\" cy=\"78\" r=\"4\"/><circle cx=\"30\" cy=\"78\" r=\"4\"/><rect x=\"50\" y=\"26\" width=\"30\" height=\"16\" rx=\"5\" fill=\"#f2683a\"/><circle cx=\"58\" cy=\"46\" r=\"4\"/><circle cx=\"72\" cy=\"46\" r=\"4\"/><path d=\"M84 34c8 10 4 26-10 30\"/><path d=\"M78 58l-6 6 8 2\"/><path d=\"M4 88h92\" stroke-dasharray=\"8 8\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "RUN",
+   "title": "Phrasal verbs: run",
+   "title_th": "กริยาวลี: run",
+   "words": [
+    {
+     "word": "run out of",
+     "star": true,
+     "th": "หมด, ใช้จนหมด",
+     "en": "We ran out of time before the end of the test.",
+     "en_th": "พวกเราหมดเวลาก่อนทำข้อสอบเสร็จ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"12\" y=\"32\" width=\"66\" height=\"36\" rx=\"6\"/><path d=\"M78 42h8v16h-8\"/><rect x=\"18\" y=\"38\" width=\"8\" height=\"24\" rx=\"2\" fill=\"#ef5a78\"/><path d=\"M40 18l-6 12M60 18l6 12\"/></svg>"
+    },
+    {
+     "word": "run into",
+     "th": "บังเอิญเจอ (คน) / เจอปัญหา",
+     "en": "I ran into an old friend at the mall.",
+     "en_th": "ฉันบังเอิญเจอเพื่อนเก่าที่ห้าง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"26\" cy=\"30\" r=\"8\"/><path d=\"M26 38v24\"/><path d=\"M26 44l12 6\"/><path d=\"M26 62l-9 20M26 62l9 20\"/><circle cx=\"74\" cy=\"30\" r=\"8\"/><path d=\"M74 38v24\"/><path d=\"M74 44l-12 6\"/><path d=\"M74 62l-9 20M74 62l9 20\"/><path d=\"M50 20v10M42 24l4 6M58 24l-4 6M44 40h-4M56 40h4\"/><circle cx=\"50\" cy=\"12\" r=\"3\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "run over",
+     "th": "ขับรถชนหรือทับ / ทบทวนคร่าว ๆ",
+     "en": "Let's run over the plan once more.",
+     "en_th": "มาทบทวนแผนกันอีกรอบ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"22\" y=\"14\" width=\"50\" height=\"72\" rx=\"4\"/><rect x=\"36\" y=\"8\" width=\"22\" height=\"10\" rx=\"3\" fill=\"#5b4fc4\"/><path d=\"M32 34l4 4 8-8M52 34h12M32 52l4 4 8-8M52 52h12M32 70l4 4 8-8M52 70h12\"/><path d=\"M80 20l10 10-10 10\" stroke=\"#23915a\"/></svg>"
+    },
+    {
+     "word": "run away",
+     "th": "หนีไป, วิ่งหนี",
+     "en": "The dog ran away from the loud noise.",
+     "en_th": "สุนัขวิ่งหนีเสียงดัง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"60\" cy=\"22\" r=\"8\"/><path d=\"M60 30v24\"/><path d=\"M60 36l14 -4M60 34l-14 8\"/><path d=\"M60 54l-12 14-6-4M60 54l14 6v14\"/><path d=\"M10 30h24M16 44h20M10 58h22\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "TAKE",
+   "title": "Phrasal verbs: take",
+   "title_th": "กริยาวลี: take",
+   "words": [
+    {
+     "word": "take off",
+     "th": "ถอดออก / เครื่องบินขึ้น / ประสบความสำเร็จเร็ว",
+     "en": "The plane took off on time.",
+     "en_th": "เครื่องบินขึ้นตรงเวลา",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 70l56-30c6-3 10 2 6 6L30 78z\" fill=\"#3fa7f5\"/><path d=\"M48 54l-6-18h8l12 12M40 68l2 14h6l4-12\"/><path d=\"M6 88h88\"/><path d=\"M8 78l8-2\"/></svg>"
+    },
+    {
+     "word": "take up",
+     "th": "เริ่มทำกิจกรรม หรืองานอดิเรก / กินพื้นที่",
+     "en": "My sister took up swimming last month.",
+     "en_th": "พี่สาวของฉันเริ่มว่ายน้ำเมื่อเดือนที่แล้ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"34\" cy=\"40\" r=\"8\"/><path d=\"M42 44l26 6M50 46l10-14M56 48l14 12\"/><path d=\"M8 62c8-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0V90H8z\" fill=\"#3fa7f5\"/><path d=\"M18 76c6-4 10-4 16 0M56 80c6-4 10-4 16 0\"/></svg>"
+    },
+    {
+     "word": "take over",
+     "th": "เข้าควบคุมกิจการ, รับช่วงต่อ",
+     "en": "She will take over the company from her father.",
+     "en_th": "เธอจะรับช่วงบริษัทต่อจากพ่อ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"24\" cy=\"26\" r=\"8\"/><path d=\"M24 34v24\"/><path d=\"M24 40l18 6M24 38l-10 8\"/><path d=\"M24 58l-12 18M24 58l12 16\"/><circle cx=\"76\" cy=\"26\" r=\"8\"/><path d=\"M76 34v24\"/><path d=\"M76 40l-18 6M76 38l10 8\"/><path d=\"M76 58l-10 18M76 58l12 18\"/><rect x=\"42\" y=\"26\" width=\"16\" height=\"10\" rx=\"3\" fill=\"#f2683a\"/></svg>"
+    },
+    {
+     "word": "take after",
+     "th": "หน้าตาหรือนิสัยเหมือน (พ่อแม่/ญาติ)",
+     "en": "She takes after her mother.",
+     "en_th": "เธอหน้าตาเหมือนแม่",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"24\" cy=\"44\" r=\"16\"/><path d=\"M11 36c3-10 22-12 27-2\"/><circle cx=\"19\" cy=\"44\" r=\"2\"/><circle cx=\"29\" cy=\"44\" r=\"2\"/><path d=\"M19 52c3 3 7 3 10 0\"/><circle cx=\"24\" cy=\"24\" r=\"4\" fill=\"#ef5a78\"/><path d=\"M44 42h12M44 50h12\"/><circle cx=\"78\" cy=\"50\" r=\"12\"/><path d=\"M68 44c2-7 16-8 19-1\"/><circle cx=\"74\" cy=\"50\" r=\"1.5\"/><circle cx=\"82\" cy=\"50\" r=\"1.5\"/><path d=\"M74 56c3 2 5 2 8 0\"/><circle cx=\"78\" cy=\"34\" r=\"3\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "take in",
+     "th": "เข้าใจ (ข้อมูล) / หลอกลวง",
+     "en": "It was hard to take in all the facts.",
+     "en_th": "การทำความเข้าใจข้อเท็จจริงทั้งหมดเป็นเรื่องยาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M58 88V70c14-2 22-14 20-30-2-18-18-30-36-28-16 2-28 16-26 34 2 10 6 14 6 22v20\"/><path d=\"M78 44l6 10h-6\"/><rect x=\"4\" y=\"20\" width=\"18\" height=\"22\" rx=\"2\" fill=\"#ffc928\"/><path d=\"M22 34h16M32 28l6 6-6 6\"/><circle cx=\"52\" cy=\"38\" r=\"8\" fill=\"#5b4fc4\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "BREAK",
+   "title": "Phrasal verbs: break",
+   "title_th": "กริยาวลี: break",
+   "words": [
+    {
+     "word": "break down",
+     "th": "เสีย (รถ/เครื่องจักร) / ย่อยสลาย / ร้องไห้สติแตก",
+     "en": "Our car broke down on the way home.",
+     "en_th": "รถของเราเสียระหว่างทางกลับบ้าน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 66h80v-14l-12-4-8-14H36l-10 14-16 4z\" fill=\"#ef5a78\"/><circle cx=\"28\" cy=\"70\" r=\"8\" fill=\"#ffffff\"/><circle cx=\"72\" cy=\"70\" r=\"8\" fill=\"#ffffff\"/><path d=\"M84 40c-6-4 0-10 6-8 2-8 12-6 10 2\"/><path d=\"M76 26c-4-4 2-10 8-6\"/></svg>"
+    },
+    {
+     "word": "break out",
+     "th": "เกิดขึ้นฉับพลัน (สงคราม/ไฟไหม้/โรคระบาด)",
+     "en": "A fire broke out in the kitchen.",
+     "en_th": "เกิดไฟไหม้ขึ้นในครัว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 48l36-30 36 30v40H14z\"/><rect x=\"38\" y=\"60\" width=\"24\" height=\"28\"/><path d=\"M50 52c-10-4-10-16 0-24 0 6 6 6 6 6 0-6 4-10 4-10 6 8 6 18-2 26z\" fill=\"#f2683a\"/><path d=\"M24 54h8v8h-8z\"/></svg>"
+    },
+    {
+     "word": "break into",
+     "th": "บุกรุก, งัดแงะเข้าไป",
+     "en": "Thieves broke into the house last night.",
+     "en_th": "ขโมยงัดเข้าบ้านเมื่อคืนนี้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"14\" y=\"20\" width=\"56\" height=\"52\" rx=\"3\"/><path d=\"M42 20v52M14 46h56\"/><path d=\"M50 30l6 8-4 6 8 6M24 56l6-4 4 6\"/><ellipse cx=\"80\" cy=\"66\" rx=\"5\" ry=\"8\" fill=\"#5b4fc4\"/><ellipse cx=\"88\" cy=\"82\" rx=\"5\" ry=\"8\" fill=\"#5b4fc4\"/></svg>"
+    },
+    {
+     "word": "break up",
+     "th": "เลิกรากัน / ปิดเทอม",
+     "en": "They broke up after two years together.",
+     "en_th": "พวกเขาเลิกกันหลังคบกันมาสองปี",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M48 84L16 52c-12-14 2-38 22-28 6 3 10 8 10 8z\" fill=\"#ef5a78\"/><path d=\"M54 84l32-32c12-14-2-38-22-28-6 3-10 8-10 8l6 10-8 10 8 10-6 12z\" fill=\"#ef5a78\"/><path d=\"M48 32l6 10-8 10 8 10-6 12\"/></svg>"
+    },
+    {
+     "word": "break through",
+     "th": "ฝ่าฟันอุปสรรค, ค้นพบครั้งสำคัญ",
+     "en": "The team broke through the final barrier.",
+     "en_th": "ทีมฝ่าฟันอุปสรรคสุดท้ายไปได้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 10v80M70 10v80M30 30h40M30 50h12M58 50h12M30 70h40M50 10v20M50 70v20\"/><polygon points=\"42,40 50,34 58,42 56,56 46,60 40,52\" fill=\"#f2683a\"/><path d=\"M8 50h26M26 42l8 8-8 8M66 50h26\"/></svg>"
+    }
+   ]
+  }
+ ]
 }
