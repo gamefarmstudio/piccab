@@ -29,6 +29,8 @@ jobs:
         run: node tests/i18n-check.mjs
       - name: App modules import what they use
         run: node tests/modules-check.mjs
+      - name: Cron triggers Cloudflare accepts
+        run: node tests/cron-check.mjs
 
   browser:
     name: Browser
