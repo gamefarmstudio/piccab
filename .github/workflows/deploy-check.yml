@@ -1,0 +1,26 @@
+# After each merge into main: does piccab.com really run it? Cloudflare builds and deploys on its own; when that
+# fails (as it did quietly for six days after #112) this check turns red and GitHub emails about it.
+name: Deploy check
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-check
+  cancel-in-progress: true   # a newer merge: only the newest needs checking
+jobs:
+  live:
+    name: piccab.com runs this commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for Cloudflare to deploy it (up to 15 min)
+        run: node tools/deploy-check.mjs "$GITHUB_SHA"
