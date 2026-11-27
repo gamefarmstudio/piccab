@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -31,6 +33,8 @@ jobs:
         run: node tests/modules-check.mjs
       - name: Cron triggers Cloudflare accepts
         run: node tests/cron-check.mjs
+      - name: The deploy check (piccab.com runs the merged commit)
+        run: node tests/deploy-check.test.mjs
 
   browser:
     name: Browser

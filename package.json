@@ -4,7 +4,7 @@
   "description": "Piccab: the app (app/) is built by Vite into dist/ together with the static files in public/. Cloudflare runs `npm run build` before every deploy (see wrangler.jsonc).",
   "type": "module",
   "scripts": {
-    "build": "vite build && node tools/csp-headers.mjs",
+    "build": "vite build && node tools/csp-headers.mjs && node tools/version-file.mjs",
     "landing": "python3 tools/build-landing.py"
   },
   "devDependencies": {
