@@ -1,0 +1,416 @@
+{
+ "category": "idioms",
+ "stage": "m13",
+ "cefr": "B1",
+ "level": "intermediate",
+ "subtitle": "Idioms",
+ "plus": false,
+ "groups": [
+  {
+   "verb": "STUDY & WORK",
+   "title": "Idioms: study & work",
+   "title_th": "สำนวน: การเรียนและการทำงาน",
+   "words": [
+    {
+     "word": "piece of cake",
+     "th": "ง่ายมาก, หมูๆ",
+     "en": "The English test was a piece of cake.",
+     "en_th": "ข้อสอบภาษาอังกฤษง่ายมาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 62l66-22v30L14 88z\" fill=\"#ffc928\"/><path d=\"M14 62v26M80 40L56 24 14 62\"/><path d=\"M14 74l66-20\"/><circle cx=\"52\" cy=\"20\" r=\"6\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "hit the books",
+     "th": "ตั้งใจอ่านหนังสืออย่างหนัก",
+     "en": "I have to hit the books for tomorrow's exam.",
+     "en_th": "ฉันต้องตั้งใจอ่านหนังสือเพื่อสอบพรุ่งนี้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"18\" y=\"70\" width=\"64\" height=\"12\" rx=\"2\" fill=\"#3fa7f5\"/><rect x=\"22\" y=\"58\" width=\"56\" height=\"12\" rx=\"2\" fill=\"#ffc928\"/><rect x=\"26\" y=\"46\" width=\"48\" height=\"12\" rx=\"2\"/><path d=\"M18 90h64\"/><path d=\"M24 36c9-5 17-5 26 0 9-5 17-5 26 0V16c-9-5-17-5-26 0-9-5-17-5-26 0z\" fill=\"#ffffff\"/><path d=\"M50 16v20M84 12l6-4M86 22h6\"/></svg>"
+    },
+    {
+     "word": "burn the midnight oil",
+     "th": "อ่านหนังสือหรือทำงานจนดึกดื่น",
+     "en": "She had to burn the midnight oil to finish her project.",
+     "en_th": "เธอต้องทำงานจนดึกดื่นเพื่อให้โปรเจกต์เสร็จ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 86h40M38 86l4-22h16l4 22\"/><ellipse cx=\"50\" cy=\"60\" rx=\"18\" ry=\"6\"/><path d=\"M50 54c-8-8-6-18 0-26 6 8 8 18 0 26z\" fill=\"#f2683a\"/><path d=\"M80 14a12 12 0 1 0 10 18 10 10 0 0 1-10-18z\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "call it a day",
+     "th": "พอแค่นี้สำหรับวันนี้/คืนนี้",
+     "alts": [
+      "call it a night"
+     ],
+     "en": "I'm tired. Let's call it a day.",
+     "en_th": "ฉันเหนื่อยแล้ว วันนี้พอแค่นี้เถอะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 46h88\"/><path d=\"M30 46a20 20 0 0 1 40 0\" fill=\"#f2683a\"/><path d=\"M50 18v-8M28 26l-6-6M72 26l6-6\"/><path d=\"M14 90V60h72v30M14 74h72\"/><rect x=\"18\" y=\"62\" width=\"20\" height=\"10\" rx=\"4\" fill=\"#ffffff\"/><path d=\"M60 64l6 0-6 6h6M72 58l4 0-4 4h4\"/></svg>"
+    },
+    {
+     "word": "pass with flying colors",
+     "th": "สอบผ่านด้วยคะแนนยอดเยี่ยม",
+     "alts": [
+      "pass with flying colours"
+     ],
+     "en": "If you study hard, you will pass with flying colors.",
+     "en_th": "ถ้าตั้งใจเรียน เธอจะสอบผ่านด้วยคะแนนยอดเยี่ยม",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"20\" y=\"14\" width=\"44\" height=\"60\" rx=\"4\" fill=\"#ffffff\"/><text stroke=\"none\" fill=\"#2d2a5a\" font-family=\"Arial, sans-serif\" text-anchor=\"middle\" x=\"42\" y=\"44\" font-size=\"18\" font-weight=\"700\">100</text><path d=\"M28 56h28M28 64h20\"/><polygon points=\"74,46 78,56 88,56 80,62 83,72 74,66 65,72 68,62 60,56 70,56\" fill=\"#ffc928\"/><path d=\"M70 84c6-4 14-4 20 0\" stroke=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "learn by heart",
+     "th": "ท่องจำให้ขึ้นใจ",
+     "alts": [
+      "learn it by heart"
+     ],
+     "en": "This poem is short, so let's learn it by heart.",
+     "en_th": "กลอนบทนี้สั้น มาท่องให้ขึ้นใจกันเถอะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M58 88V72c12-2 20-12 18-26-2-16-16-26-32-24-14 2-24 14-22 30 1 8 5 12 5 18v18\"/><path d=\"M48 52c-4-4-12-8-8-14 3-4 8-2 8 2 0-4 5-6 8-2 4 6-4 10-8 14z\" fill=\"#ef5a78\"/><rect x=\"2\" y=\"16\" width=\"16\" height=\"20\" rx=\"2\" fill=\"#ffc928\"/><path d=\"M18 26h10M24 22l4 4-4 4\"/></svg>"
+    },
+    {
+     "word": "get the hang of",
+     "th": "เริ่มจับทางได้, เริ่มทำเป็น",
+     "en": "Coding looks hard, but you'll get the hang of it.",
+     "en_th": "การเขียนโค้ดดูยาก แต่เดี๋ยวเธอก็จับทางได้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"26\" cy=\"72\" r=\"14\"/><circle cx=\"74\" cy=\"72\" r=\"14\"/><path d=\"M26 72l14-24h22l12 24M40 48l10 24h14M58 40h8\"/><circle cx=\"48\" cy=\"18\" r=\"8\"/><path d=\"M48 26v24\"/><path d=\"M48 32l12 10\"/><path d=\"M48 42l4 18\"/><path d=\"M84 18l6 6M88 10v8M92 18l-4 2\" stroke=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "go the extra mile",
+     "th": "ทุ่มเททำมากกว่าที่คาดหวัง",
+     "en": "Good teachers always go the extra mile for students.",
+     "en_th": "ครูที่ดีทุ่มเทให้นักเรียนมากกว่าที่คาดหวังเสมอ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 90c20-10 30-30 40-50s30-26 40-30\" stroke-dasharray=\"8 8\"/><path d=\"M60 28V10\"/><polygon points=\"60,10 74,14 60,19\" fill=\"#ef5a78\"/><circle cx=\"84\" cy=\"26\" r=\"5.6\"/><path d=\"M84 31.6v17\"/><path d=\"M84 35.6l-6 10\"/><path d=\"M84 48.6l-6 14M84 48.6l6 14\"/><path d=\"M14 84l8 4\" stroke=\"#23915a\"/></svg>"
+    },
+    {
+     "word": "cut corners",
+     "th": "ลัดขั้นตอน, ทำงานลวกๆ",
+     "en": "Don't cut corners when building a house.",
+     "en_th": "อย่าลัดขั้นตอนตอนสร้างบ้าน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 20h56v56\"/><path d=\"M14 20L70 76\" stroke-dasharray=\"6 6\" stroke=\"#f2683a\"/><path d=\"M62 74l8 4 2-8\"/><circle cx=\"14\" cy=\"20\" r=\"5\" fill=\"#23915a\"/><circle cx=\"70\" cy=\"76\" r=\"5\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "bite off more than one can chew",
+     "th": "รับงานหรือทำอะไรเกินกำลังตัวเอง",
+     "alts": [
+      "bite off more than you can chew"
+     ],
+     "en": "Five extra classes? Don't bite off more than you can chew.",
+     "en_th": "เรียนเสริมห้าวิชาเลยเหรอ อย่ารับภาระเกินกำลังตัวเองนะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 52c0-22 40-22 40 0z\" fill=\"#ffc928\"/><path d=\"M8 58h44M10 64h40\"/><path d=\"M10 70h40c0 12-40 12-40 0z\" fill=\"#f2683a\"/><circle cx=\"74\" cy=\"50\" r=\"18\"/><path d=\"M66 56c4 6 12 6 16 0z\" fill=\"#ef5a78\"/><path d=\"M66 44h4M78 44h4M84 30l6-6\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "TIME & CHANCE",
+   "title": "Idioms: time & chance",
+   "title_th": "สำนวน: เวลา โอกาส และความถี่",
+   "words": [
+    {
+     "word": "once in a blue moon",
+     "th": "นานๆ ครั้ง, แทบจะไม่เคย",
+     "en": "We eat fast food once in a blue moon.",
+     "en_th": "พวกเรากินอาหารฟาสต์ฟู้ดนานๆ ครั้ง",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"46\" r=\"26\" fill=\"#3fa7f5\"/><circle cx=\"42\" cy=\"40\" r=\"5\"/><circle cx=\"58\" cy=\"54\" r=\"4\"/><path d=\"M14 16l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM84 74l2 5 5 2-5 2-2 5-2-5-5-2 5-2z\"/></svg>"
+    },
+    {
+     "word": "in the nick of time",
+     "th": "ทันเวลาแบบฉิวเฉียด",
+     "en": "He arrived at the airport in the nick of time.",
+     "en_th": "เขาไปถึงสนามบินทันเวลาแบบฉิวเฉียด",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"74\" cy=\"28\" r=\"16\" fill=\"#ffffff\"/><path d=\"M74 18v10l6 4\"/><rect x=\"38\" y=\"52\" width=\"40\" height=\"36\" rx=\"2\"/><path d=\"M58 52v36\"/><circle cx=\"28\" cy=\"52\" r=\"7.2\"/><path d=\"M28 59.2v22\"/><path d=\"M28 64.2l10 -6M28 64l-10 6\"/><path d=\"M28 84l-10 6M28 84l8 6\"/><path d=\"M6 60h8M4 70h8\" stroke=\"#f2683a\"/></svg>"
+    },
+    {
+     "word": "at the eleventh hour",
+     "th": "ในนาทีสุดท้าย, จวนเจียนหมดเวลา",
+     "en": "They changed the plan at the eleventh hour.",
+     "en_th": "พวกเขาเปลี่ยนแผนในนาทีสุดท้าย",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"50\" r=\"36\" fill=\"#ffffff\"/><text stroke=\"none\" fill=\"#2d2a5a\" font-family=\"Arial, sans-serif\" text-anchor=\"middle\" x=\"50\" y=\"27\" font-size=\"12\" font-weight=\"700\">12</text><text stroke=\"none\" fill=\"#2d2a5a\" font-family=\"Arial, sans-serif\" text-anchor=\"middle\" x=\"31\" y=\"34\" font-size=\"12\" font-weight=\"700\">11</text><path d=\"M50 50l-12-10M50 50l1-18\" stroke=\"#ef5a78\"/><circle cx=\"50\" cy=\"50\" r=\"3\" fill=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "out of the blue",
+     "th": "อย่างกะทันหัน, ไม่ทันตั้งตัว",
+     "en": "An old friend called me out of the blue.",
+     "en_th": "เพื่อนเก่าโทรหาฉันแบบไม่ทันตั้งตัว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 40a14 14 0 0 1 26-10 12 12 0 0 1 22 6 10 10 0 0 1 0 20H26a10 10 0 0 1-4-16z\" fill=\"#3fa7f5\"/><path d=\"M50 58l-8 10h10l-8 12\" stroke=\"#ffc928\"/><rect x=\"58\" y=\"66\" width=\"16\" height=\"24\" rx=\"3\"/><path d=\"M80 66c4 2 6 6 6 10M84 60c6 4 8 10 8 16\"/></svg>"
+    },
+    {
+     "word": "better late than never",
+     "th": "มาช้ายังดีกว่าไม่มา",
+     "en": "He finally said sorry. Better late than never!",
+     "en_th": "ในที่สุดเขาก็ขอโทษ มาช้ายังดีกว่าไม่มา",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 80c0-14 10-22 22-22 12 0 20 8 20 18H14z\" fill=\"#23915a\"/><path d=\"M56 76c6 0 10-2 10-8 0-4-4-6-6-4M60 62l-2-10M66 62l2-10\"/><path d=\"M6 84h88\"/><path d=\"M84 84V48\"/><polygon points=\"84,48 96,52 84,56\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "around the clock",
+     "th": "ตลอด 24 ชั่วโมง, ทั้งวันทั้งคืน",
+     "en": "Nurses work around the clock to care for patients.",
+     "en_th": "พยาบาลทำงานตลอด 24 ชั่วโมงเพื่อดูแลผู้ป่วย",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"50\" r=\"30\" fill=\"#ffffff\"/><text stroke=\"none\" fill=\"#2d2a5a\" font-family=\"Arial, sans-serif\" text-anchor=\"middle\" x=\"50\" y=\"58\" font-size=\"22\" font-weight=\"700\">24</text><path d=\"M86 42a38 38 0 0 0-70-6M14 58a38 38 0 0 0 70 6\"/><path d=\"M12 28l4 8 8-4M88 72l-4-8-8 4\" stroke=\"#f2683a\"/></svg>"
+    },
+    {
+     "word": "time flies",
+     "th": "เวลาผ่านไปเร็วมาก",
+     "en": "Time flies when you're having fun.",
+     "en_th": "เวลาผ่านไปเร็วมากเมื่อเรากำลังสนุก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"54\" r=\"22\" fill=\"#ffffff\"/><path d=\"M50 42v12l8 6\"/><path d=\"M28 48c-10-8-22-6-24 2 8-2 14 2 16 6-8 0-12 6-10 10 6-6 14-6 18-4\" fill=\"#ffc928\"/><path d=\"M72 48c10-8 22-6 24 2-8-2-14 2-16 6 8 0 12 6 10 10-6-6-14-6-18-4\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "kill time",
+     "th": "ฆ่าเวลา",
+     "en": "I played a game on my phone to kill time.",
+     "en_th": "ฉันเล่นเกมในโทรศัพท์เพื่อฆ่าเวลา",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M24 12h36M24 88h36M28 12c0 22 24 22 24 38s-24 16-24 38M56 12c0 22-24 22-24 38s24 16 24 38\"/><path d=\"M34 80l8-10 8 10z\" fill=\"#ffc928\"/><rect x=\"66\" y=\"40\" width=\"22\" height=\"36\" rx=\"4\" fill=\"#5b4fc4\"/><circle cx=\"77\" cy=\"58\" r=\"4\" fill=\"#ffffff\"/></svg>"
+    },
+    {
+     "word": "miss the boat",
+     "th": "พลาดโอกาสดีๆ ไปแล้ว",
+     "en": "Apply today, or you'll miss the boat.",
+     "en_th": "สมัครวันนี้เลย ไม่อย่างนั้นจะพลาดโอกาส",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M48 64h44l-8 14H56z\" fill=\"#3fa7f5\"/><path d=\"M70 64V36l14 22H70\"/><path d=\"M4 86h40M46 86c8-4 14-4 22 0s14 4 22 0\" /><circle cx=\"22\" cy=\"40\" r=\"8\"/><path d=\"M22 48v24\"/><path d=\"M22 54l14 -8M22 52l-10 6\"/><path d=\"M22 72l-8 14M22 72l10 14\"/><path d=\"M40 30l4-4\" stroke=\"#ef5a78\"/></svg>"
+    },
+    {
+     "word": "call it quits",
+     "th": "หยุดทำ, เลิกรา",
+     "en": "After three hours of tennis, they decided to call it quits.",
+     "en_th": "หลังจากเล่นเทนนิสสามชั่วโมง พวกเขาก็ตัดสินใจเลิกเล่น",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><ellipse cx=\"34\" cy=\"34\" rx=\"16\" ry=\"20\" transform=\"rotate(-30 34 34)\"/><path d=\"M42 50l18 30\"/><circle cx=\"76\" cy=\"30\" r=\"8\" fill=\"#ffc928\"/><path d=\"M8 88h84\"/><path d=\"M64 60l20 20M84 60L64 80\" stroke=\"#ef5a78\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "FEELINGS & TRAITS",
+   "title": "Idioms: feelings & traits",
+   "title_th": "สำนวน: อารมณ์ ความรู้สึก และนิสัย",
+   "words": [
+    {
+     "word": "under the weather",
+     "th": "รู้สึกไม่ค่อยสบาย",
+     "en": "I'm feeling a bit under the weather today.",
+     "en_th": "วันนี้ฉันรู้สึกไม่ค่อยสบาย",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"44\" cy=\"56\" r=\"20\"/><path d=\"M36 66c4-4 12-4 16 0M36 52h4M48 52h4\"/><rect x=\"66\" y=\"44\" width=\"8\" height=\"34\" rx=\"4\"/><circle cx=\"70\" cy=\"80\" r=\"6\" fill=\"#ef5a78\"/><path d=\"M70 50v26\" stroke=\"#ef5a78\"/><path d=\"M24 22a10 10 0 0 1 18-6 8 8 0 0 1 14 6 6 6 0 0 1-2 12H26a8 8 0 0 1-2-12z\" fill=\"#3fa7f5\"/></svg>"
+    },
+    {
+     "word": "over the moon",
+     "th": "ดีใจสุดๆ, มีความสุขมาก",
+     "en": "She was over the moon when she won the prize.",
+     "en_th": "เธอดีใจสุดๆ ตอนที่ได้รางวัล",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M58 92a32 32 0 1 1 0-40 24 24 0 0 0 0 40z\" fill=\"#ffc928\"/><circle cx=\"60\" cy=\"14\" r=\"7.2\"/><path d=\"M60 21.2v22\"/><path d=\"M60 26.2l-12 -6M60 22l12 -6\"/><path d=\"M60 46l-12 6M60 46l12 6\"/><path d=\"M30 30l-6-4M38 22l-2-6\"/></svg>"
+    },
+    {
+     "word": "down in the dumps",
+     "th": "เศร้าซึม, หดหู่ใจ",
+     "en": "He has been down in the dumps since he lost his dog.",
+     "en_th": "เขาเศร้าซึมตั้งแต่สุนัขของเขาหายไป",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M24 26a12 12 0 0 1 22-8 10 10 0 0 1 18 6 8 8 0 0 1-2 16H28a10 10 0 0 1-4-14z\" fill=\"#5b4fc4\"/><path d=\"M34 46l-2 6M46 46l-2 6M58 46l-2 6\" stroke=\"#3fa7f5\"/><circle cx=\"46\" cy=\"66\" r=\"5.6\"/><path d=\"M46 71.6v17\"/><path d=\"M46 75.6l-8 8M46 74l8 8\"/><path d=\"M46 90l-8 2M46 90l8 2\"/><path d=\"M42 68h0M50 68h0\"/></svg>"
+    },
+    {
+     "word": "butterflies in one's stomach",
+     "th": "ตื่นเต้นประหม่าจนท้องไส้ปั่นป่วน",
+     "alts": [
+      "butterflies in my stomach"
+     ],
+     "en": "I always get butterflies in my stomach before a speech.",
+     "en_th": "ฉันตื่นเต้นประหม่าทุกครั้งก่อนพูดหน้าชั้น",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"14\" r=\"9\"/><rect x=\"24\" y=\"28\" width=\"52\" height=\"62\" rx=\"22\"/><path d=\"M42 50c-6-8-14-4-10 2 2 4 10 2 10-2zM42 50c6-8 14-4 10 2-2 4-10 2-10-2z\" fill=\"#5b4fc4\"/><path d=\"M58 70c-5-7-12-3-9 2 2 3 9 2 9-2zM58 70c5-7 12-3 9 2-2 3-9 2-9-2z\" fill=\"#ffc928\"/><path d=\"M42 50v6M58 70v5\"/></svg>"
+    },
+    {
+     "word": "get cold feet",
+     "th": "เปลี่ยนใจกะทันหันเพราะกลัว",
+     "en": "He wanted to skydive, but he began to get cold feet.",
+     "en_th": "เขาอยากกระโดดร่ม แต่เริ่มกลัวจนเปลี่ยนใจ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 50v24c0 8 6 12 14 12h12c4 0 4-6 0-8l-12-4V50\" fill=\"#3fa7f5\"/><path d=\"M54 50v24c0 8 6 12 14 12h12c4 0 4-6 0-8l-12-4V50\" fill=\"#3fa7f5\"/><path d=\"M50 10v24M40 16l20 12M60 16L40 28\"/></svg>"
+    },
+    {
+     "word": "lose one's temper",
+     "th": "โกรธจนคุมอารมณ์ไม่อยู่, ฟิวส์ขาด",
+     "alts": [
+      "lose your temper"
+     ],
+     "en": "Try not to lose your temper during an argument.",
+     "en_th": "พยายามอย่าโมโหจนคุมอารมณ์ไม่อยู่ตอนเถียงกัน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"58\" r=\"24\" fill=\"#ef5a78\"/><path d=\"M38 50l8 4M62 50l-8 4M40 70c6-6 14-6 20 0\"/><path d=\"M30 26c-4-6 4-10 0-16M50 22c-4-6 4-10 0-16M70 26c-4-6 4-10 0-16\"/></svg>"
+    },
+    {
+     "word": "couch potato",
+     "th": "คนที่วันๆ เอาแต่นั่งดูทีวี",
+     "en": "Don't be a couch potato. Go outside and exercise!",
+     "en_th": "อย่ามัวแต่นั่งดูทีวีทั้งวัน ออกไปข้างนอกแล้วออกกำลังกายสิ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 66h50v14H8zM8 66V52h8v14M50 66V52h8v14\"/><path d=\"M4 80v8M62 80v8\"/><circle cx=\"30\" cy=\"46\" r=\"8\"/><path d=\"M30 54l6 12M36 60l10-2\"/><rect x=\"66\" y=\"34\" width=\"28\" height=\"22\" rx=\"3\" fill=\"#3fa7f5\"/><path d=\"M80 56v8M72 64h16M70 26l10 8 10-8\"/></svg>"
+    },
+    {
+     "word": "early bird",
+     "th": "คนที่ตื่นเช้าหรือมาถึงก่อนใคร",
+     "en": "My dad is an early bird who wakes up at 5 a.m.",
+     "en_th": "พ่อของฉันเป็นคนตื่นเช้า ตื่นตั้งแต่ตีห้า",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 52c0-12 10-20 22-18 10 2 14 12 12 22-4 10-16 14-26 10\" fill=\"#ffc928\"/><path d=\"M64 44l12 4-12 4\"/><circle cx=\"54\" cy=\"44\" r=\"2\"/><path d=\"M38 66l-4 14M48 66l-2 14M8 84h84\"/><path d=\"M80 24a10 10 0 0 0-20 0z\" fill=\"#f2683a\"/><path d=\"M70 10v-4M84 16l4-4M56 16l-4-4\"/></svg>"
+    },
+    {
+     "word": "night owl",
+     "th": "คนนอนดึก",
+     "en": "She's a night owl and does her best work at night.",
+     "en_th": "เธอเป็นคนนอนดึกและทำงานได้ดีที่สุดตอนกลางคืน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 30l6 6h28l6-6v40c0 12-10 20-20 20s-20-8-20-20z\" fill=\"#5b4fc4\"/><circle cx=\"42\" cy=\"48\" r=\"7\" fill=\"#ffffff\"/><circle cx=\"58\" cy=\"48\" r=\"7\" fill=\"#ffffff\"/><path d=\"M48 58l2 4 2-4\"/><path d=\"M84 12a12 12 0 1 0 10 18 10 10 0 0 1-10-18z\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "a heart of gold",
+     "th": "จิตใจดีมาก, มีน้ำใจ",
+     "en": "Everyone loves Grandma because she has a heart of gold.",
+     "en_th": "ทุกคนรักคุณยายเพราะท่านใจดีมาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M50 84L18 52c-12-14 2-38 22-28 6 3 10 8 10 8s4-5 10-8c20-10 34 14 22 28z\" fill=\"#ffc928\"/><path d=\"M34 36l6 6M30 46l4 4\"/><path d=\"M80 10l2 6 6 2-6 2-2 6-2-6-6-2 6-2z\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "TALK & SECRETS",
+   "title": "Idioms: talk & secrets",
+   "title_th": "สำนวน: การสื่อสารและความลับ",
+   "words": [
+    {
+     "word": "spill the beans",
+     "th": "หลุดปากบอกความลับ",
+     "en": "Please don't spill the beans about the surprise party.",
+     "en_th": "อย่าหลุดปากเรื่องงานเลี้ยงเซอร์ไพรส์นะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"20\" y=\"20\" width=\"34\" height=\"44\" rx=\"6\" transform=\"rotate(50 37 42)\"/><path d=\"M52 66h0\"/><ellipse cx=\"60\" cy=\"74\" rx=\"5\" ry=\"3\" fill=\"#f2683a\"/><ellipse cx=\"72\" cy=\"80\" rx=\"5\" ry=\"3\" fill=\"#f2683a\"/><ellipse cx=\"82\" cy=\"72\" rx=\"5\" ry=\"3\" fill=\"#f2683a\"/><ellipse cx=\"68\" cy=\"66\" rx=\"5\" ry=\"3\" fill=\"#f2683a\"/><path d=\"M6 88h88\"/></svg>"
+    },
+    {
+     "word": "let the cat out of the bag",
+     "th": "เผลอเปิดเผยความลับ โดยไม่ตั้งใจ",
+     "en": "Oops! I let the cat out of the bag about his gift.",
+     "en_th": "อุ๊ย! ฉันเผลอบอกเรื่องของขวัญของเขาไปแล้ว",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 50h40l6 40H16z\" fill=\"#ffc928\"/><path d=\"M28 50l-4-10M56 50l4-10\"/><circle cx=\"62\" cy=\"36\" r=\"14\"/><path d=\"M52 26l2-12 8 8M72 26l-2-12-8 8\"/><circle cx=\"57\" cy=\"36\" r=\"2\"/><circle cx=\"67\" cy=\"36\" r=\"2\"/><path d=\"M58 42c2 2 6 2 8 0M78 52c8 4 12 12 8 20\"/></svg>"
+    },
+    {
+     "word": "break the ice",
+     "th": "ทำลายความเงียบ / ความเกร็ง",
+     "en": "He told a joke to break the ice at the meeting.",
+     "en_th": "เขาเล่ามุกเพื่อทำลายความเกร็งในที่ประชุม",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 40l36-14 36 14-36 14z\" fill=\"#3fa7f5\"/><path d=\"M14 40v24l36 14V54M86 40v24L50 78\"/><path d=\"M50 26l-6 12 8 6-6 10M30 50l6 8\"/><path d=\"M72 6l-10 18M60 22l8 4\" stroke-width=\"5\"/></svg>"
+    },
+    {
+     "word": "beat around the bush",
+     "th": "พูดอ้อมค้อม ไม่เข้าประเด็น",
+     "en": "Don't beat around the bush. Tell me the truth.",
+     "en_th": "อย่าพูดอ้อมค้อม บอกความจริงมาเถอะ",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"52\" r=\"14\" fill=\"#23915a\"/><circle cx=\"40\" cy=\"48\" r=\"10\" fill=\"#23915a\"/><circle cx=\"60\" cy=\"48\" r=\"10\" fill=\"#23915a\"/><ellipse cx=\"50\" cy=\"56\" rx=\"38\" ry=\"28\" stroke-dasharray=\"6 8\"/><path d=\"M84 72l6-4-2 8\"/><circle cx=\"16\" cy=\"22\" r=\"4.8\"/><path d=\"M16 26.8v14\"/><path d=\"M16 30.8l8 6\"/><path d=\"M16 40.8l-5 12M16 40.8l5 12\"/></svg>"
+    },
+    {
+     "word": "get straight to the point",
+     "th": "พูดตรงเข้าประเด็นเลย",
+     "en": "Let's get straight to the point to save time.",
+     "en_th": "มาเข้าประเด็นเลยดีกว่าจะได้ประหยัดเวลา",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"74\" cy=\"50\" r=\"18\" fill=\"#ffffff\"/><circle cx=\"74\" cy=\"50\" r=\"10\"/><circle cx=\"74\" cy=\"50\" r=\"3\" fill=\"#ef5a78\"/><path d=\"M10 50h62\"/><path d=\"M62 42l10 8-10 8\"/><path d=\"M10 42l8 8-8 8\" stroke=\"#f2683a\"/></svg>"
+    },
+    {
+     "word": "bite one's tongue",
+     "th": "อดกลั้นไม่พูดสิ่งที่คิด",
+     "alts": [
+      "bite my tongue"
+     ],
+     "en": "I wanted to argue, but I had to bite my tongue.",
+     "en_th": "ฉันอยากเถียง แต่ก็ต้องอดกลั้นไว้",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"50\" cy=\"50\" r=\"30\"/><circle cx=\"40\" cy=\"40\" r=\"3\"/><circle cx=\"60\" cy=\"40\" r=\"3\"/><rect x=\"34\" y=\"56\" width=\"32\" height=\"10\" rx=\"5\" fill=\"#ef5a78\"/><path d=\"M40 56v10M46 56v10M52 56v10M58 56v10\"/></svg>"
+    },
+    {
+     "word": "see eye to eye",
+     "th": "เห็นตรงกัน, คิดเหมือนกัน",
+     "en": "We don't always see eye to eye on movies.",
+     "en_th": "เราไม่ได้คิดเห็นตรงกันเรื่องหนังเสมอไป",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 50c10-14 28-14 38 0-10 14-28 14-38 0z\"/><circle cx=\"25\" cy=\"50\" r=\"6\" fill=\"#3fa7f5\"/><path d=\"M56 50c10-14 28-14 38 0-10 14-28 14-38 0z\"/><circle cx=\"75\" cy=\"50\" r=\"6\" fill=\"#3fa7f5\"/><path d=\"M34 26l16 8 16-8\" stroke=\"#23915a\"/><path d=\"M44 78l6 6 12-12\" stroke=\"#23915a\"/></svg>"
+    },
+    {
+     "word": "on the same page",
+     "th": "เข้าใจตรงกัน",
+     "en": "Let's review the plan to make sure we're on the same page.",
+     "en_th": "มาทบทวนแผนกันเพื่อให้แน่ใจว่าเราเข้าใจตรงกัน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M24 76c9-5 17-5 26 0 9-5 17-5 26 0V44c-9-5-17-5-26 0-9-5-17-5-26 0z\" fill=\"#ffffff\"/><path d=\"M50 44v32\"/><circle cx=\"12\" cy=\"30\" r=\"4.8\"/><path d=\"M12 34.8v14\"/><path d=\"M12 38.8l14 10\"/><path d=\"M12 48.8l-5 12M12 48.8l5 12\"/><circle cx=\"88\" cy=\"30\" r=\"4.8\"/><path d=\"M88 34.8v14\"/><path d=\"M88 38.8l-14 10\"/><path d=\"M88 48.8l-5 12M88 48.8l5 12\"/><circle cx=\"38\" cy=\"56\" r=\"4\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "speak of the devil",
+     "th": "พูดถึงปุ๊บก็มาปั๊บ",
+     "en": "Speak of the devil! We were just talking about you.",
+     "en_th": "พูดถึงปุ๊บก็มาปั๊บเลย! เราเพิ่งคุยเรื่องเธออยู่พอดี",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"22\" cy=\"30\" r=\"8\"/><path d=\"M22 38v24\"/><path d=\"M22 44l10 6\"/><path d=\"M22 62l-9 20M22 62l9 20\"/><circle cx=\"46\" cy=\"30\" r=\"8\"/><path d=\"M46 38v24\"/><path d=\"M46 44l-10 6\"/><path d=\"M46 62l-9 20M46 62l9 20\"/><rect x=\"62\" y=\"16\" width=\"30\" height=\"70\" rx=\"2\"/><path d=\"M62 16l18 6v64\"/><circle cx=\"74\" cy=\"44\" r=\"5\" fill=\"#f2683a\"/><path d=\"M30 14c2-4 8-4 10 0\" /></svg>"
+    },
+    {
+     "word": "word of mouth",
+     "th": "การบอกเล่าปากต่อปาก",
+     "en": "The little café became famous through word of mouth.",
+     "en_th": "ร้านกาแฟเล็กๆ นี้ดังขึ้นมาเพราะการบอกต่อปากต่อปาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 30c5-6 17-6 22 0-5 7-17 7-22 0z\" fill=\"#ef5a78\"/><path d=\"M30 34l10 8M36 44l4-2v-4\"/><path d=\"M38 54c5-6 17-6 22 0-5 7-17 7-22 0z\" fill=\"#ef5a78\"/><path d=\"M62 58l10 8M68 68l4-2v-4\"/><path d=\"M70 78c5-6 17-6 22 0-5 7-17 7-22 0z\" fill=\"#ef5a78\"/></svg>"
+    }
+   ]
+  },
+  {
+   "verb": "EVERYDAY LIFE",
+   "title": "Idioms: everyday life",
+   "title_th": "สำนวน: สถานการณ์ในชีวิตประจำวัน",
+   "words": [
+    {
+     "word": "break a leg",
+     "th": "ขอให้โชคดี (ก่อนขึ้นแสดง/สอบ)",
+     "en": "You've practiced a lot. Go out there and break a leg!",
+     "en_th": "เธอซ้อมมาเยอะแล้ว ออกไปเลย ขอให้โชคดีนะ!",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 14h84\"/><path d=\"M8 14c4 30 6 56 10 74h14c-6-20-8-48-6-74M92 14c-4 30-6 56-10 74H68c6-20 8-48 6-74\" fill=\"#ef5a78\"/><polygon points=\"50,40 55,52 68,52 58,60 62,72 50,64 38,72 42,60 32,52 45,52\" fill=\"#ffc928\"/><path d=\"M8 88h84\"/></svg>"
+    },
+    {
+     "word": "cost an arm and a leg",
+     "th": "แพงหูฉี่, แพงมาก",
+     "en": "That new smartphone will cost an arm and a leg.",
+     "en_th": "สมาร์ตโฟนรุ่นใหม่นั้นจะแพงหูฉี่",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 40l24-20h44v40H34z\" fill=\"#23915a\"/><circle cx=\"30\" cy=\"40\" r=\"4\" fill=\"#ffffff\"/><path d=\"M44 34h26M44 46h18\"/><circle cx=\"34\" cy=\"78\" r=\"8\" fill=\"#ffc928\"/><circle cx=\"52\" cy=\"80\" r=\"8\" fill=\"#ffc928\"/><circle cx=\"70\" cy=\"78\" r=\"8\" fill=\"#ffc928\"/><path d=\"M84 70v14M78 78l6 6 6-6\"/></svg>"
+    },
+    {
+     "word": "raining cats and dogs",
+     "th": "ฝนตกหนักมาก",
+     "en": "Bring an umbrella. It's raining cats and dogs.",
+     "en_th": "เอาร่มไปด้วยนะ ฝนตกหนักมาก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 34a14 14 0 0 1 26-10 12 12 0 0 1 22 6 10 10 0 0 1 0 20H22a10 10 0 0 1-4-16z\" fill=\"#5b4fc4\"/><path d=\"M22 60l-4 10M36 60l-4 10M50 60l-4 10M64 60l-4 10M78 60l-4 10M30 76l-4 10M44 76l-4 10M58 76l-4 10M72 76l-4 10\" stroke=\"#3fa7f5\"/></svg>"
+    },
+    {
+     "word": "in hot water",
+     "th": "ตกที่นั่งลำบาก, เจอปัญหาใหญ่",
+     "en": "He's in hot water for breaking the school window.",
+     "en_th": "เขาเจอปัญหาใหญ่เพราะทำหน้าต่างโรงเรียนแตก",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 54h72l-6 34H20z\" fill=\"#f2683a\"/><path d=\"M8 54h84M14 62H6M86 62h8\"/><circle cx=\"50\" cy=\"40\" r=\"10\"/><path d=\"M44 44c4 3 8 3 12 0M30 30c-4-4 2-8-2-12M70 30c-4-4 2-8-2-12\" /></svg>"
+    },
+    {
+     "word": "in the same boat",
+     "th": "ตกอยู่ในสถานการณ์เดียวกัน",
+     "en": "Don't worry, we're all in the same boat.",
+     "en_th": "ไม่ต้องกังวล พวกเราก็อยู่ในสถานการณ์เดียวกัน",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 62h84l-12 20H20z\" fill=\"#3fa7f5\"/><circle cx=\"30\" cy=\"30\" r=\"6.4\"/><path d=\"M30 36.4v19\"/><path d=\"M30 54v8\"/><circle cx=\"50\" cy=\"30\" r=\"6.4\"/><path d=\"M50 36.4v19\"/><path d=\"M50 54v8\"/><circle cx=\"70\" cy=\"30\" r=\"6.4\"/><path d=\"M70 36.4v19\"/><path d=\"M70 54v8\"/><path d=\"M4 90c8-4 14-4 22 0s14 4 22 0 14-4 22 0 14 4 22 0\"/></svg>"
+    },
+    {
+     "word": "the tip of the iceberg",
+     "th": "แค่ส่วนเล็กๆ ของปัญหาที่ใหญ่กว่า",
+     "en": "The missing money is just the tip of the iceberg.",
+     "en_th": "เงินที่หายไปเป็นแค่ส่วนเล็กๆ ของปัญหาเท่านั้น",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M36 40l10-18 8 10 6-4 8 12z\" fill=\"#ffffff\"/><path d=\"M6 40h88\"/><path d=\"M28 40l-10 26 14 22h36l14-22-12-26z\" fill=\"#3fa7f5\"/><path d=\"M14 52h8M80 52h8\"/></svg>"
+    },
+    {
+     "word": "a blessing in disguise",
+     "th": "โชคร้ายที่กลายเป็นดีในภายหลัง",
+     "en": "Missing that bus was a blessing in disguise.",
+     "en_th": "การตกรถเมล์คันนั้นกลับกลายเป็นเรื่องดี",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 40a12 12 0 0 1 22-8 10 10 0 0 1 18 6 8 8 0 0 1-2 16H18a10 10 0 0 1-4-14z\" fill=\"#5b4fc4\"/><path d=\"M24 62l-2 8M36 62l-2 8\"/><path d=\"M50 86a30 30 0 0 1 44-26\" stroke=\"#ef5a78\"/><path d=\"M58 86a22 22 0 0 1 32-20\" stroke=\"#ffc928\"/><path d=\"M66 86a14 14 0 0 1 20-14\" stroke=\"#23915a\"/></svg>"
+    },
+    {
+     "word": "keep an eye on",
+     "th": "จับตาดู, ช่วยดูให้หน่อย",
+     "en": "Could you keep an eye on my bag for a minute?",
+     "en_th": "ช่วยดูกระเป๋าให้ฉันสักครู่ได้ไหม",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 34c12-16 34-16 46 0-12 16-34 16-46 0z\"/><circle cx=\"31\" cy=\"34\" r=\"7\" fill=\"#3fa7f5\"/><path d=\"M50 46l14 14\" stroke-dasharray=\"4 6\"/><path d=\"M62 62h28l-4 28H66z\" fill=\"#ffc928\"/><path d=\"M70 62c0-8 12-8 12 0\"/></svg>"
+    },
+    {
+     "word": "on cloud nine",
+     "th": "มีความสุขล้นพ้น",
+     "en": "She's been on cloud nine since getting the scholarship.",
+     "en_th": "เธอมีความสุขล้นพ้นตั้งแต่ได้ทุนการศึกษา",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 70a14 14 0 0 1 26-10 12 12 0 0 1 22 6 10 10 0 0 1 22 8 8 8 0 0 1-4 14H16a10 10 0 0 1-4-18z\" fill=\"#ffffff\"/><text stroke=\"none\" fill=\"#2d2a5a\" font-family=\"Arial, sans-serif\" text-anchor=\"middle\" x=\"62\" y=\"80\" font-size=\"18\" font-weight=\"700\">9</text><circle cx=\"38\" cy=\"20\" r=\"6.4\"/><path d=\"M38 26.4v19\"/><path d=\"M38 31.4l-10 -8M38 28l10 -8\"/><path d=\"M38 52l-8 10M38 52l8 10\"/><circle cx=\"80\" cy=\"20\" r=\"6\" fill=\"#ffc928\"/></svg>"
+    },
+    {
+     "word": "get out of hand",
+     "th": "ควบคุมไม่อยู่, บานปลาย",
+     "en": "Parties can get out of hand when too many people come.",
+     "en_th": "งานปาร์ตี้อาจควบคุมไม่อยู่ถ้ามีคนมามากเกินไป",
+     "pic": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" fill=\"none\" stroke=\"#2d2a5a\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M30 92V70c0-6 8-6 8 0v-8c0-6 8-6 8 0v2c0-6 8-6 8 0v6c0-6 8-6 8 0v14c0 6-4 8-10 8\"/><path d=\"M42 62L30 36M50 64l6-30M58 66l20-26\" stroke-dasharray=\"3 5\"/><ellipse cx=\"26\" cy=\"26\" rx=\"8\" ry=\"10\" fill=\"#ef5a78\"/><ellipse cx=\"56\" cy=\"22\" rx=\"8\" ry=\"10\" fill=\"#ffc928\"/><ellipse cx=\"80\" cy=\"30\" rx=\"8\" ry=\"10\" fill=\"#3fa7f5\"/></svg>"
+    }
+   ]
+  }
+ ]
+}

@@ -24,10 +24,18 @@ PAGE = """<!doctype html><meta charset=utf-8><style>
 function rrect(x,X,Y,W,H,R){ x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
 // Thai meaning on up to three lines: break at spaces outside brackets (or, if it must, after a "/" inside them),
 // so the lines are about even
+const THAI=new Intl.Segmenter('th', { granularity:'word' });
 function lines(x, t, room, n, soft){
   const pts=[]; let depth=0;
   for(let i=0;i<t.length;i++){ const c=t[i]; if(c==='(') depth++; else if(c===')') depth--;
     if(c===' ' && !depth) pts.push([i, i+1]); else if(soft && c==='/' && depth) pts.push([i+1, i+1]); }
+  if(soft){   // Thai has no spaces: also between Thai words (outside brackets), as the browser's word breaker finds them
+    let dep=0, at=0;
+    for(const sg of THAI.segment(t)){ const i=sg.index;
+      for(; at<i; at++){ if(t[at]==='(') dep++; else if(t[at]===')') dep--; }
+      if(i>0 && !dep && /[\u0E00-\u0E7F]/.test(t[i-1]) && /[\u0E00-\u0E7F]/.test(t[i]) && !pts.some(p=>p[0]===i)) pts.push([i, i]); }
+    pts.sort((a,b)=>a[0]-b[0]);
+  }
   let best=null;
   const tryCut=cuts=>{
     const ls=[]; let a=0; for(const [e,nx] of cuts.concat([[t.length,t.length]])){ ls.push(t.slice(a,e).trim()); a=nx; }
@@ -40,7 +48,7 @@ function lines(x, t, room, n, soft){
   else pts.forEach((p,i)=>pts.slice(i+1).forEach(q=>tryCut([p,q])));
   return best && best.w<=room ? best.ls : null;
 }
-async function draw(g, sub){
+async function draw(g, sub, plus){
   await Promise.all(['600 30px Sarabun','700 30px Sarabun','600 30px Fredoka'].map(f=>document.fonts.load(f,'กขa123')));
   const pics=await Promise.all(g.words.map(w=>w.pic ? new Promise(r=>{ const i=new Image(); i.onload=()=>r(i); i.onerror=()=>r(null); i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(w.pic); }) : null));
   const words=g.words, withPics=pics.some(Boolean), W=withPics ? 1200 : 1000, pad=28, gap=18, ch=withPics ? 152 : 150, cols=2, top=128, ps=ch-28;
@@ -52,7 +60,7 @@ async function draw(g, sub){
   x.textBaseline='middle'; x.textAlign='left';
   x.fillStyle='#2d2a5a'; x.font='600 64px Fredoka, sans-serif'; x.fillText(g.verb, pad+4, 62);
   const vw=x.measureText(g.verb).width;
-  x.fillStyle='#8f84e8'; x.font='600 44px Fredoka, sans-serif'; x.fillText('+ …', pad+vw+22, 64);
+  if(plus){ x.fillStyle='#8f84e8'; x.font='600 44px Fredoka, sans-serif'; x.fillText('+ …', pad+vw+22, 64); }   // phrasal verbs: GIVE + …
   x.fillStyle='#8a8499'; x.font='600 26px Fredoka, Sarabun, sans-serif'; x.textAlign='right'; x.fillText(sub, W-pad-4, 64);
   const SOFT=['#efeaf7','#ffe4ea','#e5f5eb','#fff3cf'], DEEP=['#5b4fc4','#d83a5c','#24a164','#b07800'], boxes=[];
   words.forEach((wd,i)=>{
@@ -95,7 +103,7 @@ async def main(src, out):
         b = await p.chromium.launch(executable_path=os.environ.get('CHROME') or None)
         pg = await b.new_page(); await pg.set_content(PAGE); await pg.wait_for_timeout(300)
         for g in d['groups']:
-            r = await pg.evaluate('([g,s])=>draw(g,s)', [g, d.get('subtitle', '')])
+            r = await pg.evaluate('([g,s,p])=>draw(g,s,p)', [g, d.get('subtitle', ''), d.get('plus', True)])
             name = slug(g['title'])
             (out / f'{name}.jpg').write_bytes(base64.b64decode(r['img'].split(',', 1)[1]))
             meta = { 'crop': False, 'title': g['title'], 'title_th': g.get('title_th', ''), 'category': d['category'], 'level': d.get('level', 'intermediate'),
